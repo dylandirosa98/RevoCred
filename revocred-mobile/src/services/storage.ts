@@ -1,40 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { seedAppData } from "../data/seed";
-import { AppData, Card, ChatMessage, Metrics, Profile } from "../types/models";
-
-const STORAGE_KEY = "@revocred/app-data-v1";
-
-function cloneSeed(): AppData {
-  return JSON.parse(JSON.stringify(seedAppData)) as AppData;
-}
-
-export async function loadAppData(): Promise<AppData> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    const initial = cloneSeed();
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-    return initial;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as AppData;
-    return parsed;
-  } catch {
-    const fallback = cloneSeed();
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(fallback));
-    return fallback;
-  }
-}
-
-export async function persistAppData(data: AppData): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-export async function resetAppData(): Promise<AppData> {
-  const fresh = cloneSeed();
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
-  return fresh;
-}
+import { Card, Metrics, Profile } from "../types/models";
 
 export function buildRevoReply(prompt: string, profile: Profile, cards: Card[], metrics: Metrics): string {
   const normalized = prompt.toLowerCase();
@@ -63,11 +27,3 @@ export function buildRevoReply(prompt: string, profile: Profile, cards: Card[], 
   return `You're tracking about $${metrics.projectedYearlyValue} in yearly value now. I can help you optimize by spend category or next-card timing.`;
 }
 
-export function createMessage(role: "user" | "assistant", content: string): ChatMessage {
-  return {
-    id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    role,
-    content,
-    createdAt: new Date().toISOString(),
-  };
-}

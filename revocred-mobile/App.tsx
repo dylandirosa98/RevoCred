@@ -76,6 +76,83 @@ function WalletCard({
   );
 }
 
+function AuthScreen({
+  onSignIn,
+  onSignUp,
+  authError,
+}: {
+  onSignIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string; message?: string }>;
+  onSignUp: (email: string, password: string) => Promise<{ ok: boolean; error?: string; message?: string }>;
+  authError: string | null;
+}) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [localMessage, setLocalMessage] = useState<string | null>(null);
+
+  const submitSignIn = async () => {
+    setSubmitting(true);
+    setLocalMessage(null);
+    const result = await onSignIn(email, password);
+    if (!result.ok) {
+      setLocalMessage(result.error ?? "Login failed.");
+    } else {
+      setLocalMessage("Logged in.");
+    }
+    setSubmitting(false);
+  };
+
+  const submitSignUp = async () => {
+    setSubmitting(true);
+    setLocalMessage(null);
+    const result = await onSignUp(email, password);
+    if (!result.ok) {
+      setLocalMessage(result.error ?? "Sign up failed.");
+    } else if (result.message) {
+      setLocalMessage(result.message);
+    } else {
+      setLocalMessage("Account created.");
+    }
+    setSubmitting(false);
+  };
+
+  const messageToShow = authError ?? localMessage;
+
+  return (
+    <View style={styles.authWrap}>
+      <Text style={styles.brandLabel}>REVOCRED</Text>
+      <Text style={styles.authTitle}>Sign in to continue</Text>
+      <Text style={styles.authSubtitle}>Your wallet, strategy, and REVO chat are now synced with Supabase.</Text>
+      <View style={styles.authCard}>
+        <TextInput
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          placeholder="Email"
+          placeholderTextColor="#6d7aab"
+          style={styles.authInput}
+        />
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          placeholder="Password"
+          placeholderTextColor="#6d7aab"
+          style={styles.authInput}
+        />
+        <Pressable style={[styles.authButton, submitting ? styles.disabledCard : undefined]} onPress={() => void submitSignIn()} disabled={submitting}>
+          <Text style={styles.authButtonText}>Log in</Text>
+        </Pressable>
+        <Pressable style={[styles.authButtonSecondary, submitting ? styles.disabledCard : undefined]} onPress={() => void submitSignUp()} disabled={submitting}>
+          <Text style={styles.authButtonText}>Create account</Text>
+        </Pressable>
+      </View>
+      {messageToShow ? <Text style={styles.authMessage}>{messageToShow}</Text> : null}
+    </View>
+  );
+}
+
 function HomeScreen({
   cards,
   pointsValue,
@@ -316,10 +393,12 @@ function ProfileScreen({
   profile,
   walletCount,
   onResetDemo,
+  onSignOut,
 }: {
   profile: Profile;
   walletCount: number;
   onResetDemo: () => Promise<void>;
+  onSignOut: () => Promise<void>;
 }) {
   const profileRows = [
     { key: "Name", value: profile.name },
@@ -350,6 +429,9 @@ function ProfileScreen({
       <Pressable style={styles.resetButton} onPress={() => void onResetDemo()}>
         <Text style={styles.resetButtonText}>Reset Demo Data</Text>
       </Pressable>
+      <Pressable style={styles.signOutButton} onPress={() => void onSignOut()}>
+        <Text style={styles.resetButtonText}>Sign out</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -377,7 +459,7 @@ function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab:
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("Home");
-  const { data, loading, submitPrompt, addCardToWallet, resetToSeed, availableCardsToAdd } = useAppData();
+  const { data, loading, authError, session, signIn, signUp, signOut, submitPrompt, addCardToWallet, resetToSeed, availableCardsToAdd } = useAppData();
 
   const handleAskRevo = (prompt: string) => {
     setActiveTab("REVO");
@@ -415,7 +497,7 @@ export default function App() {
       case "REVO":
         return <RevoScreen quickPrompts={data.quickPrompts} messages={data.chatMessages} onSubmitPrompt={submitPrompt} />;
       case "Profile":
-        return <ProfileScreen profile={data.profile} walletCount={data.walletCards.length} onResetDemo={resetToSeed} />;
+        return <ProfileScreen profile={data.profile} walletCount={data.walletCards.length} onResetDemo={resetToSeed} onSignOut={signOut} />;
       default:
         return (
           <HomeScreen
@@ -433,8 +515,19 @@ export default function App() {
       <StatusBar style="light" />
       <View style={styles.appBackground}>
         <View style={styles.glow} />
-        <View style={styles.screenContainer}>{renderedScreen}</View>
-        {loading ? null : <BottomNav activeTab={activeTab} onChange={setActiveTab} />}
+        <View style={styles.screenContainer}>
+          {loading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator color="#dfe7ff" size="large" />
+              <Text style={styles.loadingText}>Loading your revocred setup...</Text>
+            </View>
+          ) : session ? (
+            renderedScreen
+          ) : (
+            <AuthScreen onSignIn={signIn} onSignUp={signUp} authError={authError} />
+          )}
+        </View>
+        {loading || !session ? null : <BottomNav activeTab={activeTab} onChange={setActiveTab} />}
       </View>
     </SafeAreaView>
   );
@@ -989,5 +1082,71 @@ const styles = StyleSheet.create({
   },
   disabledCard: {
     opacity: 0.55,
+  },
+  authWrap: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: "center",
+    gap: 14,
+  },
+  authTitle: {
+    color: "#edf2ff",
+    fontSize: 30,
+    fontWeight: "700",
+  },
+  authSubtitle: {
+    color: "#9aa9d6",
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  authCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#24365f",
+    backgroundColor: "#0d1736",
+    padding: 14,
+    gap: 10,
+  },
+  authInput: {
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#2d3f6e",
+    backgroundColor: "#0a1230",
+    color: "#edf2ff",
+    fontSize: 16,
+    paddingHorizontal: 12,
+  },
+  authButton: {
+    borderRadius: 12,
+    backgroundColor: "#3b57a1",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  authButtonSecondary: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#3b57a1",
+    backgroundColor: "#152349",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  authButtonText: {
+    color: "#edf2ff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  authMessage: {
+    color: "#c7d5ff",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  signOutButton: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#3f5ca9",
+    backgroundColor: "#203667",
+    paddingVertical: 12,
+    alignItems: "center",
   },
 });

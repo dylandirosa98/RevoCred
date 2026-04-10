@@ -1,56 +1,169 @@
+import { Session } from "@supabase/supabase-js";
 import { useEffect, useMemo, useState } from "react";
-import { AppData, Card, ChatMessage } from "../types/models";
-import { buildRevoReply, createMessage, loadAppData, persistAppData, resetAppData } from "../services/storage";
+import { addWalletCardForUser, appendPromptAndReply, ensureUserBootstrap, fetchUserAppData, resetUserData } from "../services/supabaseData";
+import { supabase } from "../services/supabaseClient";
+import { AppData, Card } from "../types/models";
+
+type AuthResult = {
+  ok: boolean;
+  error?: string;
+  message?: string;
+};
 
 type UseAppDataResult = {
   data: AppData | null;
   loading: boolean;
+  authError: string | null;
+  session: Session | null;
+  signIn: (email: string, password: string) => Promise<AuthResult>;
+  signUp: (email: string, password: string) => Promise<AuthResult>;
+  signOut: () => Promise<void>;
   submitPrompt: (prompt: string) => Promise<void>;
   addCardToWallet: (cardId: string) => Promise<void>;
   resetToSeed: () => Promise<void>;
   availableCardsToAdd: Card[];
 };
 
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Something went wrong. Please try again.";
+}
+
 export function useAppData(): UseAppDataResult {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [data, setData] = useState<AppData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingData, setLoadingData] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
-    async function bootstrap() {
-      setLoading(true);
-      const loaded = await loadAppData();
+
+    async function bootstrapAuth() {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
       if (alive) {
-        setData(loaded);
-        setLoading(false);
+        setSession(currentSession);
+        setAuthReady(true);
       }
     }
-    bootstrap();
+
+    bootstrapAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (alive) {
+        setSession(nextSession);
+      }
+    });
+
     return () => {
       alive = false;
+      subscription.unsubscribe();
     };
   }, []);
 
-  const updateData = async (nextData: AppData) => {
-    setData(nextData);
-    await persistAppData(nextData);
+  useEffect(() => {
+    let alive = true;
+    if (!authReady) {
+      return () => {
+        alive = false;
+      };
+    }
+
+    if (!session) {
+      setData(null);
+      setLoadingData(false);
+      return () => {
+        alive = false;
+      };
+    }
+
+    async function loadForCurrentUser() {
+      setLoadingData(true);
+      setAuthError(null);
+      try {
+        await ensureUserBootstrap(session.user.id);
+        const loaded = await fetchUserAppData(session.user.id);
+        if (alive) {
+          setData(loaded);
+        }
+      } catch (error) {
+        if (alive) {
+          setAuthError(toErrorMessage(error));
+        }
+      } finally {
+        if (alive) {
+          setLoadingData(false);
+        }
+      }
+    }
+
+    loadForCurrentUser();
+    return () => {
+      alive = false;
+    };
+  }, [authReady, session]);
+
+  const signIn = async (email: string, password: string): Promise<AuthResult> => {
+    setAuthError(null);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error) {
+      const message = error.message;
+      setAuthError(message);
+      return { ok: false, error: message };
+    }
+    return { ok: true };
+  };
+
+  const signUp = async (email: string, password: string): Promise<AuthResult> => {
+    setAuthError(null);
+    const { data: signUpData, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+    });
+    if (error) {
+      const message = error.message;
+      setAuthError(message);
+      return { ok: false, error: message };
+    }
+
+    if (!signUpData.session) {
+      return { ok: true, message: "Check your email to confirm your account, then log in." };
+    }
+
+    return { ok: true };
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setData(null);
   };
 
   const submitPrompt = async (prompt: string) => {
     const trimmed = prompt.trim();
-    if (!trimmed || !data) {
+    if (!trimmed || !data || !session) {
       return;
     }
 
-    const userMessage = createMessage("user", trimmed);
-    const assistantReply = createMessage("assistant", buildRevoReply(trimmed, data.profile, data.walletCards, data.metrics));
-
-    const nextMessages: ChatMessage[] = [...data.chatMessages, userMessage, assistantReply];
-    await updateData({ ...data, chatMessages: nextMessages });
+    try {
+      await appendPromptAndReply(session.user.id, trimmed, data.profile, data.walletCards, data.metrics.projectedYearlyValue);
+      const refreshed = await fetchUserAppData(session.user.id);
+      setData(refreshed);
+    } catch (error) {
+      setAuthError(toErrorMessage(error));
+    }
   };
 
   const addCardToWallet = async (cardId: string) => {
-    if (!data) {
+    if (!data || !session) {
       return;
     }
 
@@ -64,21 +177,26 @@ export function useAppData(): UseAppDataResult {
       return;
     }
 
-    const activatedCard: Card = { ...cardToAdd, status: "Active" };
-    const nextWallet = [...data.walletCards, activatedCard];
-    const nextPoints = data.metrics.pointsValue + 22;
-    const nextProjection = data.metrics.projectedYearlyValue + 40;
-
-    await updateData({
-      ...data,
-      walletCards: nextWallet,
-      metrics: { pointsValue: nextPoints, projectedYearlyValue: nextProjection },
-    });
+    try {
+      await addWalletCardForUser(session.user.id, cardId, data.metrics.pointsValue, data.metrics.projectedYearlyValue);
+      const refreshed = await fetchUserAppData(session.user.id);
+      setData(refreshed);
+    } catch (error) {
+      setAuthError(toErrorMessage(error));
+    }
   };
 
   const resetToSeed = async () => {
-    const fresh = await resetAppData();
-    setData(fresh);
+    if (!session) {
+      return;
+    }
+    try {
+      await resetUserData(session.user.id);
+      const refreshed = await fetchUserAppData(session.user.id);
+      setData(refreshed);
+    } catch (error) {
+      setAuthError(toErrorMessage(error));
+    }
   };
 
   const availableCardsToAdd = useMemo(() => {
@@ -90,7 +208,12 @@ export function useAppData(): UseAppDataResult {
 
   return {
     data,
-    loading,
+    loading: !authReady || loadingData,
+    authError,
+    session,
+    signIn,
+    signUp,
+    signOut,
     submitPrompt,
     addCardToWallet,
     resetToSeed,

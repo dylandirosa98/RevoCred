@@ -1,6 +1,6 @@
-import { AppData, Card, ChatMessage, Recommendation } from "../types/models";
+import { AppData, Card, ChatMessage, Metrics, Profile, Recommendation } from "../types/models";
 
-const seedWalletCards: Card[] = [
+export const seedWalletCards: Card[] = [
   {
     id: "amex-gold",
     brand: "AMEX",
@@ -48,7 +48,7 @@ const seedWalletCards: Card[] = [
   },
 ];
 
-const seedPopularPicks: Card[] = [
+export const seedPopularPicks: Card[] = [
   seedWalletCards[0],
   seedWalletCards[1],
   {
@@ -71,7 +71,7 @@ const seedPopularPicks: Card[] = [
   },
 ];
 
-const seedTimeline: Recommendation[] = [
+export const seedTimeline: Recommendation[] = [
   {
     id: "debit",
     title: "Debit",
@@ -101,38 +101,50 @@ function createInitialAssistantMessage(): ChatMessage {
   };
 }
 
+export const seedProfile: Profile = {
+  name: "Javed Saliman",
+  creditCardStrategy: "Hybrid cash back + travel",
+  goal: "Maximize points without wasting perks",
+  topSpendCategories: "Dining, groceries, travel",
+  nextApplicationTarget: "Citi Custom Cash",
+};
+
+export const seedMetrics: Metrics = {
+  pointsValue: 359,
+  projectedYearlyValue: 300,
+};
+
+export const seedQuickPrompts = [
+  "What card should I use for groceries?",
+  "What should I apply for next?",
+  "How do I maximize travel?",
+];
+
+export const seedCardCatalog: Card[] = [
+  ...seedWalletCards,
+  ...seedPopularPicks.filter((pick) => !seedWalletCards.some((walletCard) => walletCard.id === pick.id)),
+  {
+    id: "citi-custom-cash",
+    brand: "MC",
+    name: "Citi Custom Cash",
+    bestUse: "Top Eligible Category",
+    multiplier: "5x",
+    status: "Inactive",
+    benefits: ["5x top category", "No annual fee", "Flexible earning", "Great pairing card"],
+  },
+];
+
+export function initialAssistantMessage(): ChatMessage {
+  return createInitialAssistantMessage();
+}
+
 export const seedAppData: AppData = {
-  profile: {
-    name: "Javed Saliman",
-    creditCardStrategy: "Hybrid cash back + travel",
-    goal: "Maximize points without wasting perks",
-    topSpendCategories: "Dining, groceries, travel",
-    nextApplicationTarget: "Citi Custom Cash",
-  },
-  metrics: {
-    pointsValue: 359,
-    projectedYearlyValue: 300,
-  },
+  profile: seedProfile,
+  metrics: seedMetrics,
   walletCards: seedWalletCards,
   strategyTimeline: seedTimeline,
   popularPicks: seedPopularPicks,
-  quickPrompts: [
-    "What card should I use for groceries?",
-    "What should I apply for next?",
-    "How do I maximize travel?",
-  ],
+  quickPrompts: seedQuickPrompts,
   chatMessages: [createInitialAssistantMessage()],
-  cardCatalog: [
-    ...seedWalletCards,
-    ...seedPopularPicks.filter((pick) => !seedWalletCards.some((walletCard) => walletCard.id === pick.id)),
-    {
-      id: "citi-custom-cash",
-      brand: "MC",
-      name: "Citi Custom Cash",
-      bestUse: "Top Eligible Category",
-      multiplier: "5x",
-      status: "Inactive",
-      benefits: ["5x top category", "No annual fee", "Flexible earning", "Great pairing card"],
-    },
-  ],
+  cardCatalog: seedCardCatalog,
 };
