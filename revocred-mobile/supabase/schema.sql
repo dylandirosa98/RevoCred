@@ -34,12 +34,27 @@ create table if not exists public.revo_messages (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.revo_usage_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  status text not null check (status in ('success', 'rate_limited', 'guardrail_blocked', 'provider_error', 'bad_request')),
+  prompt_chars integer not null default 0,
+  response_chars integer not null default 0,
+  latency_ms integer,
+  model text,
+  error_code text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists idx_wallet_cards_user_created_at on public.wallet_cards (user_id, created_at);
 create index if not exists idx_revo_messages_user_created_at on public.revo_messages (user_id, created_at);
+create index if not exists idx_revo_usage_logs_user_created_at on public.revo_usage_logs (user_id, created_at);
 
 alter table public.profiles enable row level security;
 alter table public.wallet_cards enable row level security;
 alter table public.revo_messages enable row level security;
+alter table public.revo_usage_logs enable row level security;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 drop policy if exists "profiles_insert_own" on public.profiles;
@@ -119,6 +134,35 @@ create policy "revo_messages_insert_own"
 
 create policy "revo_messages_delete_own"
   on public.revo_messages
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "revo_usage_logs_select_own" on public.revo_usage_logs;
+drop policy if exists "revo_usage_logs_insert_own" on public.revo_usage_logs;
+drop policy if exists "revo_usage_logs_delete_own" on public.revo_usage_logs;
+
+create policy "revo_usage_logs_select_own"
+  on public.revo_usage_logs
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "revo_usage_logs_insert_own"
+  on public.revo_usage_logs
+  for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "revo_usage_logs_update_own"
+  on public.revo_usage_logs
+  for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "revo_usage_logs_delete_own"
+  on public.revo_usage_logs
   for delete
   to authenticated
   using (auth.uid() = user_id);

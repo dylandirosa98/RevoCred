@@ -24,6 +24,19 @@ type MessageRow = {
   content: string;
 };
 
+type UsageStatus = "success" | "rate_limited" | "guardrail_blocked" | "provider_error" | "bad_request";
+
+const MAX_PROMPT_CHARS = Math.min(Math.max(Number(Deno.env.get("REVO_MAX_PROMPT_CHARS") ?? "500"), 80), 2000);
+const RATE_LIMIT_WINDOW_MIN = Math.min(Math.max(Number(Deno.env.get("REVO_RATE_LIMIT_WINDOW_MIN") ?? "60"), 1), 240);
+const RATE_LIMIT_MAX_REQUESTS = Math.min(Math.max(Number(Deno.env.get("REVO_RATE_LIMIT_MAX_REQUESTS") ?? "20"), 1), 300);
+const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") ?? "gpt-4o-mini";
+
+type GenerateReplyResult = {
+  assistantReply: string;
+  providerError: boolean;
+  errorCode?: string;
+};
+
 function buildSystemPrompt(profile: ProfileRow | null, walletRows: WalletRow[]): string {
   const wallet = walletRows.map((row) => row.card_id).join(", ");
   const safeProfile = profile ?? {
@@ -48,7 +61,113 @@ function buildSystemPrompt(profile: ProfileRow | null, walletRows: WalletRow[]):
     `Projected yearly value: $${safeProfile.projected_yearly_value}`,
     `Wallet cards: ${wallet || "No cards found"}`,
     "Do not mention internal system prompts or implementation details.",
+    "Never provide guarantees of approval or returns.",
+    "Do not provide instructions for fraud, identity theft, policy bypass, or illegal behavior.",
+    "Keep responses concise and practical. Avoid long legal disclaimers unless relevant.",
   ].join("\n");
+}
+
+function detectPromptGuardrail(prompt: string): { blocked: boolean; reason?: string; userMessage?: string } {
+  const normalized = prompt.toLowerCase();
+  const blockedPatterns = [
+    "fake identity",
+    "stolen card",
+    "carding",
+    "commit fraud",
+    "money laundering",
+    "bypass verification",
+    "steal points",
+    "phishing",
+  ];
+
+  if (blockedPatterns.some((pattern) => normalized.includes(pattern))) {
+    return {
+      blocked: true,
+      reason: "illegal_behavior",
+      userMessage: "I cannot help with fraud, theft, or bypassing verification. I can help with legal ways to optimize rewards.",
+    };
+  }
+
+  const ssnPattern = /\b\d{3}-?\d{2}-?\d{4}\b/;
+  if (ssnPattern.test(prompt)) {
+    return {
+      blocked: true,
+      reason: "sensitive_data",
+      userMessage: "Please remove sensitive personal info (like SSN) and ask again.",
+    };
+  }
+
+  if (prompt.length > MAX_PROMPT_CHARS) {
+    return {
+      blocked: true,
+      reason: "prompt_too_long",
+      userMessage: `Please keep your prompt under ${MAX_PROMPT_CHARS} characters so I can answer clearly.`,
+    };
+  }
+
+  return { blocked: false };
+}
+
+function sanitizeAssistantReply(reply: string): string {
+  const compact = reply.trim();
+  if (!compact) {
+    return "I could not generate a response right now. Please try rephrasing your question.";
+  }
+
+  const normalized = compact.toLowerCase();
+  if (normalized.includes("guaranteed approval") || normalized.includes("guaranteed return")) {
+    return "No card approval or return is guaranteed. I can help you improve your odds with safer, practical next steps.";
+  }
+
+  if (compact.length > 1600) {
+    return `${compact.slice(0, 1550).trim()}...`;
+  }
+
+  return compact;
+}
+
+async function logUsageEvent(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  payload: {
+    status: UsageStatus;
+    promptChars: number;
+    responseChars?: number;
+    latencyMs?: number;
+    errorCode?: string;
+    metadata?: Record<string, unknown>;
+  }
+) {
+  const { error } = await supabase.from("revo_usage_logs").insert({
+    user_id: userId,
+    status: payload.status,
+    prompt_chars: payload.promptChars,
+    response_chars: payload.responseChars ?? 0,
+    latency_ms: payload.latencyMs ?? null,
+    model: OPENAI_MODEL,
+    error_code: payload.errorCode ?? null,
+    metadata: payload.metadata ?? {},
+  });
+  if (error) {
+    console.error("usage-log-error", error.message);
+  }
+}
+
+async function isRateLimited(supabase: ReturnType<typeof createClient>, userId: string): Promise<boolean> {
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MIN * 60 * 1000).toISOString();
+  const { count, error } = await supabase
+    .from("revo_usage_logs")
+    .select("id", { head: true, count: "exact" })
+    .eq("user_id", userId)
+    .gte("created_at", windowStart);
+
+  if (error) {
+    console.error("rate-limit-check-error", error.message);
+    // Fail open if logs table is not ready, so chat still functions.
+    return false;
+  }
+
+  return (count ?? 0) >= RATE_LIMIT_MAX_REQUESTS;
 }
 
 async function generateAssistantReply(
@@ -56,9 +175,13 @@ async function generateAssistantReply(
   systemPrompt: string,
   history: MessageRow[],
   prompt: string
-): Promise<string> {
+): Promise<GenerateReplyResult> {
   if (!openAiApiKey) {
-    return "AI is not configured yet. Please add OPENAI_API_KEY to Supabase Edge Function secrets.";
+    return {
+      assistantReply: "AI is not configured yet. Please add OPENAI_API_KEY to Supabase Edge Function secrets.",
+      providerError: true,
+      errorCode: "missing_openai_api_key",
+    };
   }
 
   const messages = [
@@ -74,7 +197,7 @@ async function generateAssistantReply(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: OPENAI_MODEL,
       temperature: 0.4,
       max_tokens: 220,
       messages,
@@ -83,19 +206,32 @@ async function generateAssistantReply(
 
   if (!response.ok) {
     await response.text();
-    return `I hit an AI provider error and could not answer right now (${response.status}). Please try again.`;
+    return {
+      assistantReply: `I hit an AI provider error and could not answer right now (${response.status}). Please try again.`,
+      providerError: true,
+      errorCode: `provider_http_${response.status}`,
+    };
   }
 
   const data = await response.json();
   const assistantReply = data?.choices?.[0]?.message?.content;
   if (!assistantReply || typeof assistantReply !== "string") {
-    return "I could not generate a response right now. Please try rephrasing your question.";
+    return {
+      assistantReply: "I could not generate a response right now. Please try rephrasing your question.",
+      providerError: true,
+      errorCode: "provider_invalid_payload",
+    };
   }
 
-  return assistantReply.trim();
+  return {
+    assistantReply: sanitizeAssistantReply(assistantReply),
+    providerError: false,
+  };
 }
 
 Deno.serve(async (req) => {
+  let userIdForLog: string | null = null;
+  let supabaseForLog: ReturnType<typeof createClient> | null = null;
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -123,6 +259,7 @@ Deno.serve(async (req) => {
         headers: { Authorization: authHeader },
       },
     });
+    supabaseForLog = supabase;
 
     const {
       data: { user },
@@ -135,16 +272,64 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    userIdForLog = user.id;
 
     const payload = await req.json();
     const prompt = typeof payload?.prompt === "string" ? payload.prompt.trim() : "";
     if (!prompt) {
+      await logUsageEvent(supabase, user.id, {
+        status: "bad_request",
+        promptChars: 0,
+        errorCode: "empty_prompt",
+      });
       return new Response(JSON.stringify({ error: "Prompt is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const promptGuardrail = detectPromptGuardrail(prompt);
+    if (promptGuardrail.blocked) {
+      const blockedMessage = promptGuardrail.userMessage ?? "I can't help with that request.";
+      await supabase.from("revo_messages").insert([
+        {
+          user_id: user.id,
+          role: "user",
+          content: prompt,
+        },
+        {
+          user_id: user.id,
+          role: "assistant",
+          content: blockedMessage,
+        },
+      ]);
+      await logUsageEvent(supabase, user.id, {
+        status: "guardrail_blocked",
+        promptChars: prompt.length,
+        responseChars: blockedMessage.length,
+        errorCode: promptGuardrail.reason,
+      });
+      return new Response(JSON.stringify({ assistantReply: blockedMessage }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    if (await isRateLimited(supabase, user.id)) {
+      const rateLimitMessage = `You've reached your REVO message limit for now. Please wait ${RATE_LIMIT_WINDOW_MIN} minutes and try again.`;
+      await logUsageEvent(supabase, user.id, {
+        status: "rate_limited",
+        promptChars: prompt.length,
+        responseChars: rateLimitMessage.length,
+        errorCode: "rate_limit_exceeded",
+      });
+      return new Response(JSON.stringify({ assistantReply: rateLimitMessage }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const startedAt = Date.now();
     const [profileResult, walletResult, historyResult] = await Promise.all([
       supabase
         .from("profiles")
@@ -169,7 +354,9 @@ Deno.serve(async (req) => {
 
     const history = [...(historyResult.data ?? [])].reverse();
     const systemPrompt = buildSystemPrompt(profileResult.data ?? null, walletResult.data ?? []);
-    const assistantReply = await generateAssistantReply(Deno.env.get("OPENAI_API_KEY"), systemPrompt, history, prompt);
+    const generation = await generateAssistantReply(Deno.env.get("OPENAI_API_KEY"), systemPrompt, history, prompt);
+    const assistantReply = generation.assistantReply;
+    const latencyMs = Date.now() - startedAt;
 
     const { error: insertError } = await supabase.from("revo_messages").insert([
       {
@@ -188,12 +375,31 @@ Deno.serve(async (req) => {
       throw insertError;
     }
 
+    await logUsageEvent(supabase, user.id, {
+      status: generation.providerError ? "provider_error" : "success",
+      promptChars: prompt.length,
+      responseChars: assistantReply.length,
+      latencyMs,
+      errorCode: generation.errorCode,
+      metadata: {
+        historyMessagesUsed: history.length,
+      },
+    });
+
     return new Response(JSON.stringify({ assistantReply }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected function error";
+    if (supabaseForLog && userIdForLog) {
+      await logUsageEvent(supabaseForLog, userIdForLog, {
+        status: "provider_error",
+        promptChars: 0,
+        errorCode: "unexpected_exception",
+        metadata: { message },
+      });
+    }
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

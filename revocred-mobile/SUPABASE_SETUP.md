@@ -31,6 +31,9 @@ This creates:
 
 ...with row-level security so each user can only access their own data.
 
+If you've already run an older schema, re-run the latest `supabase/schema.sql` so the
+new `revo_usage_logs` table and policies are added.
+
 ## 3) Run app
 
 ```bash
@@ -63,8 +66,18 @@ Optional (if CLI is not already authenticated):
 supabase login
 ```
 
+Optional function tuning secrets:
+
+```bash
+supabase secrets set REVO_RATE_LIMIT_WINDOW_MIN=60 --project-ref jylwvumrzgihfndpurvq
+supabase secrets set REVO_RATE_LIMIT_MAX_REQUESTS=20 --project-ref jylwvumrzgihfndpurvq
+supabase secrets set REVO_MAX_PROMPT_CHARS=500 --project-ref jylwvumrzgihfndpurvq
+supabase secrets set OPENAI_MODEL=gpt-4o-mini --project-ref jylwvumrzgihfndpurvq
+```
+
 ## Notes
 
 - Never expose the `service_role` key in mobile code.
 - The app only uses the public anon key.
 - REVO replies are generated server-side by `supabase/functions/revo-chat`.
+- REVO now includes rate limiting, prompt guardrails, and usage logs for monitoring.
