@@ -2,7 +2,7 @@ import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppData } from "./src/hooks/useAppData";
-import { Card, ChatMessage, Profile, Recommendation, TabKey } from "./src/types/models";
+import { Card, ChatMessage, Profile, Recommendation, RevoAnalyticsSummary, TabKey } from "./src/types/models";
 
 function topCardColor(cardId: string): string {
   switch (cardId) {
@@ -392,11 +392,17 @@ function RevoScreen({
 function ProfileScreen({
   profile,
   walletCount,
+  analyticsSummary,
+  analyticsLoading,
+  onRefreshAnalytics,
   onResetDemo,
   onSignOut,
 }: {
   profile: Profile;
   walletCount: number;
+  analyticsSummary: RevoAnalyticsSummary | null;
+  analyticsLoading: boolean;
+  onRefreshAnalytics: () => Promise<void>;
   onResetDemo: () => Promise<void>;
   onSignOut: () => Promise<void>;
 }) {
@@ -426,6 +432,51 @@ function ProfileScreen({
         <Text style={styles.reportTitle}>View your original report</Text>
         <Text style={styles.metricHint}>See where you are now compared to where you were</Text>
       </Pressable>
+      <View style={styles.panelSection}>
+        <View style={styles.analyticsHeaderRow}>
+          <Text style={styles.cardSectionLabel}>REVO ANALYTICS (24H)</Text>
+          <Pressable style={styles.analyticsRefreshButton} onPress={() => void onRefreshAnalytics()} disabled={analyticsLoading}>
+            <Text style={styles.analyticsRefreshButtonText}>{analyticsLoading ? "Refreshing..." : "Refresh"}</Text>
+          </Pressable>
+        </View>
+        {analyticsSummary ? (
+          <>
+            <View style={styles.analyticsGrid}>
+              <View style={styles.analyticsTile}>
+                <Text style={styles.analyticsTileLabel}>Requests</Text>
+                <Text style={styles.analyticsTileValue}>{analyticsSummary.last24hRequests}</Text>
+              </View>
+              <View style={styles.analyticsTile}>
+                <Text style={styles.analyticsTileLabel}>Success Rate</Text>
+                <Text style={styles.analyticsTileValue}>{analyticsSummary.successRate}%</Text>
+              </View>
+            </View>
+            <View style={styles.analyticsGrid}>
+              <View style={styles.analyticsTile}>
+                <Text style={styles.analyticsTileLabel}>Rate Limited</Text>
+                <Text style={styles.analyticsTileValue}>{analyticsSummary.rateLimitedCount}</Text>
+              </View>
+              <View style={styles.analyticsTile}>
+                <Text style={styles.analyticsTileLabel}>Provider Errors</Text>
+                <Text style={styles.analyticsTileValue}>{analyticsSummary.providerErrorCount}</Text>
+              </View>
+            </View>
+            <View style={styles.analyticsGrid}>
+              <View style={styles.analyticsTile}>
+                <Text style={styles.analyticsTileLabel}>Guardrail Blocks</Text>
+                <Text style={styles.analyticsTileValue}>{analyticsSummary.guardrailBlockedCount}</Text>
+              </View>
+              <View style={styles.analyticsTile}>
+                <Text style={styles.analyticsTileLabel}>Avg Latency</Text>
+                <Text style={styles.analyticsTileValue}>{analyticsSummary.averageLatencyMs}ms</Text>
+              </View>
+            </View>
+            <Text style={styles.analyticsFootnote}>Latest status: {analyticsSummary.latestStatus}</Text>
+          </>
+        ) : (
+          <Text style={styles.panelHint}>No analytics events yet. Ask REVO to start collecting usage stats.</Text>
+        )}
+      </View>
       <Pressable style={styles.resetButton} onPress={() => void onResetDemo()}>
         <Text style={styles.resetButtonText}>Reset Demo Data</Text>
       </Pressable>
@@ -459,7 +510,22 @@ function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab:
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("Home");
-  const { data, loading, authError, session, signIn, signUp, signOut, submitPrompt, addCardToWallet, resetToSeed, availableCardsToAdd } = useAppData();
+  const {
+    data,
+    loading,
+    authError,
+    session,
+    signIn,
+    signUp,
+    signOut,
+    submitPrompt,
+    addCardToWallet,
+    resetToSeed,
+    availableCardsToAdd,
+    analyticsSummary,
+    analyticsLoading,
+    refreshAnalytics,
+  } = useAppData();
 
   const handleAskRevo = (prompt: string) => {
     setActiveTab("REVO");
@@ -497,7 +563,17 @@ export default function App() {
       case "REVO":
         return <RevoScreen quickPrompts={data.quickPrompts} messages={data.chatMessages} onSubmitPrompt={submitPrompt} />;
       case "Profile":
-        return <ProfileScreen profile={data.profile} walletCount={data.walletCards.length} onResetDemo={resetToSeed} onSignOut={signOut} />;
+        return (
+          <ProfileScreen
+            profile={data.profile}
+            walletCount={data.walletCards.length}
+            analyticsSummary={analyticsSummary}
+            analyticsLoading={analyticsLoading}
+            onRefreshAnalytics={refreshAnalytics}
+            onResetDemo={resetToSeed}
+            onSignOut={signOut}
+          />
+        );
       default:
         return (
           <HomeScreen
@@ -508,7 +584,18 @@ export default function App() {
           />
         );
     }
-  }, [activeTab, addCardToWallet, availableCardsToAdd, data, resetToSeed, submitPrompt]);
+  }, [
+    activeTab,
+    addCardToWallet,
+    analyticsLoading,
+    analyticsSummary,
+    availableCardsToAdd,
+    data,
+    refreshAnalytics,
+    resetToSeed,
+    signOut,
+    submitPrompt,
+  ]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -1019,6 +1106,53 @@ const styles = StyleSheet.create({
     color: "#dce5ff",
     fontSize: 15,
     fontWeight: "600",
+  },
+  analyticsHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  analyticsRefreshButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#344d88",
+    backgroundColor: "#162a57",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  analyticsRefreshButtonText: {
+    color: "#dde6ff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  analyticsGrid: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  analyticsTile: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#223661",
+    backgroundColor: "#0a1230",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  analyticsTileLabel: {
+    color: "#8fa0cf",
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  analyticsTileValue: {
+    color: "#edf2ff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  analyticsFootnote: {
+    color: "#9fb0df",
+    fontSize: 12,
+    marginTop: 4,
   },
   bottomNavWrap: {
     borderTopWidth: 1,

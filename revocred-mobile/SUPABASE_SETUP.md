@@ -81,3 +81,4 @@ supabase secrets set OPENAI_MODEL=gpt-4o-mini --project-ref jylwvumrzgihfndpurvq
 - The app only uses the public anon key.
 - REVO replies are generated server-side by `supabase/functions/revo-chat`.
 - REVO now includes rate limiting, prompt guardrails, and usage logs for monitoring.
+- Profile screen now includes a live analytics panel (24h summary) sourced from `revo_usage_logs`.

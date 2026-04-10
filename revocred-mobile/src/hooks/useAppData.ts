@@ -1,8 +1,15 @@
 import { Session } from "@supabase/supabase-js";
 import { useEffect, useMemo, useState } from "react";
-import { addWalletCardForUser, appendPromptAndReply, ensureUserBootstrap, fetchUserAppData, resetUserData } from "../services/supabaseData";
+import {
+  addWalletCardForUser,
+  appendPromptAndReply,
+  ensureUserBootstrap,
+  fetchRevoAnalyticsSummary,
+  fetchUserAppData,
+  resetUserData,
+} from "../services/supabaseData";
 import { supabase } from "../services/supabaseClient";
-import { AppData, Card } from "../types/models";
+import { AppData, Card, RevoAnalyticsSummary } from "../types/models";
 
 type AuthResult = {
   ok: boolean;
@@ -22,6 +29,9 @@ type UseAppDataResult = {
   addCardToWallet: (cardId: string) => Promise<void>;
   resetToSeed: () => Promise<void>;
   availableCardsToAdd: Card[];
+  analyticsSummary: RevoAnalyticsSummary | null;
+  analyticsLoading: boolean;
+  refreshAnalytics: () => Promise<void>;
 };
 
 function toErrorMessage(error: unknown): string {
@@ -37,6 +47,8 @@ export function useAppData(): UseAppDataResult {
   const [data, setData] = useState<AppData | null>(null);
   const [loadingData, setLoadingData] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [analyticsSummary, setAnalyticsSummary] = useState<RevoAnalyticsSummary | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -77,6 +89,7 @@ export function useAppData(): UseAppDataResult {
 
     if (!session) {
       setData(null);
+      setAnalyticsSummary(null);
       setLoadingData(false);
       return () => {
         alive = false;
@@ -85,12 +98,14 @@ export function useAppData(): UseAppDataResult {
 
     async function loadForCurrentUser(userId: string) {
       setLoadingData(true);
+      setAnalyticsLoading(true);
       setAuthError(null);
       try {
         await ensureUserBootstrap(userId);
-        const loaded = await fetchUserAppData(userId);
+        const [loaded, analytics] = await Promise.all([fetchUserAppData(userId), fetchRevoAnalyticsSummary(userId)]);
         if (alive) {
           setData(loaded);
+          setAnalyticsSummary(analytics);
         }
       } catch (error) {
         if (alive) {
@@ -99,6 +114,7 @@ export function useAppData(): UseAppDataResult {
       } finally {
         if (alive) {
           setLoadingData(false);
+          setAnalyticsLoading(false);
         }
       }
     }
@@ -145,6 +161,22 @@ export function useAppData(): UseAppDataResult {
   const signOut = async () => {
     await supabase.auth.signOut();
     setData(null);
+    setAnalyticsSummary(null);
+  };
+
+  const refreshAnalytics = async () => {
+    if (!session) {
+      return;
+    }
+    setAnalyticsLoading(true);
+    try {
+      const analytics = await fetchRevoAnalyticsSummary(session.user.id);
+      setAnalyticsSummary(analytics);
+    } catch (error) {
+      setAuthError(toErrorMessage(error));
+    } finally {
+      setAnalyticsLoading(false);
+    }
   };
 
   const submitPrompt = async (prompt: string) => {
@@ -155,8 +187,12 @@ export function useAppData(): UseAppDataResult {
 
     try {
       await appendPromptAndReply(trimmed);
-      const refreshed = await fetchUserAppData(session.user.id);
+      const [refreshed, analytics] = await Promise.all([
+        fetchUserAppData(session.user.id),
+        fetchRevoAnalyticsSummary(session.user.id),
+      ]);
       setData(refreshed);
+      setAnalyticsSummary(analytics);
     } catch (error) {
       setAuthError(toErrorMessage(error));
     }
@@ -179,8 +215,12 @@ export function useAppData(): UseAppDataResult {
 
     try {
       await addWalletCardForUser(session.user.id, cardId, data.metrics.pointsValue, data.metrics.projectedYearlyValue);
-      const refreshed = await fetchUserAppData(session.user.id);
+      const [refreshed, analytics] = await Promise.all([
+        fetchUserAppData(session.user.id),
+        fetchRevoAnalyticsSummary(session.user.id),
+      ]);
       setData(refreshed);
+      setAnalyticsSummary(analytics);
     } catch (error) {
       setAuthError(toErrorMessage(error));
     }
@@ -192,8 +232,12 @@ export function useAppData(): UseAppDataResult {
     }
     try {
       await resetUserData(session.user.id);
-      const refreshed = await fetchUserAppData(session.user.id);
+      const [refreshed, analytics] = await Promise.all([
+        fetchUserAppData(session.user.id),
+        fetchRevoAnalyticsSummary(session.user.id),
+      ]);
       setData(refreshed);
+      setAnalyticsSummary(analytics);
     } catch (error) {
       setAuthError(toErrorMessage(error));
     }
@@ -218,5 +262,8 @@ export function useAppData(): UseAppDataResult {
     addCardToWallet,
     resetToSeed,
     availableCardsToAdd,
+    analyticsSummary,
+    analyticsLoading,
+    refreshAnalytics,
   };
 }

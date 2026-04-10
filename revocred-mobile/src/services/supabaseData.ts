@@ -1,5 +1,5 @@
 import { seedCardCatalog, seedMetrics, seedPopularPicks, seedProfile, seedQuickPrompts, seedTimeline, seedWalletCards } from "../data/seed";
-import { AppData, Card, CardStatus, ChatMessage, Profile } from "../types/models";
+import { AppData, Card, CardStatus, ChatMessage, Profile, RevoAnalyticsSummary } from "../types/models";
 import { supabase } from "./supabaseClient";
 
 type ProfileRow = {
@@ -22,6 +22,12 @@ type RevoMessageRow = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  created_at: string;
+};
+
+type RevoUsageLogRow = {
+  status: string;
+  latency_ms: number | null;
   created_at: string;
 };
 
@@ -76,6 +82,30 @@ function composeAppData(profileRow: ProfileRow, walletRows: WalletCardRow[], mes
     quickPrompts: [...seedQuickPrompts],
     chatMessages: hydrateMessages(messageRows),
     cardCatalog: seedCardCatalog.map((card) => ({ ...card, status: activeIds.has(card.id) ? "Active" : "Inactive" })),
+  };
+}
+
+function createAnalyticsSummary(rows: RevoUsageLogRow[]): RevoAnalyticsSummary {
+  const total = rows.length;
+  const successCount = rows.filter((row) => row.status === "success").length;
+  const rateLimitedCount = rows.filter((row) => row.status === "rate_limited").length;
+  const guardrailBlockedCount = rows.filter((row) => row.status === "guardrail_blocked").length;
+  const providerErrorCount = rows.filter((row) => row.status === "provider_error").length;
+  const latencyRows = rows.filter((row) => row.latency_ms !== null);
+  const averageLatencyMs = latencyRows.length
+    ? Math.round(latencyRows.reduce((sum, row) => sum + (row.latency_ms ?? 0), 0) / latencyRows.length)
+    : 0;
+
+  return {
+    last24hRequests: total,
+    successCount,
+    rateLimitedCount,
+    guardrailBlockedCount,
+    providerErrorCount,
+    successRate: total ? Math.round((successCount / total) * 100) : 0,
+    averageLatencyMs,
+    latestStatus: rows[0]?.status ?? "no_activity",
+    generatedAt: new Date().toISOString(),
   };
 }
 
@@ -183,6 +213,24 @@ export async function fetchUserAppData(userId: string): Promise<AppData> {
   }
 
   return composeAppData(profile, walletRows ?? [], messageRows ?? []);
+}
+
+export async function fetchRevoAnalyticsSummary(userId: string): Promise<RevoAnalyticsSummary> {
+  const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: logs, error } = await supabase
+    .from("revo_usage_logs")
+    .select("status, latency_ms, created_at")
+    .eq("user_id", userId)
+    .gte("created_at", windowStart)
+    .order("created_at", { ascending: false })
+    .limit(500)
+    .returns<RevoUsageLogRow[]>();
+
+  if (error) {
+    throw error;
+  }
+
+  return createAnalyticsSummary(logs ?? []);
 }
 
 export async function addWalletCardForUser(userId: string, cardId: string, currentPoints: number, currentProjection: number): Promise<void> {

@@ -49,3 +49,15 @@ export type AppData = {
   chatMessages: ChatMessage[];
   cardCatalog: Card[];
 };
+
+export type RevoAnalyticsSummary = {
+  last24hRequests: number;
+  successCount: number;
+  rateLimitedCount: number;
+  guardrailBlockedCount: number;
+  providerErrorCount: number;
+  successRate: number;
+  averageLatencyMs: number;
+  latestStatus: string;
+  generatedAt: string;
+};
