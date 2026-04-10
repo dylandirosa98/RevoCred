@@ -1,140 +1,8 @@
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
-import {
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-
-type TabKey = "Home" | "Cards" | "Strategy" | "REVO" | "Profile";
-
-type Card = {
-  id: string;
-  brand: string;
-  name: string;
-  bestUse: string;
-  multiplier: string;
-  status: "Active" | "Inactive";
-  benefits: string[];
-};
-
-type Recommendation = {
-  id: string;
-  title: string;
-  monthLabel: string;
-  note: string;
-};
-
-const walletCards: Card[] = [
-  {
-    id: "amex-gold",
-    brand: "AMEX",
-    name: "Amex Gold",
-    bestUse: "Dining + Grocery",
-    multiplier: "4x",
-    status: "Active",
-    benefits: ["4x dining", "4x groceries", "$10 dining credit", "Transfer partners"],
-  },
-  {
-    id: "venture-x",
-    brand: "VISA",
-    name: "Venture X",
-    bestUse: "Travel",
-    multiplier: "2x",
-    status: "Active",
-    benefits: ["2x everywhere", "$300 travel credit", "Lounge access", "10k anniversary miles"],
-  },
-  {
-    id: "freedom-unlimited",
-    brand: "VISA",
-    name: "Freedom Unlimited",
-    bestUse: "Catch-all",
-    multiplier: "1.5x",
-    status: "Active",
-    benefits: ["1.5x everywhere", "3x dining", "3x drugstores", "No annual fee"],
-  },
-  {
-    id: "freedom-flex",
-    brand: "MC",
-    name: "Freedom Flex",
-    bestUse: "Rotating Categories",
-    multiplier: "5x",
-    status: "Active",
-    benefits: ["5x rotating categories", "3x dining", "3x drugstores", "No annual fee"],
-  },
-  {
-    id: "savor",
-    brand: "MC",
-    name: "Savor",
-    bestUse: "Dining + Entertainment",
-    multiplier: "3x",
-    status: "Active",
-    benefits: ["3x dining", "3x entertainment", "3x groceries", "No annual fee"],
-  },
-];
-
-const recommendedCards: Card[] = [
-  walletCards[0],
-  walletCards[1],
-  {
-    id: "bilt",
-    brand: "MC",
-    name: "BILT",
-    bestUse: "Rent + Dining",
-    multiplier: "1x-5x",
-    status: "Active",
-    benefits: ["1x rent", "3x dining", "2x travel", "Transfer partners"],
-  },
-  {
-    id: "citi-strata",
-    brand: "MC",
-    name: "Citi Strata",
-    bestUse: "Travel + Everyday",
-    multiplier: "3x",
-    status: "Active",
-    benefits: ["3x travel", "3x grocery", "3x gas", "No foreign fees"],
-  },
-];
-
-const timeline: Recommendation[] = [
-  {
-    id: "debit",
-    title: "Debit",
-    monthLabel: "You're here",
-    note: "Starting point before building rewards history",
-  },
-  {
-    id: "freedom-unlimited",
-    title: "Freedom Unlimited",
-    monthLabel: "Apply June",
-    note: "Start with a flexible beginner card",
-  },
-  {
-    id: "sapphire-preferred",
-    title: "Sapphire Preferred",
-    monthLabel: "Apply October",
-    note: "Add travel value after building history",
-  },
-];
-
-const quickPrompts = [
-  "What card should I use for groceries?",
-  "What should I apply for next?",
-  "How do I maximize travel?",
-];
-
-const profileRows = [
-  { key: "Name", value: "Javed Saliman" },
-  { key: "Credit Card Strategy", value: "Hybrid cash back + travel" },
-  { key: "Goal", value: "Maximize points without wasting perks" },
-  { key: "Setup", value: "5 active cards" },
-  { key: "Top Spend Categories", value: "Dining, groceries, travel" },
-  { key: "Next Application Target", value: "Citi Custom Cash" },
-];
+import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useAppData } from "./src/hooks/useAppData";
+import { Card, ChatMessage, Profile, Recommendation, TabKey } from "./src/types/models";
 
 function topCardColor(cardId: string): string {
   switch (cardId) {
@@ -208,8 +76,19 @@ function WalletCard({
   );
 }
 
-function HomeScreen() {
+function HomeScreen({
+  cards,
+  pointsValue,
+  projectedValue,
+  onAskRevo,
+}: {
+  cards: Card[];
+  pointsValue: number;
+  projectedValue: number;
+  onAskRevo: (prompt: string) => void;
+}) {
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  const overviewCards = cards.slice(0, 2);
 
   return (
     <ScrollView contentContainerStyle={styles.screenBody}>
@@ -224,10 +103,10 @@ function HomeScreen() {
       <View style={styles.topCardRow}>
         <View style={[styles.metricCard, styles.metricCardHalf]}>
           <Text style={styles.cardSectionLabel}>POINTS VALUE</Text>
-          <Text style={styles.metricValue}>$359</Text>
+          <Text style={styles.metricValue}>${pointsValue}</Text>
           <Text style={styles.metricHint}>Based on your active balances</Text>
         </View>
-        <Pressable style={[styles.metricCard, styles.metricCardHalf]}>
+        <Pressable style={[styles.metricCard, styles.metricCardHalf]} onPress={() => onAskRevo("What card should I use right now?")}>
           <Text style={styles.cardSectionLabel}>ASK REVO</Text>
           <Text style={styles.metricQuestion}>Get your next best move</Text>
           <Text style={styles.metricHint}>What card should I use right now?</Text>
@@ -236,7 +115,7 @@ function HomeScreen() {
 
       <View style={styles.metricCard}>
         <Text style={styles.cardSectionLabel}>PROJECTED VALUE</Text>
-        <Text style={styles.metricQuestion}>$300 this year</Text>
+        <Text style={styles.metricQuestion}>${projectedValue} this year</Text>
         <Text style={styles.metricHint}>Estimated using your current card setup and balances</Text>
       </View>
 
@@ -244,27 +123,30 @@ function HomeScreen() {
         <Text style={styles.cardSectionLabel}>OVERVIEW</Text>
         <Text style={styles.panelTitle}>Your Card Setup</Text>
         <Text style={styles.panelHint}>Tap any card to flip it and view why it matters in your strategy.</Text>
-        <WalletCard
-          card={walletCards[0]}
-          expanded={expandedCardId === walletCards[0].id}
-          onToggle={() =>
-            setExpandedCardId((current) => (current === walletCards[0].id ? null : walletCards[0].id))
-          }
-        />
-        <WalletCard
-          card={walletCards[1]}
-          expanded={expandedCardId === walletCards[1].id}
-          onToggle={() =>
-            setExpandedCardId((current) => (current === walletCards[1].id ? null : walletCards[1].id))
-          }
-        />
+        {overviewCards.map((card) => (
+          <WalletCard
+            key={card.id}
+            card={card}
+            expanded={expandedCardId === card.id}
+            onToggle={() => setExpandedCardId((current) => (current === card.id ? null : card.id))}
+          />
+        ))}
       </View>
     </ScrollView>
   );
 }
 
-function CardsScreen() {
+function CardsScreen({
+  cards,
+  availableCardsToAdd,
+  onAddCard,
+}: {
+  cards: Card[];
+  availableCardsToAdd: Card[];
+  onAddCard: (cardId: string) => void;
+}) {
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  const nextCardToAdd = availableCardsToAdd[0];
 
   return (
     <ScrollView contentContainerStyle={styles.screenBody}>
@@ -272,12 +154,12 @@ function CardsScreen() {
         <Text style={styles.cardSectionLabel}>CARDS</Text>
         <View style={styles.walletCountCard}>
           <Text style={styles.cardSectionLabel}>WALLET</Text>
-          <Text style={styles.walletCountValue}>5 active{"\n"}cards</Text>
+          <Text style={styles.walletCountValue}>{cards.length} active{"\n"}cards</Text>
         </View>
       </View>
       <Text style={styles.panelTitle}>Your Card Setup</Text>
       <Text style={styles.panelHint}>Tap any card to flip it and view the key benefits behind your setup.</Text>
-      {walletCards.map((card) => (
+      {cards.map((card) => (
         <WalletCard
           key={card.id}
           card={card}
@@ -285,15 +167,31 @@ function CardsScreen() {
           onToggle={() => setExpandedCardId((current) => (current === card.id ? null : card.id))}
         />
       ))}
-      <Pressable style={styles.addCardButton}>
+      <Pressable
+        style={[styles.addCardButton, !nextCardToAdd ? styles.disabledCard : undefined]}
+        disabled={!nextCardToAdd}
+        onPress={() => {
+          if (nextCardToAdd) {
+            onAddCard(nextCardToAdd.id);
+          }
+        }}
+      >
         <Text style={styles.addCardPlus}>+</Text>
-        <Text style={styles.addCardText}>Add card</Text>
+        <Text style={styles.addCardText}>{nextCardToAdd ? `Add card: ${nextCardToAdd.name}` : "All cards added"}</Text>
       </Pressable>
     </ScrollView>
   );
 }
 
-function StrategyScreen() {
+function StrategyScreen({
+  timeline,
+  recommendedCards,
+  onAskRevo,
+}: {
+  timeline: Recommendation[];
+  recommendedCards: Card[];
+  onAskRevo: (prompt: string) => void;
+}) {
   const [openRecommendationIds, setOpenRecommendationIds] = useState<string[]>([]);
 
   const toggleRecommendation = (id: string) => {
@@ -345,7 +243,7 @@ function StrategyScreen() {
                       <Text style={styles.benefitText}>{benefit}</Text>
                     </View>
                   ))}
-                  <Pressable style={styles.askRevoButton}>
+                  <Pressable style={styles.askRevoButton} onPress={() => onAskRevo(`Tell me more about ${card.name}`)}>
                     <Text style={styles.askRevoLabel}>ASK REVO</Text>
                     <Text style={styles.askRevoText}>Ask REVO about {card.name}</Text>
                   </Pressable>
@@ -359,15 +257,22 @@ function StrategyScreen() {
   );
 }
 
-function RevoScreen() {
+function RevoScreen({
+  quickPrompts,
+  messages,
+  onSubmitPrompt,
+}: {
+  quickPrompts: string[];
+  messages: ChatMessage[];
+  onSubmitPrompt: (prompt: string) => Promise<void>;
+}) {
   const [question, setQuestion] = useState("");
-  const [messages, setMessages] = useState<string[]>([]);
 
-  const submitPrompt = (prompt: string) => {
+  const submitPrompt = async (prompt: string) => {
     if (!prompt.trim()) {
       return;
     }
-    setMessages((existing) => [...existing, `You: ${prompt}`, "REVO: Great question. This is where your tailored answer will appear."]);
+    await onSubmitPrompt(prompt);
     setQuestion("");
   };
 
@@ -377,7 +282,7 @@ function RevoScreen() {
         <Text style={styles.revoHeading}>Let's maximize</Text>
         <Text style={styles.cardSectionLabel}>TRY ASKING</Text>
         {quickPrompts.map((prompt) => (
-          <Pressable key={prompt} style={styles.promptButton} onPress={() => submitPrompt(prompt)}>
+          <Pressable key={prompt} style={styles.promptButton} onPress={() => void submitPrompt(prompt)}>
             <Text style={styles.promptText}>{prompt}</Text>
             <Text style={styles.chevron}>›</Text>
           </Pressable>
@@ -385,8 +290,9 @@ function RevoScreen() {
         {messages.length ? (
           <View style={styles.chatPanel}>
             {messages.map((message, index) => (
-              <Text key={`${message}-${index}`} style={styles.chatMessage}>
-                {message}
+              <Text key={`${message.id}-${index}`} style={styles.chatMessage}>
+                <Text style={styles.chatRoleLabel}>{message.role === "user" ? "You: " : "REVO: "}</Text>
+                {message.content}
               </Text>
             ))}
           </View>
@@ -399,14 +305,31 @@ function RevoScreen() {
           placeholder="Ask REVO anything..."
           placeholderTextColor="#6d7aab"
           style={styles.input}
-          onSubmitEditing={() => submitPrompt(question)}
+          onSubmitEditing={() => void submitPrompt(question)}
         />
       </View>
     </View>
   );
 }
 
-function ProfileScreen() {
+function ProfileScreen({
+  profile,
+  walletCount,
+  onResetDemo,
+}: {
+  profile: Profile;
+  walletCount: number;
+  onResetDemo: () => Promise<void>;
+}) {
+  const profileRows = [
+    { key: "Name", value: profile.name },
+    { key: "Credit Card Strategy", value: profile.creditCardStrategy },
+    { key: "Goal", value: profile.goal },
+    { key: "Setup", value: `${walletCount} active cards` },
+    { key: "Top Spend Categories", value: profile.topSpendCategories },
+    { key: "Next Application Target", value: profile.nextApplicationTarget },
+  ];
+
   return (
     <ScrollView contentContainerStyle={styles.screenBody}>
       <Text style={styles.cardSectionLabel}>PROFILE</Text>
@@ -423,6 +346,9 @@ function ProfileScreen() {
         <Text style={styles.cardSectionLabel}>OPTIMIZATION REPORT</Text>
         <Text style={styles.reportTitle}>View your original report</Text>
         <Text style={styles.metricHint}>See where you are now compared to where you were</Text>
+      </Pressable>
+      <Pressable style={styles.resetButton} onPress={() => void onResetDemo()}>
+        <Text style={styles.resetButtonText}>Reset Demo Data</Text>
       </Pressable>
     </ScrollView>
   );
@@ -451,23 +377,56 @@ function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab:
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("Home");
+  const { data, loading, submitPrompt, addCardToWallet, resetToSeed, availableCardsToAdd } = useAppData();
+
+  const handleAskRevo = (prompt: string) => {
+    setActiveTab("REVO");
+    void submitPrompt(prompt);
+  };
 
   const renderedScreen = useMemo(() => {
+    if (!data) {
+      return (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color="#dfe7ff" size="large" />
+          <Text style={styles.loadingText}>Loading your revocred setup...</Text>
+        </View>
+      );
+    }
+
     switch (activeTab) {
       case "Home":
-        return <HomeScreen />;
+        return (
+          <HomeScreen
+            cards={data.walletCards}
+            pointsValue={data.metrics.pointsValue}
+            projectedValue={data.metrics.projectedYearlyValue}
+            onAskRevo={handleAskRevo}
+          />
+        );
       case "Cards":
-        return <CardsScreen />;
+        return (
+          <CardsScreen cards={data.walletCards} availableCardsToAdd={availableCardsToAdd} onAddCard={(cardId) => void addCardToWallet(cardId)} />
+        );
       case "Strategy":
-        return <StrategyScreen />;
+        return (
+          <StrategyScreen timeline={data.strategyTimeline} recommendedCards={data.popularPicks} onAskRevo={handleAskRevo} />
+        );
       case "REVO":
-        return <RevoScreen />;
+        return <RevoScreen quickPrompts={data.quickPrompts} messages={data.chatMessages} onSubmitPrompt={submitPrompt} />;
       case "Profile":
-        return <ProfileScreen />;
+        return <ProfileScreen profile={data.profile} walletCount={data.walletCards.length} onResetDemo={resetToSeed} />;
       default:
-        return <HomeScreen />;
+        return (
+          <HomeScreen
+            cards={data.walletCards}
+            pointsValue={data.metrics.pointsValue}
+            projectedValue={data.metrics.projectedYearlyValue}
+            onAskRevo={handleAskRevo}
+          />
+        );
     }
-  }, [activeTab]);
+  }, [activeTab, addCardToWallet, availableCardsToAdd, data, resetToSeed, submitPrompt]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -475,7 +434,7 @@ export default function App() {
       <View style={styles.appBackground}>
         <View style={styles.glow} />
         <View style={styles.screenContainer}>{renderedScreen}</View>
-        <BottomNav activeTab={activeTab} onChange={setActiveTab} />
+        {loading ? null : <BottomNav activeTab={activeTab} onChange={setActiveTab} />}
       </View>
     </SafeAreaView>
   );
@@ -560,19 +519,19 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     color: "#edf2ff",
-    fontSize: 48,
+    fontSize: 36,
     fontWeight: "700",
   },
   metricQuestion: {
     color: "#edf2ff",
-    fontSize: 38,
-    lineHeight: 40,
+    fontSize: 29,
+    lineHeight: 36,
     fontWeight: "700",
   },
   metricHint: {
     color: "#91a0cc",
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 16,
+    lineHeight: 22,
     marginTop: 6,
   },
   cardSectionLabel: {
@@ -591,14 +550,14 @@ const styles = StyleSheet.create({
   },
   panelTitle: {
     color: "#edf2ff",
-    fontSize: 42,
-    lineHeight: 48,
+    fontSize: 44,
+    lineHeight: 50,
     fontWeight: "700",
   },
   panelHint: {
     color: "#8f9ecb",
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 16,
+    lineHeight: 22,
     marginBottom: 4,
   },
   walletCard: {
@@ -614,8 +573,8 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   cardPreview: {
-    width: 172,
-    height: 108,
+    width: 118,
+    height: 72,
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -628,7 +587,7 @@ const styles = StyleSheet.create({
   },
   cardPreviewName: {
     color: "#f2f6ff",
-    fontSize: 26,
+    fontSize: 18,
     fontWeight: "500",
   },
   walletCardBody: {
@@ -642,7 +601,7 @@ const styles = StyleSheet.create({
   },
   walletCardName: {
     color: "#edf2ff",
-    fontSize: 40,
+    fontSize: 32,
     fontWeight: "700",
     flexShrink: 1,
   },
@@ -654,7 +613,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: "#e7ecff",
-    fontSize: 24,
+    fontSize: 14,
     fontWeight: "500",
   },
   walletCardSubLabel: {
@@ -665,8 +624,8 @@ const styles = StyleSheet.create({
   },
   walletCardBestUse: {
     color: "#f3f5ff",
-    fontSize: 42,
-    lineHeight: 48,
+    fontSize: 17,
+    lineHeight: 22,
     fontWeight: "600",
   },
   walletFooterRow: {
@@ -683,12 +642,12 @@ const styles = StyleSheet.create({
   },
   multiplierText: {
     color: "#8ef1d4",
-    fontSize: 24,
+    fontSize: 16,
     fontWeight: "700",
   },
   tapHint: {
     color: "#8f9ecb",
-    fontSize: 22,
+    fontSize: 12,
   },
   expandedWrap: {
     borderRadius: 18,
@@ -700,7 +659,7 @@ const styles = StyleSheet.create({
   },
   expandedTitle: {
     color: "#edf2ff",
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: "700",
     marginBottom: 4,
   },
@@ -712,7 +671,7 @@ const styles = StyleSheet.create({
   },
   benefitText: {
     color: "#c2ceee",
-    fontSize: 27,
+    fontSize: 16,
   },
   askRevoButton: {
     borderRadius: 14,
@@ -730,7 +689,7 @@ const styles = StyleSheet.create({
   },
   askRevoText: {
     color: "#edf2ff",
-    fontSize: 30,
+    fontSize: 17,
     fontWeight: "600",
   },
   walletCountCard: {
@@ -767,7 +726,7 @@ const styles = StyleSheet.create({
   },
   addCardText: {
     color: "#98a8d8",
-    fontSize: 28,
+    fontSize: 16,
   },
   searchBar: {
     borderRadius: 18,
@@ -779,7 +738,7 @@ const styles = StyleSheet.create({
   },
   searchPlaceholder: {
     color: "#7584b3",
-    fontSize: 30,
+    fontSize: 16,
   },
   timelineWrap: {
     borderRadius: 24,
@@ -806,24 +765,24 @@ const styles = StyleSheet.create({
   },
   timelinePillText: {
     color: "#edf2ff",
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: "700",
   },
   timelineMonth: {
     color: "#d8e1ff",
-    fontSize: 33,
+    fontSize: 30,
     fontWeight: "600",
     marginTop: 2,
   },
   timelineNote: {
     color: "#8e9bc4",
-    fontSize: 26,
+    fontSize: 16,
     textAlign: "center",
     paddingHorizontal: 16,
   },
   timelineArrow: {
     color: "#7586b8",
-    fontSize: 44,
+    fontSize: 32,
     marginTop: 2,
   },
   recommendationCard: {
@@ -861,7 +820,7 @@ const styles = StyleSheet.create({
   },
   revoHeading: {
     color: "#edf2ff",
-    fontSize: 52,
+    fontSize: 40,
     textAlign: "center",
     fontWeight: "700",
     marginVertical: 10,
@@ -879,7 +838,7 @@ const styles = StyleSheet.create({
   },
   promptText: {
     color: "#d3dcf8",
-    fontSize: 29,
+    fontSize: 16,
   },
   chatPanel: {
     borderRadius: 18,
@@ -891,8 +850,12 @@ const styles = StyleSheet.create({
   },
   chatMessage: {
     color: "#dbe3ff",
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  chatRoleLabel: {
+    color: "#9cb0e8",
+    fontWeight: "700",
   },
   inputDock: {
     borderTopWidth: 1,
@@ -932,7 +895,7 @@ const styles = StyleSheet.create({
   },
   profileValue: {
     color: "#edf2ff",
-    fontSize: 26,
+    fontSize: 16,
     fontWeight: "500",
     textAlign: "right",
     flex: 1,
@@ -947,9 +910,22 @@ const styles = StyleSheet.create({
   },
   reportTitle: {
     color: "#edf2ff",
-    fontSize: 42,
-    lineHeight: 46,
+    fontSize: 31,
+    lineHeight: 36,
     fontWeight: "700",
+  },
+  resetButton: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#2d4176",
+    backgroundColor: "#111d3d",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  resetButtonText: {
+    color: "#dce5ff",
+    fontSize: 15,
+    fontWeight: "600",
   },
   bottomNavWrap: {
     borderTopWidth: 1,
@@ -1000,5 +976,18 @@ const styles = StyleSheet.create({
   navLabelActive: {
     color: "#eef2ff",
     fontWeight: "600",
+  },
+  loadingWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  loadingText: {
+    color: "#dce5ff",
+    fontSize: 14,
+  },
+  disabledCard: {
+    opacity: 0.55,
   },
 });
