@@ -1,5 +1,5 @@
 import { seedCardCatalog, seedMetrics, seedPopularPicks, seedProfile, seedQuickPrompts, seedTimeline, seedWalletCards } from "../data/seed";
-import { AppData, Card, CardStatus, ChatMessage } from "../types/models";
+import { AppData, Card, CardStatus, ChatMessage, Profile } from "../types/models";
 import { supabase } from "./supabaseClient";
 
 type ProfileRow = {

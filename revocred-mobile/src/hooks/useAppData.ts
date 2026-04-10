@@ -154,7 +154,7 @@ export function useAppData(): UseAppDataResult {
     }
 
     try {
-      await appendPromptAndReply(session.user.id, trimmed);
+      await appendPromptAndReply(trimmed);
       const refreshed = await fetchUserAppData(session.user.id);
       setData(refreshed);
     } catch (error) {
