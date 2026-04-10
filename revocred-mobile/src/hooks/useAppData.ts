@@ -83,12 +83,12 @@ export function useAppData(): UseAppDataResult {
       };
     }
 
-    async function loadForCurrentUser() {
+    async function loadForCurrentUser(userId: string) {
       setLoadingData(true);
       setAuthError(null);
       try {
-        await ensureUserBootstrap(session.user.id);
-        const loaded = await fetchUserAppData(session.user.id);
+        await ensureUserBootstrap(userId);
+        const loaded = await fetchUserAppData(userId);
         if (alive) {
           setData(loaded);
         }
@@ -103,7 +103,7 @@ export function useAppData(): UseAppDataResult {
       }
     }
 
-    loadForCurrentUser();
+    loadForCurrentUser(session.user.id);
     return () => {
       alive = false;
     };
