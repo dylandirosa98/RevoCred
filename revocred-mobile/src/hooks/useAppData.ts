@@ -154,7 +154,7 @@ export function useAppData(): UseAppDataResult {
     }
 
     try {
-      await appendPromptAndReply(session.user.id, trimmed, data.profile, data.walletCards, data.metrics.projectedYearlyValue);
+      await appendPromptAndReply(session.user.id, trimmed);
       const refreshed = await fetchUserAppData(session.user.id);
       setData(refreshed);
     } catch (error) {

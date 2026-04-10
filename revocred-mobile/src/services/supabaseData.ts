@@ -1,6 +1,5 @@
 import { seedCardCatalog, seedMetrics, seedPopularPicks, seedProfile, seedQuickPrompts, seedTimeline, seedWalletCards } from "../data/seed";
-import { AppData, Card, CardStatus, ChatMessage, Profile } from "../types/models";
-import { buildRevoReply } from "./storage";
+import { AppData, Card, CardStatus, ChatMessage } from "../types/models";
 import { supabase } from "./supabaseClient";
 
 type ProfileRow = {
@@ -208,22 +207,16 @@ export async function addWalletCardForUser(userId: string, cardId: string, curre
   }
 }
 
-export async function appendPromptAndReply(userId: string, prompt: string, profile: Profile, cards: Card[], projectedYearlyValue: number): Promise<void> {
-  const assistantReply = buildRevoReply(prompt, profile, cards, { pointsValue: 0, projectedYearlyValue });
-  const { error } = await supabase.from("revo_messages").insert([
-    {
-      user_id: userId,
-      role: "user",
-      content: prompt,
-    },
-    {
-      user_id: userId,
-      role: "assistant",
-      content: assistantReply,
-    },
-  ]);
+export async function appendPromptAndReply(prompt: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke("revo-chat", {
+    body: { prompt },
+  });
+
   if (error) {
     throw error;
+  }
+  if (!data?.assistantReply) {
+    throw new Error("No assistant reply returned from revo-chat function.");
   }
 }
 

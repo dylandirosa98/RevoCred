@@ -43,7 +43,28 @@ On first launch:
 - Create account or log in from the in-app auth screen
 - Seed profile/cards/messages are bootstrapped automatically for that user
 
+## 4) Deploy REVO AI function
+
+From `revocred-mobile`:
+
+```bash
+supabase functions deploy revo-chat --project-ref jylwvumrzgihfndpurvq
+```
+
+Set secrets (required):
+
+```bash
+supabase secrets set OPENAI_API_KEY=your-openai-key --project-ref jylwvumrzgihfndpurvq
+```
+
+Optional (if CLI is not already authenticated):
+
+```bash
+supabase login
+```
+
 ## Notes
 
 - Never expose the `service_role` key in mobile code.
 - The app only uses the public anon key.
+- REVO replies are generated server-side by `supabase/functions/revo-chat`.
