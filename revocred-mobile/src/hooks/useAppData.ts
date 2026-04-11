@@ -41,6 +41,13 @@ function toErrorMessage(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
+function requiresBootstrap(error: unknown): boolean {
+  if (error instanceof Error) {
+    return error.message.toLowerCase().includes("profile not found");
+  }
+  return false;
+}
+
 export function useAppData(): UseAppDataResult {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -101,14 +108,32 @@ export function useAppData(): UseAppDataResult {
       setAnalyticsLoading(true);
       setAuthError(null);
       try {
-        await ensureUserBootstrap(userId);
-        // Prioritize core app payload first so users see screens faster after login.
+        // Fast path: fetch existing user payload directly (most logins).
         const loaded = await fetchUserAppData(userId);
         if (alive) {
           setData(loaded);
           setLoadingData(false);
         }
+      } catch (error) {
+        if (requiresBootstrap(error)) {
+          try {
+            await ensureUserBootstrap(userId);
+            const loaded = await fetchUserAppData(userId);
+            if (alive) {
+              setData(loaded);
+              setLoadingData(false);
+            }
+          } catch (bootstrapError) {
+            if (alive) {
+              setAuthError(toErrorMessage(bootstrapError));
+            }
+          }
+        } else if (alive) {
+          setAuthError(toErrorMessage(error));
+        }
+      }
 
+      try {
         const analytics = await fetchRevoAnalyticsSummary(userId);
         if (alive) {
           setAnalyticsSummary(analytics);
