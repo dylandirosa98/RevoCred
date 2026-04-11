@@ -102,9 +102,15 @@ export function useAppData(): UseAppDataResult {
       setAuthError(null);
       try {
         await ensureUserBootstrap(userId);
-        const [loaded, analytics] = await Promise.all([fetchUserAppData(userId), fetchRevoAnalyticsSummary(userId)]);
+        // Prioritize core app payload first so users see screens faster after login.
+        const loaded = await fetchUserAppData(userId);
         if (alive) {
           setData(loaded);
+          setLoadingData(false);
+        }
+
+        const analytics = await fetchRevoAnalyticsSummary(userId);
+        if (alive) {
           setAnalyticsSummary(analytics);
         }
       } catch (error) {
