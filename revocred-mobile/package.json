@@ -6,7 +6,10 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:android:preview": "npx eas-cli build --platform android --profile preview",
+    "build:ios:testflight": "npx eas-cli build --platform ios --profile testflight",
+    "submit:ios:testflight": "npx eas-cli submit --platform ios --profile testflight"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

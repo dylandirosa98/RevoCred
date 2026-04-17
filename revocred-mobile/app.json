@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "revocred-mobile",
+    "name": "RevoCred",
     "slug": "revocred-mobile",
     "version": "1.0.0",
+    "scheme": "revocred",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,13 +14,15 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.revocred.mobile"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.revocred.mobile",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
