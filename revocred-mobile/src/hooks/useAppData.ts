@@ -8,6 +8,7 @@ import {
   fetchUserAppData,
   resetUserData,
 } from "../services/supabaseData";
+import { seedAppData } from "../data/seed";
 import { supabase } from "../services/supabaseClient";
 import { AppData, Card, RevoAnalyticsSummary } from "../types/models";
 
@@ -46,6 +47,10 @@ function requiresBootstrap(error: unknown): boolean {
     return error.message.toLowerCase().includes("profile not found");
   }
   return false;
+}
+
+function cloneSeedAppData(): AppData {
+  return JSON.parse(JSON.stringify(seedAppData)) as AppData;
 }
 
 export function useAppData(): UseAppDataResult {
@@ -104,15 +109,20 @@ export function useAppData(): UseAppDataResult {
     }
 
     async function loadForCurrentUser(userId: string) {
-      setLoadingData(true);
       setAnalyticsLoading(true);
       setAuthError(null);
+
+      // Render a local-first shell instantly while cloud sync catches up.
+      if (alive) {
+        setData((current) => current ?? cloneSeedAppData());
+        setLoadingData(false);
+      }
+
       try {
         // Fast path: fetch existing user payload directly (most logins).
         const loaded = await fetchUserAppData(userId);
         if (alive) {
           setData(loaded);
-          setLoadingData(false);
         }
       } catch (error) {
         if (requiresBootstrap(error)) {
@@ -121,7 +131,6 @@ export function useAppData(): UseAppDataResult {
             const loaded = await fetchUserAppData(userId);
             if (alive) {
               setData(loaded);
-              setLoadingData(false);
             }
           } catch (bootstrapError) {
             if (alive) {
@@ -144,7 +153,6 @@ export function useAppData(): UseAppDataResult {
         }
       } finally {
         if (alive) {
-          setLoadingData(false);
           setAnalyticsLoading(false);
         }
       }
