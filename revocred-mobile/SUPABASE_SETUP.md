@@ -81,4 +81,16 @@ supabase secrets set OPENAI_MODEL=gpt-4o-mini --project-ref jylwvumrzgihfndpurvq
 - The app only uses the public anon key.
 - REVO replies are generated server-side by `supabase/functions/revo-chat`.
 - REVO now includes rate limiting, prompt guardrails, and usage logs for monitoring.
+
+## Observability setup (analytics + crash monitoring)
+
+The app now supports PostHog analytics and Sentry crash monitoring.
+
+Add these to your local `.env` (optional in dev, recommended for launch):
+
+- `EXPO_PUBLIC_POSTHOG_API_KEY`
+- `EXPO_PUBLIC_POSTHOG_HOST` (defaults to `https://us.i.posthog.com`)
+- `EXPO_PUBLIC_SENTRY_DSN`
+
+If keys are not provided, the app keeps running with no-op tracking.
 - Profile screen now includes a live analytics panel (24h summary) sourced from `revo_usage_logs`.

@@ -9,6 +9,7 @@ import {
   resetUserData,
 } from "../services/supabaseData";
 import { seedAppData } from "../data/seed";
+import { captureError, identifyUser, resetUserIdentity, trackEvent } from "../services/observability";
 import { supabase } from "../services/supabaseClient";
 import { AppData, Card, RevoAnalyticsSummary } from "../types/models";
 
@@ -72,6 +73,9 @@ export function useAppData(): UseAppDataResult {
       if (alive) {
         setSession(currentSession);
         setAuthReady(true);
+        trackEvent("auth.bootstrap.completed", {
+          hasActiveSession: Boolean(currentSession),
+        });
       }
     }
 
@@ -138,6 +142,9 @@ export function useAppData(): UseAppDataResult {
             }
           }
         } else if (alive) {
+          captureError(error, "loadForCurrentUser.fetchUserAppData", {
+            userId,
+          });
           setAuthError(toErrorMessage(error));
         }
       }
@@ -149,6 +156,9 @@ export function useAppData(): UseAppDataResult {
         }
       } catch (error) {
         if (alive) {
+          captureError(error, "loadForCurrentUser.fetchRevoAnalyticsSummary", {
+            userId,
+          });
           setAuthError(toErrorMessage(error));
         }
       } finally {
@@ -172,9 +182,14 @@ export function useAppData(): UseAppDataResult {
     });
     if (error) {
       const message = error.message;
+      trackEvent("auth.sign_in.failed", {
+        reason: message,
+      });
       setAuthError(message);
       return { ok: false, error: message };
     }
+    trackEvent("auth.sign_in.succeeded");
+    identifyUser(email.trim(), email.trim());
     return { ok: true };
   };
 
@@ -186,19 +201,27 @@ export function useAppData(): UseAppDataResult {
     });
     if (error) {
       const message = error.message;
+      trackEvent("auth.sign_up.failed", {
+        reason: message,
+      });
       setAuthError(message);
       return { ok: false, error: message };
     }
 
     if (!signUpData.session) {
+      trackEvent("auth.sign_up.pending_confirmation");
       return { ok: true, message: "Check your email to confirm your account, then log in." };
     }
 
+    trackEvent("auth.sign_up.succeeded");
+    identifyUser(email.trim(), email.trim());
     return { ok: true };
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    trackEvent("auth.sign_out");
+    resetUserIdentity();
     setData(null);
     setAnalyticsSummary(null);
   };
@@ -211,7 +234,10 @@ export function useAppData(): UseAppDataResult {
     try {
       const analytics = await fetchRevoAnalyticsSummary(session.user.id);
       setAnalyticsSummary(analytics);
+      trackEvent("analytics.refresh.succeeded");
     } catch (error) {
+      captureError(error, "refreshAnalytics.fetchRevoAnalyticsSummary");
+      trackEvent("analytics.refresh.failed");
       setAuthError(toErrorMessage(error));
     } finally {
       setAnalyticsLoading(false);
@@ -232,7 +258,12 @@ export function useAppData(): UseAppDataResult {
       ]);
       setData(refreshed);
       setAnalyticsSummary(analytics);
+      trackEvent("revo.prompt.submitted", {
+        promptChars: trimmed.length,
+      });
     } catch (error) {
+      captureError(error, "submitPrompt");
+      trackEvent("revo.prompt.failed");
       setAuthError(toErrorMessage(error));
     }
   };
@@ -260,7 +291,16 @@ export function useAppData(): UseAppDataResult {
       ]);
       setData(refreshed);
       setAnalyticsSummary(analytics);
+      trackEvent("wallet.card_added", {
+        cardId,
+      });
     } catch (error) {
+      captureError(error, "addCardToWallet", {
+        cardId,
+      });
+      trackEvent("wallet.card_add_failed", {
+        cardId,
+      });
       setAuthError(toErrorMessage(error));
     }
   };
@@ -277,7 +317,10 @@ export function useAppData(): UseAppDataResult {
       ]);
       setData(refreshed);
       setAnalyticsSummary(analytics);
+      trackEvent("app.reset_demo_data");
     } catch (error) {
+      captureError(error, "resetToSeed");
+      trackEvent("app.reset_demo_data_failed");
       setAuthError(toErrorMessage(error));
     }
   };

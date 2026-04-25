@@ -1,7 +1,8 @@
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppData } from "./src/hooks/useAppData";
+import { initializeObservability, trackEvent, trackScreenView } from "./src/services/observability";
 import { Card, ChatMessage, Profile, Recommendation, RevoAnalyticsSummary, TabKey } from "./src/types/models";
 
 function topCardColor(cardId: string): string {
@@ -531,6 +532,20 @@ export default function App() {
     setActiveTab("REVO");
     void submitPrompt(prompt);
   };
+
+  useEffect(() => {
+    initializeObservability();
+    trackEvent("app_loaded", {
+      source: "mobile",
+    });
+  }, []);
+
+  useEffect(() => {
+    trackScreenView(activeTab);
+    trackEvent("tab_viewed", {
+      tab: activeTab,
+    });
+  }, [activeTab]);
 
   const renderedScreen = useMemo(() => {
     if (!data) {
