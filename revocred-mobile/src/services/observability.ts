@@ -14,6 +14,7 @@ type PostHogLike = {
 
 type EventProps = Record<string, JsonType | undefined>;
 
+const observabilityEnabled = process.env.EXPO_PUBLIC_ENABLE_OBSERVABILITY === "true";
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
 const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
@@ -63,6 +64,9 @@ function sanitizeProperties(properties?: EventProps): Record<string, JsonType> |
 }
 
 export function initializeObservability(): void {
+  if (!observabilityEnabled) {
+    return;
+  }
   if (isInitialized) {
     return;
   }
@@ -110,6 +114,9 @@ export function initializeObservability(): void {
 }
 
 export function identifyUser(distinctId: string, email?: string | null): void {
+  if (!observabilityEnabled) {
+    return;
+  }
   initializeObservability();
   if (sentryEnabled && sentry) {
     sentry.setUser({
@@ -124,6 +131,9 @@ export function identifyUser(distinctId: string, email?: string | null): void {
 }
 
 export function resetUserIdentity(): void {
+  if (!observabilityEnabled) {
+    return;
+  }
   initializeObservability();
   if (sentryEnabled && sentry) {
     sentry.setUser(null);
@@ -135,6 +145,9 @@ export function resetUserIdentity(): void {
 }
 
 export function trackEvent(event: string, properties?: EventProps): void {
+  if (!observabilityEnabled) {
+    return;
+  }
   initializeObservability();
   if (!posthog) {
     return;
@@ -151,6 +164,9 @@ export function trackScreenView(screenName: string): void {
 }
 
 export function captureException(error: unknown, metadata?: EventProps): void {
+  if (!observabilityEnabled) {
+    return;
+  }
   initializeObservability();
   const message = error instanceof Error ? error.message : String(error);
   const contextValue = metadata?.context;
@@ -171,6 +187,9 @@ export function captureException(error: unknown, metadata?: EventProps): void {
 }
 
 export function captureError(error: unknown, context?: string, metadata?: EventProps): void {
+  if (!observabilityEnabled) {
+    return;
+  }
   captureException(error, {
     context,
     ...metadata,
