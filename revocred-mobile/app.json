@@ -36,6 +36,9 @@
       "eas": {
         "projectId": "b1754f32-0996-489b-8c6d-4dd9185a6616"
       }
-    }
+    },
+    "plugins": [
+      "@sentry/react-native"
+    ]
   }
 }
