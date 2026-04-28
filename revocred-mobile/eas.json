@@ -16,11 +16,17 @@
     },
     "testflight": {
       "distribution": "store",
+      "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      },
       "ios": {
         "autoIncrement": true
       }
     },
     "production": {
+      "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      },
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
