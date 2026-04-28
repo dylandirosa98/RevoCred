@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Animated, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppData } from "./src/hooks/useAppData";
 import { initializeObservability, trackEvent, trackScreenView } from "./src/services/observability";
 import { Card, ChatMessage, Profile, Recommendation, RevoAnalyticsSummary, TabKey } from "./src/types/models";
@@ -22,9 +22,11 @@ function topCardColor(cardId: string): string {
 
 function CardPreview({ card }: { card: Card }) {
   return (
-    <View style={[styles.cardPreview, { backgroundColor: topCardColor(card.id) }]}>
-      <Text style={styles.cardPreviewBrand}>{card.brand}</Text>
-      <Text style={styles.cardPreviewName}>{card.name}</Text>
+    <View style={styles.cardFlipContainer}>
+      <View style={[styles.cardPreview, { backgroundColor: topCardColor(card.id) }]}>
+        <Text style={styles.cardPreviewBrand}>{card.brand}</Text>
+        <Text style={styles.cardPreviewName}>{card.name}</Text>
+      </View>
     </View>
   );
 }
@@ -38,10 +40,68 @@ function WalletCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const flipProgress = useRef(new Animated.Value(expanded ? 180 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(flipProgress, {
+      toValue: expanded ? 180 : 0,
+      friction: 8,
+      tension: 70,
+      useNativeDriver: true,
+    }).start();
+  }, [expanded, flipProgress]);
+
+  const frontRotation = flipProgress.interpolate({
+    inputRange: [0, 180],
+    outputRange: ["0deg", "180deg"],
+  });
+
+  const backRotation = flipProgress.interpolate({
+    inputRange: [0, 180],
+    outputRange: ["180deg", "360deg"],
+  });
+
+  const frontOpacity = flipProgress.interpolate({
+    inputRange: [0, 89, 90, 180],
+    outputRange: [1, 1, 0, 0],
+  });
+
+  const backOpacity = flipProgress.interpolate({
+    inputRange: [0, 89, 90, 180],
+    outputRange: [0, 0, 1, 1],
+  });
+
   return (
     <Pressable onPress={onToggle} style={styles.walletCard}>
       <View style={styles.walletCardTopRow}>
-        <CardPreview card={card} />
+        <View style={styles.cardFlipContainer}>
+          <Animated.View
+            style={[
+              styles.cardPreview,
+              styles.cardFlipFace,
+              { backgroundColor: topCardColor(card.id), opacity: frontOpacity, transform: [{ perspective: 1000 }, { rotateY: frontRotation }] },
+            ]}
+          >
+            <Text style={styles.cardPreviewBrand}>{card.brand}</Text>
+            <Text style={styles.cardPreviewName}>{card.name}</Text>
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.cardPreview,
+              styles.cardPreviewBack,
+              styles.cardFlipFace,
+              { opacity: backOpacity, transform: [{ perspective: 1000 }, { rotateY: backRotation }] },
+            ]}
+          >
+            <Text style={styles.cardPreviewBackLabel}>TOP VALUE</Text>
+            <Text numberOfLines={1} style={styles.cardPreviewBackLine}>
+              {card.benefits[0] ?? card.bestUse}
+            </Text>
+            <Text numberOfLines={1} style={styles.cardPreviewBackLineMuted}>
+              {card.multiplier}
+            </Text>
+          </Animated.View>
+        </View>
         <View style={styles.walletCardBody}>
           <View style={styles.walletCardHeader}>
             <Text style={styles.walletCardName}>{card.name}</Text>
@@ -768,12 +828,30 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   cardPreview: {
-    width: 118,
-    height: 72,
+    width: "100%",
+    height: "100%",
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 12,
     justifyContent: "space-between",
+  },
+  cardFlipContainer: {
+    width: 118,
+    height: 72,
+    position: "relative",
+  },
+  cardFlipFace: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backfaceVisibility: "hidden",
+  },
+  cardPreviewBack: {
+    backgroundColor: "#0e1a38",
+    borderWidth: 1,
+    borderColor: "#34487e",
   },
   cardPreviewBrand: {
     color: "#dce6ff",
@@ -784,6 +862,22 @@ const styles = StyleSheet.create({
     color: "#f2f6ff",
     fontSize: 18,
     fontWeight: "500",
+  },
+  cardPreviewBackLabel: {
+    color: "#8fa3d9",
+    fontSize: 9,
+    letterSpacing: 2,
+    fontWeight: "700",
+  },
+  cardPreviewBackLine: {
+    color: "#eef3ff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  cardPreviewBackLineMuted: {
+    color: "#8ef1d4",
+    fontSize: 11,
+    fontWeight: "700",
   },
   walletCardBody: {
     flex: 1,
