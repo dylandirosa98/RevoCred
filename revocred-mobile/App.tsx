@@ -73,66 +73,67 @@ function WalletCard({
 
   return (
     <Pressable onPress={onToggle} style={styles.walletCard}>
-      <View style={styles.walletCardTopRow}>
-        <View style={styles.cardFlipContainer}>
-          <Animated.View
-            style={[
-              styles.cardPreview,
-              styles.cardFlipFace,
-              { backgroundColor: topCardColor(card.id), opacity: frontOpacity, transform: [{ perspective: 1000 }, { rotateY: frontRotation }] },
-            ]}
-          >
-            <Text style={styles.cardPreviewBrand}>{card.brand}</Text>
-            <Text style={styles.cardPreviewName}>{card.name}</Text>
-          </Animated.View>
-          <Animated.View
-            style={[
-              styles.cardPreview,
-              styles.cardPreviewBack,
-              styles.cardFlipFace,
-              { opacity: backOpacity, transform: [{ perspective: 1000 }, { rotateY: backRotation }] },
-            ]}
-          >
-            <Text style={styles.cardPreviewBackLabel}>TOP VALUE</Text>
-            <Text numberOfLines={1} style={styles.cardPreviewBackLine}>
-              {card.benefits[0] ?? card.bestUse}
-            </Text>
-            <Text numberOfLines={1} style={styles.cardPreviewBackLineMuted}>
-              {card.multiplier}
-            </Text>
-          </Animated.View>
-        </View>
-        <View style={styles.walletCardBody}>
-          <View style={styles.walletCardHeader}>
-            <Text style={styles.walletCardName}>{card.name}</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{card.status}</Text>
+      <View style={styles.walletCardFlipFrame}>
+        <Animated.View
+          style={[
+            styles.walletCardFace,
+            {
+              opacity: frontOpacity,
+              transform: [{ perspective: 1000 }, { rotateY: frontRotation }],
+            },
+          ]}
+        >
+          <View style={styles.walletCardTopRow}>
+            <View style={[styles.cardPreview, { backgroundColor: topCardColor(card.id) }]}>
+              <Text style={styles.cardPreviewBrand}>{card.brand}</Text>
+              <Text style={styles.cardPreviewName}>{card.name}</Text>
+            </View>
+            <View style={styles.walletCardBody}>
+              <View style={styles.walletCardHeader}>
+                <Text style={styles.walletCardName}>{card.name}</Text>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{card.status}</Text>
+                </View>
+              </View>
+              <Text style={styles.walletCardSubLabel}>BEST USE</Text>
+              <Text style={styles.walletCardBestUse}>{card.bestUse}</Text>
             </View>
           </View>
-          <Text style={styles.walletCardSubLabel}>BEST USE</Text>
-          <Text style={styles.walletCardBestUse}>{card.bestUse}</Text>
           <View style={styles.walletFooterRow}>
             <View style={styles.multiplierBubble}>
               <Text style={styles.multiplierText}>{card.multiplier}</Text>
             </View>
-            <Text style={styles.tapHint}>{expanded ? "Tap to return" : "Tap to flip"}</Text>
+            <Text style={styles.tapHint}>Tap to flip</Text>
           </View>
-        </View>
-      </View>
-      {expanded ? (
-        <View style={styles.expandedWrap}>
-          <Text style={styles.expandedTitle}>Key Benefits</Text>
-          {card.benefits.map((benefit) => (
-            <View key={`${card.id}-${benefit}`} style={styles.benefitPill}>
-              <Text style={styles.benefitText}>{benefit}</Text>
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.walletCardFace,
+            styles.walletCardFaceBack,
+            {
+              opacity: backOpacity,
+              transform: [{ perspective: 1000 }, { rotateY: backRotation }],
+            },
+          ]}
+        >
+          <View style={styles.walletCardBackBody}>
+            <Text style={styles.expandedTitle}>Key Benefits</Text>
+            <View style={styles.walletCardBackBenefits}>
+              {card.benefits.map((benefit) => (
+                <View key={`${card.id}-${benefit}`} style={styles.benefitPill}>
+                  <Text style={styles.benefitText}>{benefit}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-          <Pressable style={styles.askRevoButton}>
-            <Text style={styles.askRevoLabel}>ASK REVO</Text>
-            <Text style={styles.askRevoText}>Ask REVO about {card.name}</Text>
-          </Pressable>
-        </View>
-      ) : null}
+            <Pressable style={styles.askRevoButton}>
+              <Text style={styles.askRevoLabel}>ASK REVO</Text>
+              <Text style={styles.askRevoText}>Ask REVO about {card.name}</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.tapHint}>Tap to return</Text>
+        </Animated.View>
+      </View>
     </Pressable>
   );
 }
@@ -826,6 +827,34 @@ const styles = StyleSheet.create({
   walletCardTopRow: {
     flexDirection: "row",
     gap: 14,
+  },
+  walletCardFlipFrame: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#2b3d6f",
+    backgroundColor: "#101d3d",
+    padding: 14,
+    gap: 10,
+    minHeight: 220,
+    position: "relative",
+  },
+  walletCardFace: {
+    position: "absolute",
+    top: 14,
+    right: 14,
+    bottom: 14,
+    left: 14,
+    backfaceVisibility: "hidden",
+  },
+  walletCardFaceBack: {
+    justifyContent: "space-between",
+  },
+  walletCardBackBody: {
+    flex: 1,
+  },
+  walletCardBackBenefits: {
+    gap: 9,
+    marginTop: 4,
   },
   cardPreview: {
     width: "100%",
