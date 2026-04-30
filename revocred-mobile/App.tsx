@@ -5,18 +5,52 @@ import { useAppData } from "./src/hooks/useAppData";
 import { initializeObservability, trackEvent, trackScreenView } from "./src/services/observability";
 import { Card, ChatMessage, Profile, Recommendation, RevoAnalyticsSummary, TabKey } from "./src/types/models";
 
+const palette = {
+  background: "#060B17",
+  surface: "#0D152B",
+  surfaceRaised: "#121D38",
+  border: "#253354",
+  textPrimary: "#EEF3FF",
+  textSecondary: "#9BA8CC",
+  accent: "#6F8BFF",
+  success: "#39D7A7",
+  warning: "#FFB45E",
+};
+
+const spacing = {
+  xs: 8,
+  sm: 16,
+  md: 24,
+  lg: 32,
+};
+
+const radii = {
+  sm: 12,
+  md: 16,
+  lg: 24,
+};
+
+const typeScale = {
+  xs: 12,
+  sm: 14,
+  base: 16,
+  lg: 20,
+  xl: 28,
+  hero: 36,
+};
+
 function topCardColor(cardId: string): string {
   switch (cardId) {
     case "amex-gold":
-      return "#D0B163";
+      return "#B68B3A";
     case "venture-x":
-      return "#2E365E";
+      return "#2A355A";
     case "freedom-unlimited":
-      return "#3F62E0";
+      return "#3554BF";
     case "freedom-flex":
-      return "#A347D7";
+      return "#7B44C9";
     default:
-      return "#293657";
+      return "#2B3656";
   }
 }
 
@@ -239,28 +273,30 @@ function HomeScreen({
       </View>
       <Text style={styles.welcomeText}>Welcome back, Javed</Text>
 
-      <View style={styles.topCardRow}>
-        <View style={[styles.metricCard, styles.metricCardHalf]}>
-          <Text style={styles.cardSectionLabel}>POINTS VALUE</Text>
-          <Text style={styles.metricValue}>${pointsValue}</Text>
-          <Text style={styles.metricHint}>Based on your active balances</Text>
+      <View style={styles.homeHeroCard}>
+        <Text style={styles.cardSectionLabel}>COMMAND CENTER</Text>
+        <View style={styles.heroMetricsRow}>
+          <View style={styles.heroMetricBlock}>
+            <Text style={styles.heroMetricValue}>${pointsValue}</Text>
+            <Text style={styles.heroMetricLabel}>Points value</Text>
+          </View>
+          <View style={styles.heroMetricDivider} />
+          <View style={styles.heroMetricBlock}>
+            <Text style={styles.heroMetricValue}>${projectedValue}</Text>
+            <Text style={styles.heroMetricLabel}>Projected yearly value</Text>
+          </View>
         </View>
-        <Pressable style={[styles.metricCard, styles.metricCardHalf]} onPress={() => onAskRevo("What card should I use right now?")}>
-          <Text style={styles.cardSectionLabel}>ASK REVO</Text>
-          <Text style={styles.metricQuestion}>Get your next best move</Text>
-          <Text style={styles.metricHint}>What card should I use right now?</Text>
-        </Pressable>
       </View>
 
-      <View style={styles.metricCard}>
-        <Text style={styles.cardSectionLabel}>PROJECTED VALUE</Text>
-        <Text style={styles.metricQuestion}>${projectedValue} this year</Text>
-        <Text style={styles.metricHint}>Estimated using your current card setup and balances</Text>
-      </View>
+      <Pressable style={styles.heroActionCard} onPress={() => onAskRevo("What card should I use right now?")}>
+        <Text style={styles.cardSectionLabel}>NEXT BEST ACTION</Text>
+        <Text style={styles.heroActionTitle}>Ask REVO what to use now</Text>
+        <Text style={styles.metricHint}>Get an instant recommendation based on your wallet setup.</Text>
+      </Pressable>
 
       <View style={styles.panelSection}>
         <Text style={styles.cardSectionLabel}>OVERVIEW</Text>
-        <Text style={styles.panelTitle}>Your Card Setup</Text>
+        <Text style={styles.screenSectionTitle}>Your Card Setup</Text>
         <Text style={styles.panelHint}>Tap any card to flip it and view why it matters in your strategy.</Text>
         {overviewCards.map((card) => (
           <WalletCard
@@ -292,11 +328,11 @@ function CardsScreen({
       <View style={styles.screenHeader}>
         <Text style={styles.cardSectionLabel}>CARDS</Text>
         <View style={styles.walletCountCard}>
-          <Text style={styles.cardSectionLabel}>WALLET</Text>
-          <Text style={styles.walletCountValue}>{cards.length} active{"\n"}cards</Text>
+          <Text style={styles.cardSectionLabel}>ACTIVE</Text>
+          <Text style={styles.walletCountValue}>{cards.length} cards</Text>
         </View>
       </View>
-      <Text style={styles.panelTitle}>Your Card Setup</Text>
+      <Text style={styles.screenSectionTitle}>Your Card Setup</Text>
       <Text style={styles.panelHint}>Tap any card to flip it and view the key benefits behind your setup.</Text>
       {cards.map((card) => (
         <WalletCard
@@ -345,7 +381,7 @@ function StrategyScreen({
         <Text style={styles.searchPlaceholder}>Search credit cards...</Text>
       </View>
 
-      <Text style={styles.panelTitle}>Your Timeline</Text>
+      <Text style={styles.screenSectionTitle}>Your Timeline</Text>
       <Text style={styles.panelHint}>Build your setup step by step</Text>
 
       <View style={styles.timelineWrap}>
@@ -371,7 +407,7 @@ function StrategyScreen({
                 <CardPreview card={card} />
                 <View style={styles.recommendationMeta}>
                   <Text style={styles.recommendationBrand}>{card.brand}</Text>
-                  <Text style={styles.walletCardName}>{card.name}</Text>
+                  <Text style={styles.recommendationName}>{card.name}</Text>
                 </View>
                 <Text style={styles.chevron}>{isOpen ? "˄" : "›"}</Text>
               </View>
@@ -406,46 +442,78 @@ function RevoScreen({
   onSubmitPrompt: (prompt: string) => Promise<void>;
 }) {
   const [question, setQuestion] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
 
   const submitPrompt = async (prompt: string) => {
     if (!prompt.trim()) {
       return;
     }
-    await onSubmitPrompt(prompt);
-    setQuestion("");
+    setIsThinking(true);
+    try {
+      await onSubmitPrompt(prompt);
+      setQuestion("");
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   return (
     <View style={styles.revoWrap}>
       <ScrollView contentContainerStyle={styles.screenBody}>
-        <Text style={styles.revoHeading}>Let's maximize</Text>
-        <Text style={styles.cardSectionLabel}>TRY ASKING</Text>
-        {quickPrompts.map((prompt) => (
-          <Pressable key={prompt} style={styles.promptButton} onPress={() => void submitPrompt(prompt)}>
-            <Text style={styles.promptText}>{prompt}</Text>
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
-        ))}
+        <Text style={styles.revoHeading}>Ask REVO</Text>
+        <Text style={styles.panelHint}>AI recommendations for every swipe, transfer, and spend moment.</Text>
+
+        <View style={styles.promptChipWrap}>
+          {quickPrompts.map((prompt) => (
+            <Pressable key={prompt} style={styles.promptChip} onPress={() => void submitPrompt(prompt)}>
+              <Text style={styles.promptChipText}>{prompt}</Text>
+            </Pressable>
+          ))}
+        </View>
+
         {messages.length ? (
           <View style={styles.chatPanel}>
             {messages.map((message, index) => (
-              <Text key={`${message.id}-${index}`} style={styles.chatMessage}>
-                <Text style={styles.chatRoleLabel}>{message.role === "user" ? "You: " : "REVO: "}</Text>
-                {message.content}
-              </Text>
+              <View
+                key={`${message.id}-${index}`}
+                style={[styles.chatBubble, message.role === "user" ? styles.chatBubbleUser : styles.chatBubbleAssistant]}
+              >
+                <Text style={[styles.chatBubbleText, message.role === "user" ? styles.chatBubbleTextUser : styles.chatBubbleTextAssistant]}>
+                  {message.content}
+                </Text>
+              </View>
             ))}
+            {isThinking ? (
+              <View style={[styles.chatBubble, styles.chatBubbleAssistant]}>
+                <Text style={[styles.chatBubbleText, styles.chatBubbleTextAssistant]}>REVO is thinking...</Text>
+              </View>
+            ) : null}
           </View>
-        ) : null}
+        ) : (
+          <View style={styles.emptyStateCard}>
+            <Text style={styles.emptyStateTitle}>No conversation yet</Text>
+            <Text style={styles.emptyStateText}>Tap a prompt or ask REVO your next card move.</Text>
+          </View>
+        )}
       </ScrollView>
       <View style={styles.inputDock}>
-        <TextInput
-          value={question}
-          onChangeText={setQuestion}
-          placeholder="Ask REVO anything..."
-          placeholderTextColor="#6d7aab"
-          style={styles.input}
-          onSubmitEditing={() => void submitPrompt(question)}
-        />
+        <View style={styles.inputRow}>
+          <TextInput
+            value={question}
+            onChangeText={setQuestion}
+            placeholder="Ask REVO anything..."
+            placeholderTextColor="#6d7aab"
+            style={styles.input}
+            onSubmitEditing={() => void submitPrompt(question)}
+          />
+          <Pressable
+            style={[styles.sendButton, isThinking ? styles.disabledCard : undefined]}
+            onPress={() => void submitPrompt(question)}
+            disabled={isThinking}
+          >
+            <Text style={styles.sendButtonText}>{isThinking ? "..." : "Send"}</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -468,6 +536,17 @@ function ProfileScreen({
   onResetDemo: () => Promise<void>;
   onSignOut: () => Promise<void>;
 }) {
+  const successRate = analyticsSummary?.successRate ?? 0;
+  const rateLimitedRate = analyticsSummary
+    ? Math.min(100, Math.round((analyticsSummary.rateLimitedCount / Math.max(analyticsSummary.last24hRequests, 1)) * 100))
+    : 0;
+  const providerErrorRate = analyticsSummary
+    ? Math.min(100, Math.round((analyticsSummary.providerErrorCount / Math.max(analyticsSummary.last24hRequests, 1)) * 100))
+    : 0;
+  const guardrailRate = analyticsSummary
+    ? Math.min(100, Math.round((analyticsSummary.guardrailBlockedCount / Math.max(analyticsSummary.last24hRequests, 1)) * 100))
+    : 0;
+
   const profileRows = [
     { key: "Name", value: profile.name },
     { key: "Credit Card Strategy", value: profile.creditCardStrategy },
@@ -480,7 +559,7 @@ function ProfileScreen({
   return (
     <ScrollView contentContainerStyle={styles.screenBody}>
       <Text style={styles.cardSectionLabel}>PROFILE</Text>
-      <Text style={styles.panelTitle}>Javed Saliman</Text>
+      <Text style={styles.screenSectionTitle}>Javed Saliman</Text>
       <View style={styles.panelSection}>
         {profileRows.map((row) => (
           <View key={row.key} style={styles.profileRow}>
@@ -503,35 +582,46 @@ function ProfileScreen({
         </View>
         {analyticsSummary ? (
           <>
-            <View style={styles.analyticsGrid}>
-              <View style={styles.analyticsTile}>
+            <View style={styles.analyticsSummaryRow}>
+              <View style={styles.analyticsSummaryPill}>
                 <Text style={styles.analyticsTileLabel}>Requests</Text>
                 <Text style={styles.analyticsTileValue}>{analyticsSummary.last24hRequests}</Text>
               </View>
-              <View style={styles.analyticsTile}>
-                <Text style={styles.analyticsTileLabel}>Success Rate</Text>
-                <Text style={styles.analyticsTileValue}>{analyticsSummary.successRate}%</Text>
-              </View>
-            </View>
-            <View style={styles.analyticsGrid}>
-              <View style={styles.analyticsTile}>
-                <Text style={styles.analyticsTileLabel}>Rate Limited</Text>
-                <Text style={styles.analyticsTileValue}>{analyticsSummary.rateLimitedCount}</Text>
-              </View>
-              <View style={styles.analyticsTile}>
-                <Text style={styles.analyticsTileLabel}>Provider Errors</Text>
-                <Text style={styles.analyticsTileValue}>{analyticsSummary.providerErrorCount}</Text>
-              </View>
-            </View>
-            <View style={styles.analyticsGrid}>
-              <View style={styles.analyticsTile}>
-                <Text style={styles.analyticsTileLabel}>Guardrail Blocks</Text>
-                <Text style={styles.analyticsTileValue}>{analyticsSummary.guardrailBlockedCount}</Text>
-              </View>
-              <View style={styles.analyticsTile}>
+              <View style={styles.analyticsSummaryPill}>
                 <Text style={styles.analyticsTileLabel}>Avg Latency</Text>
                 <Text style={styles.analyticsTileValue}>{analyticsSummary.averageLatencyMs}ms</Text>
               </View>
+            </View>
+            <View style={styles.analyticsStatRow}>
+              <Text style={styles.analyticsStatLabel}>Success rate</Text>
+              <Text style={styles.analyticsStatValue}>{successRate}%</Text>
+            </View>
+            <View style={styles.analyticsProgressTrack}>
+              <View style={[styles.analyticsProgressFill, { width: `${Math.max(successRate, 6)}%` }]} />
+            </View>
+
+            <View style={styles.analyticsStatRow}>
+              <Text style={styles.analyticsStatLabel}>Rate limited</Text>
+              <Text style={styles.analyticsStatValue}>{analyticsSummary.rateLimitedCount} ({rateLimitedRate}%)</Text>
+            </View>
+            <View style={styles.analyticsProgressTrack}>
+              <View style={[styles.analyticsProgressFillMuted, { width: `${Math.max(rateLimitedRate, 4)}%` }]} />
+            </View>
+
+            <View style={styles.analyticsStatRow}>
+              <Text style={styles.analyticsStatLabel}>Provider errors</Text>
+              <Text style={styles.analyticsStatValue}>{analyticsSummary.providerErrorCount} ({providerErrorRate}%)</Text>
+            </View>
+            <View style={styles.analyticsProgressTrack}>
+              <View style={[styles.analyticsProgressFillMuted, { width: `${Math.max(providerErrorRate, 4)}%` }]} />
+            </View>
+
+            <View style={styles.analyticsStatRow}>
+              <Text style={styles.analyticsStatLabel}>Guardrail blocks</Text>
+              <Text style={styles.analyticsStatValue}>{analyticsSummary.guardrailBlockedCount} ({guardrailRate}%)</Text>
+            </View>
+            <View style={styles.analyticsProgressTrack}>
+              <View style={[styles.analyticsProgressFillMuted, { width: `${Math.max(guardrailRate, 4)}%` }]} />
             </View>
             <Text style={styles.analyticsFootnote}>Latest status: {analyticsSummary.latestStatus}</Text>
           </>
@@ -550,19 +640,21 @@ function ProfileScreen({
 }
 
 function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab: TabKey) => void }) {
-  const tabs: TabKey[] = ["Home", "Cards", "Strategy", "REVO", "Profile"];
+  const tabs: Array<{ key: TabKey; icon: string; label: string }> = [
+    { key: "Home", icon: "H", label: "Home" },
+    { key: "Cards", icon: "C", label: "Cards" },
+    { key: "Strategy", icon: "S", label: "Strategy" },
+    { key: "REVO", icon: "R", label: "REVO" },
+    { key: "Profile", icon: "P", label: "Profile" },
+  ];
 
   return (
     <View style={styles.bottomNavWrap}>
-      <View style={styles.bottomDotsRow}>
+      <View style={styles.bottomTabsPill}>
         {tabs.map((tab) => (
-          <View key={`${tab}-dot`} style={[styles.navDot, activeTab === tab ? styles.navDotActive : undefined]} />
-        ))}
-      </View>
-      <View style={styles.bottomTabsRow}>
-        {tabs.map((tab) => (
-          <Pressable key={tab} onPress={() => onChange(tab)} style={[styles.navButton, activeTab === tab ? styles.navButtonActive : undefined]}>
-            <Text style={[styles.navLabel, activeTab === tab ? styles.navLabelActive : undefined]}>{tab}</Text>
+          <Pressable key={tab.key} onPress={() => onChange(tab.key)} style={[styles.navButton, activeTab === tab.key ? styles.navButtonActive : undefined]}>
+            <Text style={[styles.navIcon, activeTab === tab.key ? styles.navIconActive : undefined]}>{tab.icon}</Text>
+            <Text style={[styles.navLabel, activeTab === tab.key ? styles.navLabelActive : undefined]}>{tab.label}</Text>
           </Pressable>
         ))}
       </View>
@@ -572,6 +664,7 @@ function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab:
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("Home");
+  const screenEntrance = useRef(new Animated.Value(1)).current;
   const {
     data,
     loading,
@@ -607,6 +700,20 @@ export default function App() {
       tab: activeTab,
     });
   }, [activeTab]);
+
+  useEffect(() => {
+    screenEntrance.setValue(0.94);
+    Animated.timing(screenEntrance, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab, screenEntrance]);
+
+  const screenTranslateY = screenEntrance.interpolate({
+    inputRange: [0.94, 1],
+    outputRange: [10, 0],
+  });
 
   const renderedScreen = useMemo(() => {
     if (!data) {
@@ -681,11 +788,13 @@ export default function App() {
         <View style={styles.screenContainer}>
           {loading ? (
             <View style={styles.loadingWrap}>
-              <ActivityIndicator color="#dfe7ff" size="large" />
+              <ActivityIndicator color={palette.textPrimary} size="large" />
               <Text style={styles.loadingText}>Loading your revocred setup...</Text>
             </View>
           ) : session ? (
-            renderedScreen
+            <Animated.View style={[styles.screenTransitionLayer, { opacity: screenEntrance, transform: [{ translateY: screenTranslateY }] }]}>
+              {renderedScreen}
+            </Animated.View>
           ) : (
             <AuthScreen onSignIn={signIn} onSignUp={signUp} authError={authError} />
           )}
@@ -699,30 +808,33 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#020818",
+    backgroundColor: palette.background,
   },
   appBackground: {
     flex: 1,
-    backgroundColor: "#020818",
+    backgroundColor: palette.background,
   },
   glow: {
     position: "absolute",
-    left: "18%",
-    right: "18%",
-    top: 10,
+    left: "10%",
+    right: "10%",
+    top: -24,
     height: 190,
     borderRadius: 96,
-    backgroundColor: "#1f3984",
-    opacity: 0.18,
+    backgroundColor: palette.accent,
+    opacity: 0.12,
   },
   screenContainer: {
     flex: 1,
   },
+  screenTransitionLayer: {
+    flex: 1,
+  },
   screenBody: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 28,
-    gap: 14,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg + spacing.sm,
+    gap: spacing.sm,
   },
   screenHeader: {
     flexDirection: "row",
@@ -730,520 +842,550 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   brandLabel: {
-    color: "#95a2d4",
-    fontSize: 13,
-    letterSpacing: 4,
-    fontWeight: "500",
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    letterSpacing: 3,
+    fontWeight: "600",
   },
   avatarWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#2f406f",
+    borderColor: palette.border,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#10203f",
+    backgroundColor: palette.surfaceRaised,
   },
   avatarText: {
-    color: "#edf2ff",
+    color: palette.textPrimary,
     fontWeight: "700",
-    fontSize: 22,
+    fontSize: typeScale.sm,
   },
   welcomeText: {
-    color: "#edf2ff",
-    fontSize: 40,
-    lineHeight: 46,
+    color: palette.textPrimary,
+    fontSize: typeScale.hero,
+    lineHeight: 42,
     fontWeight: "700",
-    marginBottom: 6,
+    marginBottom: spacing.xs,
   },
-  topCardRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  metricCard: {
-    borderRadius: 24,
-    borderColor: "#25345e",
+  homeHeroCard: {
+    borderRadius: radii.lg,
     borderWidth: 1,
-    backgroundColor: "#111d3d",
-    padding: 20,
-    gap: 6,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceRaised,
+    padding: spacing.sm,
+    gap: spacing.sm,
   },
-  metricCardHalf: {
+  heroMetricsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  heroMetricBlock: {
     flex: 1,
-    minHeight: 160,
+    gap: 2,
   },
-  metricValue: {
-    color: "#edf2ff",
-    fontSize: 36,
+  heroMetricValue: {
+    color: palette.textPrimary,
+    fontSize: typeScale.xl,
     fontWeight: "700",
   },
-  metricQuestion: {
-    color: "#edf2ff",
-    fontSize: 29,
-    lineHeight: 36,
+  heroMetricLabel: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+  },
+  heroMetricDivider: {
+    width: 1,
+    alignSelf: "stretch",
+    backgroundColor: palette.border,
+  },
+  heroActionCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "#5169BF",
+    backgroundColor: "#1A2752",
+    padding: spacing.sm,
+    gap: spacing.xs,
+    shadowColor: palette.accent,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 7,
+  },
+  heroActionTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.lg,
     fontWeight: "700",
   },
   metricHint: {
-    color: "#91a0cc",
-    fontSize: 16,
-    lineHeight: 22,
-    marginTop: 6,
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    lineHeight: 20,
   },
   cardSectionLabel: {
-    color: "#8f9ecb",
-    fontSize: 13,
-    letterSpacing: 4,
-    fontWeight: "500",
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    letterSpacing: 2.4,
+    fontWeight: "600",
+    textTransform: "uppercase",
   },
   panelSection: {
-    borderRadius: 24,
-    borderColor: "#25345e",
+    borderRadius: radii.lg,
     borderWidth: 1,
-    backgroundColor: "#0c1532",
-    padding: 16,
-    gap: 10,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    padding: spacing.sm,
+    gap: spacing.sm,
   },
-  panelTitle: {
-    color: "#edf2ff",
-    fontSize: 44,
-    lineHeight: 50,
+  screenSectionTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.xl,
     fontWeight: "700",
+    lineHeight: 34,
   },
   panelHint: {
-    color: "#8f9ecb",
-    fontSize: 16,
-    lineHeight: 22,
-    marginBottom: 4,
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    lineHeight: 20,
   },
   walletCard: {
-    borderRadius: 22,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: "#2c3b67",
-    backgroundColor: "#1e2948",
-    padding: 14,
-    gap: 12,
-  },
-  walletCardTopRow: {
-    flexDirection: "row",
-    gap: 14,
+    borderColor: "#33456C",
+    backgroundColor: "#162341",
+    padding: spacing.xs,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
   },
   walletCardFlipFrame: {
-    borderRadius: 18,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#2b3d6f",
-    backgroundColor: "#101d3d",
-    padding: 14,
-    gap: 10,
+    borderColor: "#304366",
+    backgroundColor: "#101A33",
     minHeight: 220,
     position: "relative",
+    overflow: "hidden",
   },
   walletCardFace: {
     position: "absolute",
-    top: 14,
-    right: 14,
-    bottom: 14,
-    left: 14,
+    top: spacing.sm,
+    right: spacing.sm,
+    bottom: spacing.sm,
+    left: spacing.sm,
     backfaceVisibility: "hidden",
   },
   walletCardFaceBack: {
     justifyContent: "space-between",
   },
-  walletCardBackBody: {
-    flex: 1,
-  },
-  walletCardBackBenefits: {
-    gap: 9,
-    marginTop: 4,
-  },
-  cardPreview: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    justifyContent: "space-between",
-  },
-  cardFlipContainer: {
-    width: 118,
-    height: 72,
-    position: "relative",
-  },
-  cardFlipFace: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backfaceVisibility: "hidden",
-  },
-  cardPreviewBack: {
-    backgroundColor: "#0e1a38",
-    borderWidth: 1,
-    borderColor: "#34487e",
-  },
-  cardPreviewBrand: {
-    color: "#dce6ff",
-    fontSize: 11,
-    letterSpacing: 3,
-  },
-  cardPreviewName: {
-    color: "#f2f6ff",
-    fontSize: 18,
-    fontWeight: "500",
-  },
-  cardPreviewBackLabel: {
-    color: "#8fa3d9",
-    fontSize: 9,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
-  cardPreviewBackLine: {
-    color: "#eef3ff",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  cardPreviewBackLineMuted: {
-    color: "#8ef1d4",
-    fontSize: 11,
-    fontWeight: "700",
+  walletCardTopRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
   },
   walletCardBody: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   walletCardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: spacing.xs,
   },
   walletCardName: {
-    color: "#edf2ff",
-    fontSize: 32,
+    color: palette.textPrimary,
+    fontSize: typeScale.lg,
     fontWeight: "700",
     flexShrink: 1,
   },
   badge: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 22,
-    backgroundColor: "#42568f",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 4,
+    borderRadius: radii.sm,
+    backgroundColor: "#2A3B63",
   },
   badgeText: {
-    color: "#e7ecff",
-    fontSize: 14,
-    fontWeight: "500",
+    color: palette.textPrimary,
+    fontSize: typeScale.xs,
+    fontWeight: "600",
   },
   walletCardSubLabel: {
-    color: "#93a3d6",
-    fontSize: 12,
-    letterSpacing: 4,
-    marginTop: 2,
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    letterSpacing: 2,
+    textTransform: "uppercase",
   },
   walletCardBestUse: {
-    color: "#f3f5ff",
-    fontSize: 17,
-    lineHeight: 22,
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    lineHeight: 21,
     fontWeight: "600",
   },
   walletFooterRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 2,
+  },
+  tapHint: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
   },
   multiplierBubble: {
-    backgroundColor: "#1b5254",
-    borderRadius: 18,
-    paddingHorizontal: 12,
+    backgroundColor: "#183D3B",
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.xs,
     paddingVertical: 4,
   },
   multiplierText: {
-    color: "#8ef1d4",
-    fontSize: 16,
+    color: palette.success,
+    fontSize: typeScale.sm,
     fontWeight: "700",
   },
-  tapHint: {
-    color: "#8f9ecb",
-    fontSize: 12,
+  cardPreview: {
+    width: "100%",
+    height: "100%",
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    justifyContent: "space-between",
   },
-  expandedWrap: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#2b3d6f",
-    backgroundColor: "#101d3d",
-    padding: 12,
-    gap: 9,
+  cardFlipContainer: {
+    width: 124,
+    height: 78,
+  },
+  cardPreviewBrand: {
+    color: palette.textPrimary,
+    fontSize: typeScale.xs,
+    letterSpacing: 2,
+    fontWeight: "600",
+  },
+  cardPreviewName: {
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    fontWeight: "600",
+  },
+  walletCardBackBody: {
+    flex: 1,
+    gap: spacing.xs,
   },
   expandedTitle: {
-    color: "#edf2ff",
-    fontSize: 28,
+    color: palette.textPrimary,
+    fontSize: typeScale.lg,
     fontWeight: "700",
-    marginBottom: 4,
+  },
+  walletCardBackBenefits: {
+    gap: spacing.xs,
   },
   benefitPill: {
-    borderRadius: 12,
-    backgroundColor: "#1c2748",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    borderRadius: radii.sm,
+    backgroundColor: "#202F52",
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
   },
   benefitText: {
-    color: "#c2ceee",
-    fontSize: 16,
+    color: "#C9D4F2",
+    fontSize: typeScale.sm,
   },
   askRevoButton: {
-    borderRadius: 14,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#435ca1",
-    backgroundColor: "#283d74",
-    padding: 12,
-    marginTop: 4,
+    borderColor: "#4B66B8",
+    backgroundColor: "#22366B",
+    padding: spacing.xs,
+    gap: 2,
   },
   askRevoLabel: {
-    color: "#95a6d6",
-    fontSize: 11,
-    letterSpacing: 4,
-    marginBottom: 4,
+    color: "#A9BAE8",
+    fontSize: typeScale.xs,
+    letterSpacing: 1.8,
+    fontWeight: "600",
   },
   askRevoText: {
-    color: "#edf2ff",
-    fontSize: 17,
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
     fontWeight: "600",
   },
   walletCountCard: {
-    borderRadius: 20,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#3e58a6",
-    backgroundColor: "#1d2f62",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignItems: "flex-start",
+    borderColor: "#3E56A0",
+    backgroundColor: "#1A2A57",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 6,
   },
   walletCountValue: {
-    color: "#edf2ff",
-    fontSize: 22,
-    lineHeight: 27,
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
     fontWeight: "700",
-    marginTop: 4,
+    marginTop: 2,
   },
   addCardButton: {
-    borderRadius: 22,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: "#2d3f73",
-    backgroundColor: "#0c1430",
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 28,
-    gap: 4,
+    paddingVertical: spacing.md,
+    gap: 2,
   },
   addCardPlus: {
-    color: "#a8b4db",
-    fontSize: 34,
+    color: palette.textSecondary,
+    fontSize: typeScale.hero,
     fontWeight: "300",
   },
   addCardText: {
-    color: "#98a8d8",
-    fontSize: 16,
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
   },
   searchBar: {
-    borderRadius: 18,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#26345f",
-    backgroundColor: "#0b1230",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   searchPlaceholder: {
-    color: "#7584b3",
-    fontSize: 16,
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
   },
   timelineWrap: {
-    borderRadius: 24,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: "#24335d",
-    backgroundColor: "#0a1431",
-    padding: 16,
-    gap: 12,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    padding: spacing.sm,
+    gap: spacing.sm,
   },
   timelineStep: {
     alignItems: "center",
     gap: 4,
   },
   timelinePill: {
-    borderRadius: 20,
-    backgroundColor: "#233a7a",
-    minWidth: 230,
-    paddingHorizontal: 26,
-    paddingVertical: 12,
+    borderRadius: radii.md,
+    backgroundColor: "#243C75",
+    minWidth: 220,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     alignItems: "center",
   },
   timelinePillStart: {
-    backgroundColor: "#5a2f4f",
+    backgroundColor: "#523455",
   },
   timelinePillText: {
-    color: "#edf2ff",
-    fontSize: 30,
+    color: palette.textPrimary,
+    fontSize: typeScale.lg,
     fontWeight: "700",
   },
   timelineMonth: {
-    color: "#d8e1ff",
-    fontSize: 30,
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
     fontWeight: "600",
-    marginTop: 2,
   },
   timelineNote: {
-    color: "#8e9bc4",
-    fontSize: 16,
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
     textAlign: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.xs,
   },
   timelineArrow: {
-    color: "#7586b8",
-    fontSize: 32,
-    marginTop: 2,
+    color: palette.textSecondary,
+    fontSize: typeScale.xl,
   },
   recommendationCard: {
-    borderRadius: 20,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#273860",
-    backgroundColor: "#111d3d",
-    padding: 12,
-    gap: 10,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceRaised,
+    padding: spacing.xs,
+    gap: spacing.xs,
   },
   recommendationTop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: spacing.xs,
   },
   recommendationMeta: {
     flex: 1,
   },
   recommendationBrand: {
-    color: "#9badde",
-    fontSize: 13,
-    letterSpacing: 1.5,
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    letterSpacing: 1.4,
     marginBottom: 2,
   },
+  recommendationName: {
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
   chevron: {
-    color: "#8ea0cf",
-    fontSize: 28,
+    color: palette.textSecondary,
+    fontSize: typeScale.xl,
     paddingHorizontal: 4,
   },
   recommendationExpanded: {
-    gap: 9,
+    gap: spacing.xs,
   },
   revoWrap: {
     flex: 1,
   },
   revoHeading: {
-    color: "#edf2ff",
-    fontSize: 40,
-    textAlign: "center",
+    color: palette.textPrimary,
+    fontSize: typeScale.hero,
     fontWeight: "700",
-    marginVertical: 10,
   },
-  promptButton: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#22345f",
-    backgroundColor: "#0a1230",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+  promptChipWrap: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.xs,
   },
-  promptText: {
-    color: "#d3dcf8",
-    fontSize: 16,
+  promptChip: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: "#344A7D",
+    backgroundColor: "#162445",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  promptChipText: {
+    color: "#D7E1FF",
+    fontSize: typeScale.sm,
+    lineHeight: 18,
   },
   chatPanel: {
-    borderRadius: 18,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: "#2d4176",
-    backgroundColor: "#101d3d",
-    padding: 12,
-    gap: 8,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    padding: spacing.sm,
+    gap: spacing.xs,
   },
-  chatMessage: {
-    color: "#dbe3ff",
-    fontSize: 15,
-    lineHeight: 22,
+  chatBubble: {
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    maxWidth: "92%",
   },
-  chatRoleLabel: {
-    color: "#9cb0e8",
-    fontWeight: "700",
+  chatBubbleUser: {
+    alignSelf: "flex-end",
+    backgroundColor: palette.accent,
+  },
+  chatBubbleAssistant: {
+    alignSelf: "flex-start",
+    backgroundColor: "#1A2748",
+  },
+  chatBubbleText: {
+    fontSize: typeScale.sm,
+    lineHeight: 20,
+  },
+  chatBubbleTextUser: {
+    color: "#F4F7FF",
+  },
+  chatBubbleTextAssistant: {
+    color: "#D7E2FF",
+  },
+  emptyStateCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    padding: spacing.sm,
+    gap: spacing.xs,
+    alignItems: "flex-start",
+  },
+  emptyStateTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.lg,
+    fontWeight: "600",
+  },
+  emptyStateText: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
   },
   inputDock: {
     borderTopWidth: 1,
-    borderColor: "#1a2b55",
-    backgroundColor: "#050e26",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    borderColor: palette.border,
+    backgroundColor: "#070F21",
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
   },
   input: {
-    height: 54,
-    borderRadius: 16,
+    flex: 1,
+    height: 52,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#273960",
-    backgroundColor: "#0b1535",
-    color: "#edf2ff",
-    fontSize: 18,
-    paddingHorizontal: 14,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    paddingHorizontal: spacing.xs,
+  },
+  sendButton: {
+    height: 52,
+    minWidth: 70,
+    borderRadius: radii.md,
+    backgroundColor: palette.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xs,
+  },
+  sendButtonText: {
+    color: "#F2F6FF",
+    fontSize: typeScale.sm,
+    fontWeight: "700",
   },
   profileRow: {
-    borderRadius: 18,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#1f2f58",
-    backgroundColor: "#0a1230",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderColor: palette.border,
+    backgroundColor: "#111B35",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 16,
+    gap: spacing.xs,
     alignItems: "center",
   },
   profileKey: {
-    color: "#91a1d3",
-    fontSize: 13,
-    letterSpacing: 3,
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    letterSpacing: 1.6,
     textTransform: "uppercase",
     flex: 1,
   },
   profileValue: {
-    color: "#edf2ff",
-    fontSize: 16,
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
     fontWeight: "500",
     textAlign: "right",
     flex: 1,
   },
   reportButton: {
-    borderRadius: 22,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: "#435ca1",
-    backgroundColor: "#283d74",
-    padding: 16,
-    gap: 8,
+    borderColor: "#5067B3",
+    backgroundColor: "#1D2F5F",
+    padding: spacing.sm,
+    gap: spacing.xs,
   },
   reportTitle: {
-    color: "#edf2ff",
-    fontSize: 31,
-    lineHeight: 36,
+    color: palette.textPrimary,
+    fontSize: typeScale.xl,
+    lineHeight: 32,
     fontWeight: "700",
-  },
-  resetButton: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#2d4176",
-    backgroundColor: "#111d3d",
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  resetButtonText: {
-    color: "#dce5ff",
-    fontSize: 15,
-    fontWeight: "600",
   },
   analyticsHeaderRow: {
     flexDirection: "row",
@@ -1251,174 +1393,214 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   analyticsRefreshButton: {
-    borderRadius: 10,
+    borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: "#344d88",
-    backgroundColor: "#162a57",
-    paddingHorizontal: 10,
+    borderColor: "#3D5396",
+    backgroundColor: "#15264E",
+    paddingHorizontal: spacing.xs,
     paddingVertical: 6,
   },
   analyticsRefreshButtonText: {
-    color: "#dde6ff",
-    fontSize: 12,
+    color: "#DCE5FF",
+    fontSize: typeScale.xs,
     fontWeight: "600",
   },
-  analyticsGrid: {
+  analyticsSummaryRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: spacing.xs,
   },
-  analyticsTile: {
+  analyticsSummaryPill: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: radii.sm,
+    backgroundColor: "#162746",
     borderWidth: 1,
-    borderColor: "#223661",
-    backgroundColor: "#0a1230",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 4,
+    borderColor: "#2F466F",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    gap: 2,
   },
   analyticsTileLabel: {
-    color: "#8fa0cf",
-    fontSize: 12,
-    letterSpacing: 1,
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
   },
   analyticsTileValue: {
-    color: "#edf2ff",
-    fontSize: 18,
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
     fontWeight: "700",
   },
-  analyticsFootnote: {
-    color: "#9fb0df",
-    fontSize: 12,
-    marginTop: 4,
-  },
-  bottomNavWrap: {
-    borderTopWidth: 1,
-    borderColor: "#17284f",
-    backgroundColor: "#030d24",
-    paddingTop: 6,
-    paddingBottom: 12,
-    paddingHorizontal: 10,
-  },
-  bottomDotsRow: {
+  analyticsStatRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 26,
-    marginBottom: 6,
-  },
-  navDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: "#6275a8",
-    opacity: 0.7,
-  },
-  navDotActive: {
-    backgroundColor: "#f1f4ff",
-    opacity: 1,
-  },
-  bottomTabsRow: {
-    flexDirection: "row",
     alignItems: "center",
+    marginTop: spacing.xs,
+  },
+  analyticsStatLabel: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+  },
+  analyticsStatValue: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "600",
+  },
+  analyticsProgressTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "#1A2644",
+    overflow: "hidden",
+  },
+  analyticsProgressFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: palette.success,
+  },
+  analyticsProgressFillMuted: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: palette.warning,
+  },
+  analyticsFootnote: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    marginTop: spacing.xs,
+  },
+  resetButton: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    paddingVertical: spacing.xs,
+    alignItems: "center",
+  },
+  signOutButton: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: "#4661AA",
+    backgroundColor: "#223A72",
+    paddingVertical: spacing.xs,
+    alignItems: "center",
+  },
+  resetButtonText: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "600",
+  },
+  bottomNavWrap: {
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+    paddingTop: spacing.xs,
+    backgroundColor: "transparent",
+  },
+  bottomTabsPill: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "#293B63",
+    backgroundColor: "rgba(12, 19, 38, 0.92)",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "stretch",
     justifyContent: "space-between",
     gap: 6,
   },
   navButton: {
-    borderRadius: 18,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    minWidth: 58,
+    flex: 1,
+    borderRadius: radii.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: 6,
     alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
   },
   navButtonActive: {
-    backgroundColor: "#3b4f87",
+    backgroundColor: "rgba(111, 139, 255, 0.22)",
+  },
+  navIcon: {
+    color: palette.textSecondary,
+    fontSize: typeScale.base,
+    fontWeight: "600",
+  },
+  navIconActive: {
+    color: palette.accent,
   },
   navLabel: {
-    color: "#8795bf",
-    fontSize: 16,
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
     fontWeight: "500",
   },
   navLabelActive: {
-    color: "#eef2ff",
-    fontWeight: "600",
+    color: palette.textPrimary,
+    fontWeight: "700",
   },
   loadingWrap: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: spacing.xs,
   },
   loadingText: {
-    color: "#dce5ff",
-    fontSize: 14,
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
   },
   disabledCard: {
     opacity: 0.55,
   },
   authWrap: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.md,
     justifyContent: "center",
-    gap: 14,
+    gap: spacing.sm,
   },
   authTitle: {
-    color: "#edf2ff",
-    fontSize: 30,
+    color: palette.textPrimary,
+    fontSize: typeScale.xl,
     fontWeight: "700",
   },
   authSubtitle: {
-    color: "#9aa9d6",
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  authCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#24365f",
-    backgroundColor: "#0d1736",
-    padding: 14,
-    gap: 10,
-  },
-  authInput: {
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#2d3f6e",
-    backgroundColor: "#0a1230",
-    color: "#edf2ff",
-    fontSize: 16,
-    paddingHorizontal: 12,
-  },
-  authButton: {
-    borderRadius: 12,
-    backgroundColor: "#3b57a1",
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  authButtonSecondary: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#3b57a1",
-    backgroundColor: "#152349",
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  authButtonText: {
-    color: "#edf2ff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  authMessage: {
-    color: "#c7d5ff",
-    fontSize: 14,
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
     lineHeight: 20,
   },
-  signOutButton: {
-    borderRadius: 16,
+  authCard: {
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: "#3f5ca9",
-    backgroundColor: "#203667",
-    paddingVertical: 12,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceRaised,
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  authInput: {
+    height: 48,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    paddingHorizontal: spacing.xs,
+  },
+  authButton: {
+    borderRadius: radii.sm,
+    backgroundColor: palette.accent,
     alignItems: "center",
+    paddingVertical: spacing.xs,
+  },
+  authButtonSecondary: {
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: palette.accent,
+    backgroundColor: "#16254B",
+    alignItems: "center",
+    paddingVertical: spacing.xs,
+  },
+  authButtonText: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  authMessage: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    lineHeight: 20,
   },
 });
