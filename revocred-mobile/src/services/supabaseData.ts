@@ -31,6 +31,26 @@ type RevoUsageLogRow = {
   created_at: string;
 };
 
+const REVO_CHAT_TIMEOUT_MS = 15000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(timeoutMessage));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
 function toProfile(row: ProfileRow): Profile {
   return {
     name: row.name,
@@ -256,9 +276,13 @@ export async function addWalletCardForUser(userId: string, cardId: string, curre
 }
 
 export async function appendPromptAndReply(prompt: string): Promise<void> {
-  const { data, error } = await supabase.functions.invoke("revo-chat", {
-    body: { prompt },
-  });
+  const { data, error } = await withTimeout(
+    supabase.functions.invoke("revo-chat", {
+      body: { prompt },
+    }),
+    REVO_CHAT_TIMEOUT_MS,
+    "REVO is taking too long to respond. Please try again."
+  );
 
   if (error) {
     throw error;

@@ -11,7 +11,7 @@ import {
 import { seedAppData } from "../data/seed";
 import { captureError, identifyUser, resetUserIdentity, trackEvent } from "../services/observability";
 import { supabase } from "../services/supabaseClient";
-import { AppData, Card, RevoAnalyticsSummary } from "../types/models";
+import { AppData, Card, ChatMessage, RevoAnalyticsSummary } from "../types/models";
 
 type AuthResult = {
   ok: boolean;
@@ -264,7 +264,24 @@ export function useAppData(): UseAppDataResult {
     } catch (error) {
       captureError(error, "submitPrompt");
       trackEvent("revo.prompt.failed");
-      setAuthError(toErrorMessage(error));
+      const message = toErrorMessage(error);
+      setAuthError(message);
+      if (message.toLowerCase().includes("timed out")) {
+        const fallbackMessage: ChatMessage = {
+          id: `local-timeout-${Date.now()}`,
+          role: "assistant",
+          content: "REVO timed out. Please try again in a few seconds.",
+          createdAt: new Date().toISOString(),
+        };
+        setData((current) =>
+          current
+            ? {
+                ...current,
+                chatMessages: [...current.chatMessages, fallbackMessage],
+              }
+            : current
+        );
+      }
     }
   };
 
