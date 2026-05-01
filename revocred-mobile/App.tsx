@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppData } from "./src/hooks/useAppData";
 import { initializeObservability, trackEvent, trackScreenView } from "./src/services/observability";
-import { Card, ChatMessage, Profile, Recommendation, RevoAnalyticsSummary, TabKey } from "./src/types/models";
+import { Card, CardSearchEntry, ChatMessage, Profile, Recommendation, RevoAnalyticsSummary, TabKey } from "./src/types/models";
 
 const palette = {
   background: "#060B17",
@@ -361,13 +361,16 @@ function CardsScreen({
 function StrategyScreen({
   timeline,
   recommendedCards,
+  searchCatalog,
   onAskRevo,
 }: {
   timeline: Recommendation[];
   recommendedCards: Card[];
+  searchCatalog: CardSearchEntry[];
   onAskRevo: (prompt: string) => void;
 }) {
   const [openRecommendationIds, setOpenRecommendationIds] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const toggleRecommendation = (id: string) => {
     setOpenRecommendationIds((existing) =>
@@ -375,11 +378,85 @@ function StrategyScreen({
     );
   };
 
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const searchResults = useMemo(() => {
+    if (!normalizedSearch) {
+      return [];
+    }
+
+    return searchCatalog
+      .filter((card) => {
+        const searchableText = [
+          card.name,
+          card.brand,
+          card.bestUse,
+          card.multiplier,
+          ...card.benefits,
+          card.annualFee,
+          card.transferablePoints ? "transferable points" : "non-transferable points",
+        ]
+          .join(" ")
+          .toLowerCase();
+        return searchableText.includes(normalizedSearch);
+      })
+      .slice(0, 12);
+  }, [searchCatalog, normalizedSearch]);
+
   return (
     <ScrollView contentContainerStyle={styles.screenBody}>
       <View style={styles.searchBar}>
-        <Text style={styles.searchPlaceholder}>Search credit cards...</Text>
+        <TextInput
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+          placeholder="Search credit cards (e.g. Amex Gold, Venture X)"
+          placeholderTextColor={palette.textSecondary}
+          style={styles.searchInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
       </View>
+
+      {normalizedSearch ? (
+        <View style={styles.panelSection}>
+          <Text style={styles.cardSectionLabel}>SEARCH RESULTS</Text>
+          <Text style={styles.panelHint}>
+            {searchResults.length
+              ? `${searchResults.length} card${searchResults.length > 1 ? "s" : ""} found`
+              : "No matches yet. Try a different keyword."}
+          </Text>
+          {searchResults.map((card) => (
+            <View key={`${card.id}-search-result`} style={styles.searchResultCard}>
+              <View style={styles.searchResultTopRow}>
+                <View style={styles.searchResultTitleWrap}>
+                  <Text style={styles.searchResultCardName}>{card.name}</Text>
+                  <Text style={styles.searchResultCardBrand}>{card.brand}</Text>
+                </View>
+                <View style={styles.searchResultFeeBadge}>
+                  <Text style={styles.searchResultFeeText}>{card.annualFee}</Text>
+                </View>
+              </View>
+              <View style={styles.searchResultMetaRow}>
+                <View style={styles.searchResultMetaPill}>
+                  <Text style={styles.searchResultMetaLabel}>MULTIPLIER</Text>
+                  <Text style={styles.searchResultMetaValue}>{card.multiplier}</Text>
+                </View>
+                <View style={styles.searchResultMetaPill}>
+                  <Text style={styles.searchResultMetaLabel}>POINTS</Text>
+                  <Text style={styles.searchResultMetaValue}>{card.transferablePoints ? "Transferable" : "Cashback / Fixed"}</Text>
+                </View>
+              </View>
+              <Text style={styles.searchResultBestUse}>Best for: {card.bestUse}</Text>
+              <View style={styles.searchResultBenefitsWrap}>
+                {card.benefits.slice(0, 4).map((benefit) => (
+                  <View key={`${card.id}-result-${benefit}`} style={styles.benefitPill}>
+                    <Text style={styles.benefitText}>{benefit}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <Text style={styles.screenSectionTitle}>Your Timeline</Text>
       <Text style={styles.panelHint}>Build your setup step by step</Text>
@@ -740,7 +817,12 @@ export default function App() {
         );
       case "Strategy":
         return (
-          <StrategyScreen timeline={data.strategyTimeline} recommendedCards={data.popularPicks} onAskRevo={handleAskRevo} />
+          <StrategyScreen
+            timeline={data.strategyTimeline}
+            recommendedCards={data.popularPicks}
+            searchCatalog={data.cardSearchCatalog}
+            onAskRevo={handleAskRevo}
+          />
         );
       case "REVO":
         return <RevoScreen quickPrompts={data.quickPrompts} messages={data.chatMessages} onSubmitPrompt={submitPrompt} />;
@@ -1152,6 +1234,82 @@ const styles = StyleSheet.create({
   searchPlaceholder: {
     color: palette.textSecondary,
     fontSize: typeScale.sm,
+  },
+  searchInput: {
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    paddingVertical: 0,
+  },
+  searchResultCard: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: "#314A79",
+    backgroundColor: "#111D38",
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  searchResultTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.xs,
+  },
+  searchResultTitleWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  searchResultCardName: {
+    color: palette.textPrimary,
+    fontSize: typeScale.lg,
+    fontWeight: "700",
+  },
+  searchResultCardBrand: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+  },
+  searchResultFeeBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#48619D",
+    backgroundColor: "#1E2E55",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 5,
+  },
+  searchResultFeeText: {
+    color: "#DDE6FF",
+    fontSize: typeScale.xs,
+    fontWeight: "600",
+  },
+  searchResultMetaRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  searchResultMetaPill: {
+    flex: 1,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: "#324972",
+    backgroundColor: "#162649",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    gap: 2,
+  },
+  searchResultMetaLabel: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    letterSpacing: 1.4,
+  },
+  searchResultMetaValue: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  searchResultBestUse: {
+    color: "#D8E2FF",
+    fontSize: typeScale.sm,
+  },
+  searchResultBenefitsWrap: {
+    gap: spacing.xs,
   },
   timelineWrap: {
     borderRadius: radii.lg,

@@ -1,4 +1,4 @@
-import { seedCardCatalog, seedMetrics, seedPopularPicks, seedProfile, seedQuickPrompts, seedTimeline, seedWalletCards } from "../data/seed";
+import { seedCardCatalog, seedCardSearchCatalog, seedMetrics, seedPopularPicks, seedProfile, seedQuickPrompts, seedTimeline, seedWalletCards } from "../data/seed";
 import { AppData, Card, CardStatus, ChatMessage, Profile, RevoAnalyticsSummary } from "../types/models";
 import { supabase } from "./supabaseClient";
 
@@ -99,6 +99,7 @@ function composeAppData(profileRow: ProfileRow, walletRows: WalletCardRow[], mes
     walletCards,
     strategyTimeline: seedTimeline,
     popularPicks: seedPopularPicks.map((card) => ({ ...card, status: activeIds.has(card.id) ? "Active" : "Inactive" })),
+    cardSearchCatalog: seedCardSearchCatalog,
     quickPrompts: [...seedQuickPrompts],
     chatMessages: hydrateMessages(messageRows),
     cardCatalog: seedCardCatalog.map((card) => ({ ...card, status: activeIds.has(card.id) ? "Active" : "Inactive" })),

@@ -12,6 +12,22 @@ export type Card = {
   benefits: string[];
 };
 
+export type CardSearchEntry = {
+  id: string;
+  issuer: string;
+  brand: string;
+  name: string;
+  network?: string;
+  annualFee: string;
+  pointMultipliers: string[];
+  transferablePoints: boolean;
+  transferPartners?: string[];
+  benefits: string[];
+  summary?: string;
+  bestUse: string;
+  multiplier: string;
+};
+
 export type Recommendation = {
   id: string;
   title: string;
@@ -45,6 +61,7 @@ export type AppData = {
   walletCards: Card[];
   strategyTimeline: Recommendation[];
   popularPicks: Card[];
+  cardSearchCatalog: CardSearchEntry[];
   quickPrompts: string[];
   chatMessages: ChatMessage[];
   cardCatalog: Card[];
