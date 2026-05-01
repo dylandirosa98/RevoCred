@@ -640,12 +640,12 @@ function ProfileScreen({
 }
 
 function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab: TabKey) => void }) {
-  const tabs: Array<{ key: TabKey; icon: string; label: string }> = [
-    { key: "Home", icon: "H", label: "Home" },
-    { key: "Cards", icon: "C", label: "Cards" },
-    { key: "Strategy", icon: "S", label: "Strategy" },
-    { key: "REVO", icon: "R", label: "REVO" },
-    { key: "Profile", icon: "P", label: "Profile" },
+  const tabs: Array<{ key: TabKey; icon: string }> = [
+    { key: "Home", icon: "⌂" },
+    { key: "Cards", icon: "💳" },
+    { key: "Strategy", icon: "♞" },
+    { key: "REVO", icon: "R" },
+    { key: "Profile", icon: "◉" },
   ];
 
   return (
@@ -654,7 +654,6 @@ function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab:
         {tabs.map((tab) => (
           <Pressable key={tab.key} onPress={() => onChange(tab.key)} style={[styles.navButton, activeTab === tab.key ? styles.navButtonActive : undefined]}>
             <Text style={[styles.navIcon, activeTab === tab.key ? styles.navIconActive : undefined]}>{tab.icon}</Text>
-            <Text style={[styles.navLabel, activeTab === tab.key ? styles.navLabelActive : undefined]}>{tab.label}</Text>
           </Pressable>
         ))}
       </View>
@@ -1506,31 +1505,21 @@ const styles = StyleSheet.create({
   navButton: {
     flex: 1,
     borderRadius: radii.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
     paddingHorizontal: 6,
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
   },
   navButtonActive: {
     backgroundColor: "rgba(111, 139, 255, 0.22)",
   },
   navIcon: {
     color: palette.textSecondary,
-    fontSize: typeScale.base,
-    fontWeight: "600",
+    fontSize: typeScale.lg,
+    fontWeight: "700",
   },
   navIconActive: {
     color: palette.accent,
-  },
-  navLabel: {
-    color: palette.textSecondary,
-    fontSize: typeScale.xs,
-    fontWeight: "500",
-  },
-  navLabelActive: {
-    color: palette.textPrimary,
-    fontWeight: "700",
   },
   loadingWrap: {
     flex: 1,
