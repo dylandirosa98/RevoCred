@@ -1,4 +1,5 @@
 import { StatusBar } from "expo-status-bar";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppData } from "./src/hooks/useAppData";
@@ -321,6 +322,7 @@ function CardsScreen({
   onAddCard: (cardId: string) => void;
 }) {
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  const [showCardPicker, setShowCardPicker] = useState(false);
   const nextCardToAdd = availableCardsToAdd[0];
 
   return (
@@ -345,15 +347,35 @@ function CardsScreen({
       <Pressable
         style={[styles.addCardButton, !nextCardToAdd ? styles.disabledCard : undefined]}
         disabled={!nextCardToAdd}
-        onPress={() => {
-          if (nextCardToAdd) {
-            onAddCard(nextCardToAdd.id);
-          }
-        }}
+        onPress={() => setShowCardPicker((current) => !current)}
       >
-        <Text style={styles.addCardPlus}>+</Text>
-        <Text style={styles.addCardText}>{nextCardToAdd ? `Add card: ${nextCardToAdd.name}` : "All cards added"}</Text>
+        <Text style={styles.addCardPlus}>{showCardPicker ? "−" : "+"}</Text>
+        <Text style={styles.addCardText}>{nextCardToAdd ? "Add a card to wallet" : "All cards added"}</Text>
+        {nextCardToAdd ? <Text style={styles.addCardHint}>{availableCardsToAdd.length} cards available</Text> : null}
       </Pressable>
+      {showCardPicker && availableCardsToAdd.length ? (
+        <View style={styles.addCardPickerPanel}>
+          {availableCardsToAdd.map((card) => (
+            <View key={`add-${card.id}`} style={styles.addCardOptionRow}>
+              <View style={styles.addCardOptionMeta}>
+                <Text style={styles.addCardOptionName}>{card.name}</Text>
+                <Text style={styles.addCardOptionHint}>
+                  {card.brand} • {card.bestUse} • {card.multiplier}
+                </Text>
+              </View>
+              <Pressable
+                style={styles.addCardOptionButton}
+                onPress={() => {
+                  onAddCard(card.id);
+                  setShowCardPicker(false);
+                }}
+              >
+                <Text style={styles.addCardOptionButtonText}>Add</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -717,12 +739,12 @@ function ProfileScreen({
 }
 
 function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab: TabKey) => void }) {
-  const tabs: Array<{ key: TabKey; icon: string }> = [
-    { key: "Home", icon: "⌂" },
-    { key: "Cards", icon: "💳" },
-    { key: "Strategy", icon: "♞" },
-    { key: "REVO", icon: "R" },
-    { key: "Profile", icon: "◉" },
+  const tabs: Array<{ key: TabKey; kind: "ion" | "mc" | "text"; icon: string }> = [
+    { key: "Home", kind: "ion", icon: "home-outline" },
+    { key: "Cards", kind: "ion", icon: "card-outline" },
+    { key: "Strategy", kind: "mc", icon: "chess-knight" },
+    { key: "REVO", kind: "text", icon: "R" },
+    { key: "Profile", kind: "ion", icon: "person-circle-outline" },
   ];
 
   return (
@@ -730,7 +752,17 @@ function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab:
       <View style={styles.bottomTabsPill}>
         {tabs.map((tab) => (
           <Pressable key={tab.key} onPress={() => onChange(tab.key)} style={[styles.navButton, activeTab === tab.key ? styles.navButtonActive : undefined]}>
-            <Text style={[styles.navIcon, activeTab === tab.key ? styles.navIconActive : undefined]}>{tab.icon}</Text>
+            {tab.kind === "ion" ? (
+              <Ionicons
+                name={tab.icon as "home-outline" | "card-outline" | "person-circle-outline"}
+                size={22}
+                style={[styles.navIcon, activeTab === tab.key ? styles.navIconActive : undefined]}
+              />
+            ) : tab.kind === "mc" ? (
+              <MaterialCommunityIcons name={tab.icon as "chess-knight"} size={22} style={[styles.navIcon, activeTab === tab.key ? styles.navIconActive : undefined]} />
+            ) : (
+              <Text style={[styles.navRevoIcon, activeTab === tab.key ? styles.navIconActive : undefined]}>{tab.icon}</Text>
+            )}
           </Pressable>
         ))}
       </View>
@@ -1223,13 +1255,68 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontSize: typeScale.sm,
   },
+  addCardHint: {
+    color: "#7E91BF",
+    fontSize: typeScale.xs,
+    marginTop: 2,
+  },
+  addCardPickerPanel: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    padding: spacing.xs,
+    gap: spacing.xs,
+  },
+  addCardOptionRow: {
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: "#2E416D",
+    backgroundColor: "#131F3D",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.xs,
+  },
+  addCardOptionMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  addCardOptionName: {
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    fontWeight: "600",
+  },
+  addCardOptionHint: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+  },
+  addCardOptionButton: {
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: "#4865B6",
+    backgroundColor: "#22376C",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 6,
+    minWidth: 60,
+    alignItems: "center",
+  },
+  addCardOptionButtonText: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "600",
+  },
   searchBar: {
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: palette.border,
     backgroundColor: palette.surface,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
+    minHeight: 64,
+    justifyContent: "center",
   },
   searchPlaceholder: {
     color: palette.textSecondary,
@@ -1237,7 +1324,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     color: palette.textPrimary,
-    fontSize: typeScale.base,
+    fontSize: typeScale.lg,
     paddingVertical: 0,
   },
   searchResultCard: {
@@ -1673,8 +1760,13 @@ const styles = StyleSheet.create({
   },
   navIcon: {
     color: palette.textSecondary,
+    fontWeight: "700",
+  },
+  navRevoIcon: {
+    color: palette.textSecondary,
     fontSize: typeScale.lg,
     fontWeight: "700",
+    marginTop: -1,
   },
   navIconActive: {
     color: palette.accent,
