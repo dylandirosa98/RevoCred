@@ -1,7 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Animated, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppData } from "./src/hooks/useAppData";
 import { initializeObservability, trackEvent, trackScreenView } from "./src/services/observability";
 import { Card, CardSearchEntry, ChatMessage, Profile, Recommendation, RevoAnalyticsSummary, TabKey } from "./src/types/models";
@@ -51,8 +51,12 @@ function topCardColor(cardId: string): string {
     case "freedom-flex":
       return "#7B44C9";
     default:
-      return "#2B3656";
+      break;
   }
+
+  const fallbackPalette = ["#2B3656", "#28417A", "#3A3565", "#2E4D5B", "#5A3D57", "#24526A"];
+  const hash = Array.from(cardId).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return fallbackPalette[hash % fallbackPalette.length];
 }
 
 function CardPreview({ card }: { card: Card }) {
@@ -393,6 +397,7 @@ function StrategyScreen({
 }) {
   const [openRecommendationIds, setOpenRecommendationIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedSearchCard, setSelectedSearchCard] = useState<CardSearchEntry | null>(null);
 
   const toggleRecommendation = (id: string) => {
     setOpenRecommendationIds((existing) =>
@@ -425,109 +430,162 @@ function StrategyScreen({
   }, [searchCatalog, normalizedSearch]);
 
   return (
-    <ScrollView contentContainerStyle={styles.screenBody}>
-      <View style={styles.searchBar}>
-        <TextInput
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-          placeholder="Search credit cards (e.g. Amex Gold, Venture X)"
-          placeholderTextColor={palette.textSecondary}
-          style={styles.searchInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
+    <>
+      <ScrollView contentContainerStyle={styles.screenBody}>
+        <View style={styles.searchBar}>
+          <TextInput
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            placeholder="Search credit cards (e.g. Amex Gold, Venture X)"
+            placeholderTextColor={palette.textSecondary}
+            style={styles.searchInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
 
-      {normalizedSearch ? (
-        <View style={styles.panelSection}>
-          <Text style={styles.cardSectionLabel}>SEARCH RESULTS</Text>
-          <Text style={styles.panelHint}>
-            {searchResults.length
-              ? `${searchResults.length} card${searchResults.length > 1 ? "s" : ""} found`
-              : "No matches yet. Try a different keyword."}
-          </Text>
-          {searchResults.map((card) => (
-            <View key={`${card.id}-search-result`} style={styles.searchResultCard}>
-              <View style={styles.searchResultTopRow}>
-                <View style={styles.searchResultTitleWrap}>
-                  <Text style={styles.searchResultCardName}>{card.name}</Text>
-                  <Text style={styles.searchResultCardBrand}>{card.brand}</Text>
+        {normalizedSearch ? (
+          <View style={styles.panelSection}>
+            <Text style={styles.cardSectionLabel}>SEARCH RESULTS</Text>
+            <Text style={styles.panelHint}>
+              {searchResults.length
+                ? `${searchResults.length} card${searchResults.length > 1 ? "s" : ""} found`
+                : "No matches yet. Try a different keyword."}
+            </Text>
+            {searchResults.length ? (
+              <>
+                <Text style={styles.searchResultsHint}>Tap any card image to view full details.</Text>
+                <View style={styles.searchPhotoGrid}>
+                  {searchResults.map((card) => (
+                    <Pressable key={`${card.id}-search-result`} style={styles.searchPhotoTile} onPress={() => setSelectedSearchCard(card)}>
+                      <View style={[styles.searchPhotoCard, { backgroundColor: topCardColor(card.id) }]}>
+                        <View style={styles.searchPhotoShine} />
+                        <Text style={styles.searchPhotoBrand}>{card.brand.toUpperCase()}</Text>
+                        <Text style={styles.searchPhotoName} numberOfLines={2}>
+                          {card.name}
+                        </Text>
+                      </View>
+                      <Text style={styles.searchPhotoTileTitle} numberOfLines={1}>
+                        {card.name}
+                      </Text>
+                      <Text style={styles.searchPhotoTileHint}>{card.annualFee}</Text>
+                    </Pressable>
+                  ))}
                 </View>
-                <View style={styles.searchResultFeeBadge}>
-                  <Text style={styles.searchResultFeeText}>{card.annualFee}</Text>
-                </View>
+              </>
+            ) : null}
+          </View>
+        ) : null}
+
+        <Text style={styles.screenSectionTitle}>Your Timeline</Text>
+        <Text style={styles.panelHint}>Build your setup step by step</Text>
+
+        <View style={styles.timelineWrap}>
+          {timeline.map((entry, index) => (
+            <View key={entry.id} style={styles.timelineStep}>
+              <View style={[styles.timelinePill, index === 0 ? styles.timelinePillStart : undefined]}>
+                <Text style={styles.timelinePillText}>{entry.title}</Text>
               </View>
-              <View style={styles.searchResultMetaRow}>
-                <View style={styles.searchResultMetaPill}>
-                  <Text style={styles.searchResultMetaLabel}>MULTIPLIER</Text>
-                  <Text style={styles.searchResultMetaValue}>{card.multiplier}</Text>
-                </View>
-                <View style={styles.searchResultMetaPill}>
-                  <Text style={styles.searchResultMetaLabel}>POINTS</Text>
-                  <Text style={styles.searchResultMetaValue}>{card.transferablePoints ? "Transferable" : "Cashback / Fixed"}</Text>
-                </View>
-              </View>
-              <Text style={styles.searchResultBestUse}>Best for: {card.bestUse}</Text>
-              <View style={styles.searchResultBenefitsWrap}>
-                {card.benefits.slice(0, 4).map((benefit) => (
-                  <View key={`${card.id}-result-${benefit}`} style={styles.benefitPill}>
-                    <Text style={styles.benefitText}>{benefit}</Text>
-                  </View>
-                ))}
-              </View>
+              <Text style={styles.timelineMonth}>{entry.monthLabel}</Text>
+              <Text style={styles.timelineNote}>{entry.note}</Text>
+              {index < timeline.length - 1 ? <Text style={styles.timelineArrow}>↓</Text> : null}
             </View>
           ))}
         </View>
-      ) : null}
 
-      <Text style={styles.screenSectionTitle}>Your Timeline</Text>
-      <Text style={styles.panelHint}>Build your setup step by step</Text>
+        <View style={styles.panelSection}>
+          <Text style={styles.cardSectionLabel}>POPULAR PICKS</Text>
+          {recommendedCards.map((card) => {
+            const isOpen = openRecommendationIds.includes(card.id);
+            return (
+              <Pressable key={card.id} style={styles.recommendationCard} onPress={() => toggleRecommendation(card.id)}>
+                <View style={styles.recommendationTop}>
+                  <CardPreview card={card} />
+                  <View style={styles.recommendationMeta}>
+                    <Text style={styles.recommendationBrand}>{card.brand}</Text>
+                    <Text style={styles.recommendationName}>{card.name}</Text>
+                  </View>
+                  <Text style={styles.chevron}>{isOpen ? "˄" : "›"}</Text>
+                </View>
+                {isOpen ? (
+                  <View style={styles.recommendationExpanded}>
+                    {card.benefits.map((benefit) => (
+                      <View key={`${card.id}-pick-${benefit}`} style={styles.benefitPill}>
+                        <Text style={styles.benefitText}>{benefit}</Text>
+                      </View>
+                    ))}
+                    <Pressable style={styles.askRevoButton} onPress={() => onAskRevo(`Tell me more about ${card.name}`)}>
+                      <Text style={styles.askRevoLabel}>ASK REVO</Text>
+                      <Text style={styles.askRevoText}>Ask REVO about {card.name}</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
 
-      <View style={styles.timelineWrap}>
-        {timeline.map((entry, index) => (
-          <View key={entry.id} style={styles.timelineStep}>
-            <View style={[styles.timelinePill, index === 0 ? styles.timelinePillStart : undefined]}>
-              <Text style={styles.timelinePillText}>{entry.title}</Text>
+      <Modal visible={Boolean(selectedSearchCard)} transparent animationType="slide" onRequestClose={() => setSelectedSearchCard(null)}>
+        <View style={styles.searchModalBackdrop}>
+          <View style={styles.searchModalSheet}>
+            <View style={styles.searchModalHandle} />
+            <View style={styles.searchModalHeader}>
+              <Text style={styles.searchModalTitle}>Card details</Text>
+              <Pressable style={styles.searchModalCloseButton} onPress={() => setSelectedSearchCard(null)}>
+                <Text style={styles.searchModalCloseButtonText}>Close</Text>
+              </Pressable>
             </View>
-            <Text style={styles.timelineMonth}>{entry.monthLabel}</Text>
-            <Text style={styles.timelineNote}>{entry.note}</Text>
-            {index < timeline.length - 1 ? <Text style={styles.timelineArrow}>↓</Text> : null}
-          </View>
-        ))}
-      </View>
 
-      <View style={styles.panelSection}>
-        <Text style={styles.cardSectionLabel}>POPULAR PICKS</Text>
-        {recommendedCards.map((card) => {
-          const isOpen = openRecommendationIds.includes(card.id);
-          return (
-            <Pressable key={card.id} style={styles.recommendationCard} onPress={() => toggleRecommendation(card.id)}>
-              <View style={styles.recommendationTop}>
-                <CardPreview card={card} />
-                <View style={styles.recommendationMeta}>
-                  <Text style={styles.recommendationBrand}>{card.brand}</Text>
-                  <Text style={styles.recommendationName}>{card.name}</Text>
+            {selectedSearchCard ? (
+              <ScrollView contentContainerStyle={styles.searchModalBody}>
+                <View style={[styles.searchModalHeroCard, { backgroundColor: topCardColor(selectedSearchCard.id) }]}>
+                  <View style={styles.searchPhotoShine} />
+                  <Text style={styles.searchPhotoBrand}>{selectedSearchCard.brand.toUpperCase()}</Text>
+                  <Text style={styles.searchModalHeroName}>{selectedSearchCard.name}</Text>
                 </View>
-                <Text style={styles.chevron}>{isOpen ? "˄" : "›"}</Text>
-              </View>
-              {isOpen ? (
-                <View style={styles.recommendationExpanded}>
-                  {card.benefits.map((benefit) => (
-                    <View key={`${card.id}-pick-${benefit}`} style={styles.benefitPill}>
-                      <Text style={styles.benefitText}>{benefit}</Text>
-                    </View>
+
+                <View style={styles.searchModalInfoGrid}>
+                  <View style={styles.searchModalInfoTile}>
+                    <Text style={styles.searchModalInfoLabel}>ANNUAL FEE</Text>
+                    <Text style={styles.searchModalInfoValue}>{selectedSearchCard.annualFee}</Text>
+                  </View>
+                  <View style={styles.searchModalInfoTile}>
+                    <Text style={styles.searchModalInfoLabel}>TOP EARN</Text>
+                    <Text style={styles.searchModalInfoValue}>{selectedSearchCard.multiplier}</Text>
+                  </View>
+                  <View style={styles.searchModalInfoTile}>
+                    <Text style={styles.searchModalInfoLabel}>POINTS</Text>
+                    <Text style={styles.searchModalInfoValue}>{selectedSearchCard.transferablePoints ? "Transferable" : "Cash Back"}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.searchModalSectionTitle}>Best use</Text>
+                <Text style={styles.searchModalBestUse}>{selectedSearchCard.bestUse}</Text>
+
+                <Text style={styles.searchModalSectionTitle}>Point multipliers</Text>
+                <View style={styles.searchResultBenefitsWrap}>
+                  {selectedSearchCard.pointMultipliers.map((line) => (
+                    <Text key={`${selectedSearchCard.id}-mult-${line}`} style={styles.searchModalListItem}>
+                      • {line}
+                    </Text>
                   ))}
-                  <Pressable style={styles.askRevoButton} onPress={() => onAskRevo(`Tell me more about ${card.name}`)}>
-                    <Text style={styles.askRevoLabel}>ASK REVO</Text>
-                    <Text style={styles.askRevoText}>Ask REVO about {card.name}</Text>
-                  </Pressable>
                 </View>
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </View>
-    </ScrollView>
+
+                <Text style={styles.searchModalSectionTitle}>Benefits</Text>
+                <View style={styles.searchResultBenefitsWrap}>
+                  {selectedSearchCard.benefits.map((line) => (
+                    <Text key={`${selectedSearchCard.id}-benefit-${line}`} style={styles.searchModalListItem}>
+                      • {line}
+                    </Text>
+                  ))}
+                </View>
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -1326,6 +1384,166 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: typeScale.lg,
     paddingVertical: 0,
+  },
+  searchResultsHint: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    marginBottom: spacing.xs,
+  },
+  searchPhotoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  searchPhotoTile: {
+    width: "48%",
+    gap: 6,
+  },
+  searchPhotoCard: {
+    height: 116,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: "#4A629D",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    justifyContent: "space-between",
+    overflow: "hidden",
+  },
+  searchPhotoShine: {
+    position: "absolute",
+    top: -18,
+    right: -24,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "rgba(255,255,255,0.22)",
+  },
+  searchPhotoBrand: {
+    color: "#F2F6FF",
+    fontSize: typeScale.xs,
+    letterSpacing: 1.5,
+    fontWeight: "700",
+  },
+  searchPhotoName: {
+    color: "#FFFFFF",
+    fontSize: typeScale.base,
+    fontWeight: "700",
+  },
+  searchPhotoTileTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "600",
+  },
+  searchPhotoTileHint: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+  },
+  searchModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(4, 8, 18, 0.78)",
+    justifyContent: "flex-end",
+  },
+  searchModalSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: "#2D416E",
+    backgroundColor: "#0A142E",
+    maxHeight: "82%",
+    paddingTop: spacing.xs,
+  },
+  searchModalHandle: {
+    alignSelf: "center",
+    width: 42,
+    height: 4,
+    borderRadius: 99,
+    backgroundColor: "#4A5F95",
+    marginBottom: spacing.xs,
+  },
+  searchModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  searchModalTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.lg,
+    fontWeight: "700",
+  },
+  searchModalCloseButton: {
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: "#3E56A0",
+    backgroundColor: "#182A55",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 6,
+  },
+  searchModalCloseButtonText: {
+    color: palette.textPrimary,
+    fontSize: typeScale.xs,
+    fontWeight: "600",
+  },
+  searchModalBody: {
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  searchModalHeroCard: {
+    height: 170,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "#4A629D",
+    padding: spacing.sm,
+    justifyContent: "space-between",
+    overflow: "hidden",
+  },
+  searchModalHeroName: {
+    color: "#FFFFFF",
+    fontSize: typeScale.xl,
+    fontWeight: "700",
+  },
+  searchModalInfoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  searchModalInfoTile: {
+    width: "48%",
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: "#324A75",
+    backgroundColor: "#131F3D",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    gap: 4,
+  },
+  searchModalInfoLabel: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    letterSpacing: 1.3,
+  },
+  searchModalInfoValue: {
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    fontWeight: "700",
+  },
+  searchModalBestUse: {
+    color: "#D8E2FF",
+    fontSize: typeScale.base,
+    lineHeight: 22,
+  },
+  searchModalSectionTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+  },
+  searchModalListItem: {
+    color: "#CFDAF6",
+    fontSize: typeScale.sm,
+    lineHeight: 21,
   },
   searchResultCard: {
     borderRadius: radii.md,
