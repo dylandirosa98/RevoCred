@@ -82,7 +82,7 @@ function WalletCard({
   onAskRevo: (prompt: string) => void;
 }) {
   const flipProgress = useRef(new Animated.Value(expanded ? 180 : 0)).current;
-  const visibleBenefits = card.benefits.slice(0, 3);
+  const visibleBenefits = card.benefits.slice(0, 2);
   const hiddenBenefitCount = Math.max(0, card.benefits.length - visibleBenefits.length);
 
   useEffect(() => {
@@ -127,9 +127,11 @@ function WalletCard({
           ]}
         >
           <View style={styles.walletCardTopRow}>
-            <View style={[styles.cardPreview, { backgroundColor: topCardColor(card.id) }]}>
-              <Text style={styles.cardPreviewBrand}>{card.brand}</Text>
-              <Text style={styles.cardPreviewName}>{card.name}</Text>
+            <View style={styles.walletCardPreviewContainer}>
+              <View style={[styles.cardPreview, { backgroundColor: topCardColor(card.id) }]}>
+                <Text style={styles.cardPreviewBrand}>{card.brand}</Text>
+                <Text style={styles.cardPreviewName}>{card.name}</Text>
+              </View>
             </View>
             <View style={styles.walletCardBody}>
               <View style={styles.walletCardHeader}>
@@ -183,7 +185,7 @@ function WalletCard({
                 <Text style={styles.askRevoLabel}>ASK REVO</Text>
                 <Text style={styles.askRevoText}>Ask REVO about {card.name}</Text>
               </Pressable>
-              <Text style={styles.tapHint}>Tap to return</Text>
+              <Text style={[styles.tapHint, styles.tapHintBack]}>Tap to return</Text>
             </View>
           </View>
         </Animated.View>
@@ -425,28 +427,57 @@ function StrategyScreen({
   };
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
+  const searchTokens = normalizedSearch.split(/\s+/).filter(Boolean);
   const searchResults = useMemo(() => {
-    if (!normalizedSearch) {
+    if (!searchTokens.length) {
       return [];
     }
-
     return searchCatalog
-      .filter((card) => {
-        const searchableText = [
-          card.name,
-          card.brand,
-          card.bestUse,
-          card.multiplier,
-          ...card.benefits,
-          card.annualFee,
-          card.transferablePoints ? "transferable points" : "non-transferable points",
-        ]
-          .join(" ")
-          .toLowerCase();
-        return searchableText.includes(normalizedSearch);
+      .map((card) => {
+        const id = card.id.toLowerCase();
+        const issuer = card.issuer.toLowerCase();
+        const brand = card.brand.toLowerCase();
+        const name = card.name.toLowerCase();
+        const searchableFields = [id, issuer, brand, name];
+
+        let score = 0;
+        if (id === normalizedSearch) {
+          score += 120;
+        }
+        if (name === normalizedSearch) {
+          score += 100;
+        }
+        if (issuer === normalizedSearch) {
+          score += 95;
+        }
+        if (brand === normalizedSearch) {
+          score += 90;
+        }
+
+        for (const token of searchTokens) {
+          const exactFieldMatch = searchableFields.some((field) => field === token);
+          const startsWithMatch = searchableFields.some((field) => field.startsWith(token));
+          const wordMatch = searchableFields.some((field) =>
+            field
+              .split(/[\s-]+/)
+              .some((word) => word.startsWith(token))
+          );
+
+          if (exactFieldMatch) {
+            score += 30;
+          } else if (startsWithMatch || wordMatch) {
+            score += 14;
+          } else {
+            return null;
+          }
+        }
+
+        return { card, score };
       })
-      .slice(0, 12);
-  }, [searchCatalog, normalizedSearch]);
+      .filter((entry): entry is { card: CardSearchEntry; score: number } => Boolean(entry))
+      .sort((a, b) => (b.score === a.score ? a.card.name.localeCompare(b.card.name) : b.score - a.score))
+      .map((entry) => entry.card);
+  }, [normalizedSearch, searchCatalog, searchTokens]);
 
   return (
     <>
@@ -701,7 +732,6 @@ function ProfileScreen({
   analyticsSummary,
   analyticsLoading,
   onRefreshAnalytics,
-  onResetDemo,
   onSignOut,
 }: {
   profile: Profile;
@@ -709,7 +739,6 @@ function ProfileScreen({
   analyticsSummary: RevoAnalyticsSummary | null;
   analyticsLoading: boolean;
   onRefreshAnalytics: () => Promise<void>;
-  onResetDemo: () => Promise<void>;
   onSignOut: () => Promise<void>;
 }) {
   const successRate = analyticsSummary?.successRate ?? 0;
@@ -805,9 +834,6 @@ function ProfileScreen({
           <Text style={styles.panelHint}>No analytics events yet. Ask REVO to start collecting usage stats.</Text>
         )}
       </View>
-      <Pressable style={styles.resetButton} onPress={() => void onResetDemo()}>
-        <Text style={styles.resetButtonText}>Reset Demo Data</Text>
-      </Pressable>
       <Pressable style={styles.signOutButton} onPress={() => void onSignOut()}>
         <Text style={styles.resetButtonText}>Sign out</Text>
       </Pressable>
@@ -860,7 +886,6 @@ export default function App() {
     signOut,
     submitPrompt,
     addCardToWallet,
-    resetToSeed,
     availableCardsToAdd,
     analyticsSummary,
     analyticsLoading,
@@ -948,7 +973,6 @@ export default function App() {
             analyticsSummary={analyticsSummary}
             analyticsLoading={analyticsLoading}
             onRefreshAnalytics={refreshAnalytics}
-            onResetDemo={resetToSeed}
             onSignOut={signOut}
           />
         );
@@ -970,7 +994,6 @@ export default function App() {
     availableCardsToAdd,
     data,
     refreshAnalytics,
-    resetToSeed,
     signOut,
     submitPrompt,
   ]);
@@ -1179,6 +1202,12 @@ const styles = StyleSheet.create({
   walletCardTopRow: {
     flexDirection: "row",
     gap: spacing.sm,
+    alignItems: "flex-start",
+  },
+  walletCardPreviewContainer: {
+    width: 132,
+    height: 84,
+    flexShrink: 0,
   },
   walletCardBody: {
     flex: 1,
@@ -1228,6 +1257,9 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontSize: typeScale.xs,
   },
+  tapHintBack: {
+    textAlign: "right",
+  },
   multiplierBubble: {
     backgroundColor: "#183D3B",
     borderRadius: radii.sm,
@@ -1267,11 +1299,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   walletCardBackTop: {
-    gap: spacing.xs,
+    gap: 6,
   },
   walletCardBackBottom: {
-    gap: spacing.xs,
-    marginTop: spacing.xs,
+    gap: 6,
+    marginTop: "auto",
+    paddingTop: 4,
   },
   expandedTitle: {
     color: palette.textPrimary,
@@ -1300,7 +1333,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#4B66B8",
     backgroundColor: "#22366B",
-    padding: spacing.xs,
+    padding: 10,
     gap: 2,
   },
   askRevoLabel: {
