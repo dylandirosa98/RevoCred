@@ -74,12 +74,16 @@ function WalletCard({
   card,
   expanded,
   onToggle,
+  onAskRevo,
 }: {
   card: Card;
   expanded: boolean;
   onToggle: () => void;
+  onAskRevo: (prompt: string) => void;
 }) {
   const flipProgress = useRef(new Animated.Value(expanded ? 180 : 0)).current;
+  const visibleBenefits = card.benefits.slice(0, 3);
+  const hiddenBenefitCount = Math.max(0, card.benefits.length - visibleBenefits.length);
 
   useEffect(() => {
     Animated.spring(flipProgress, {
@@ -157,20 +161,31 @@ function WalletCard({
           ]}
         >
           <View style={styles.walletCardBackBody}>
-            <Text style={styles.expandedTitle}>Key Benefits</Text>
-            <View style={styles.walletCardBackBenefits}>
-              {card.benefits.map((benefit) => (
-                <View key={`${card.id}-${benefit}`} style={styles.benefitPill}>
-                  <Text style={styles.benefitText}>{benefit}</Text>
-                </View>
-              ))}
+            <View style={styles.walletCardBackTop}>
+              <Text style={styles.expandedTitle}>Key Benefits</Text>
+              <View style={styles.walletCardBackBenefits}>
+                {visibleBenefits.map((benefit) => (
+                  <View key={`${card.id}-${benefit}`} style={styles.benefitPill}>
+                    <Text style={styles.benefitText}>{benefit}</Text>
+                  </View>
+                ))}
+              </View>
+              {hiddenBenefitCount ? <Text style={styles.walletCardMoreBenefits}>+{hiddenBenefitCount} more benefit(s)</Text> : null}
             </View>
-            <Pressable style={styles.askRevoButton}>
-              <Text style={styles.askRevoLabel}>ASK REVO</Text>
-              <Text style={styles.askRevoText}>Ask REVO about {card.name}</Text>
-            </Pressable>
+            <View style={styles.walletCardBackBottom}>
+              <Pressable
+                style={styles.askRevoButton}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  onAskRevo(`Tell me about ${card.name} benefits and how to maximize it.`);
+                }}
+              >
+                <Text style={styles.askRevoLabel}>ASK REVO</Text>
+                <Text style={styles.askRevoText}>Ask REVO about {card.name}</Text>
+              </Pressable>
+              <Text style={styles.tapHint}>Tap to return</Text>
+            </View>
           </View>
-          <Text style={styles.tapHint}>Tap to return</Text>
         </Animated.View>
       </View>
     </Pressable>
@@ -309,6 +324,7 @@ function HomeScreen({
             card={card}
             expanded={expandedCardId === card.id}
             onToggle={() => setExpandedCardId((current) => (current === card.id ? null : card.id))}
+            onAskRevo={onAskRevo}
           />
         ))}
       </View>
@@ -320,10 +336,12 @@ function CardsScreen({
   cards,
   availableCardsToAdd,
   onAddCard,
+  onAskRevo,
 }: {
   cards: Card[];
   availableCardsToAdd: Card[];
   onAddCard: (cardId: string) => void;
+  onAskRevo: (prompt: string) => void;
 }) {
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [showCardPicker, setShowCardPicker] = useState(false);
@@ -346,6 +364,7 @@ function CardsScreen({
           card={card}
           expanded={expandedCardId === card.id}
           onToggle={() => setExpandedCardId((current) => (current === card.id ? null : card.id))}
+          onAskRevo={onAskRevo}
         />
       ))}
       <Pressable
@@ -903,7 +922,12 @@ export default function App() {
         );
       case "Cards":
         return (
-          <CardsScreen cards={data.walletCards} availableCardsToAdd={availableCardsToAdd} onAddCard={(cardId) => void addCardToWallet(cardId)} />
+          <CardsScreen
+            cards={data.walletCards}
+            availableCardsToAdd={availableCardsToAdd}
+            onAddCard={(cardId) => void addCardToWallet(cardId)}
+            onAskRevo={handleAskRevo}
+          />
         );
       case "Strategy":
         return (
@@ -1137,16 +1161,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#304366",
     backgroundColor: "#101A33",
-    minHeight: 220,
+    minHeight: 250,
     position: "relative",
     overflow: "hidden",
   },
   walletCardFace: {
     position: "absolute",
-    top: spacing.sm,
-    right: spacing.sm,
-    bottom: spacing.sm,
-    left: spacing.sm,
+    top: spacing.xs,
+    right: spacing.xs,
+    bottom: spacing.xs,
+    left: spacing.xs,
     backfaceVisibility: "hidden",
   },
   walletCardFaceBack: {
@@ -1242,13 +1266,20 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xs,
   },
+  walletCardBackTop: {
+    gap: spacing.xs,
+  },
+  walletCardBackBottom: {
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
   expandedTitle: {
     color: palette.textPrimary,
     fontSize: typeScale.lg,
     fontWeight: "700",
   },
   walletCardBackBenefits: {
-    gap: spacing.xs,
+    gap: 6,
   },
   benefitPill: {
     borderRadius: radii.sm,
@@ -1258,7 +1289,11 @@ const styles = StyleSheet.create({
   },
   benefitText: {
     color: "#C9D4F2",
-    fontSize: typeScale.sm,
+    fontSize: typeScale.xs,
+  },
+  walletCardMoreBenefits: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
   },
   askRevoButton: {
     borderRadius: radii.md,
