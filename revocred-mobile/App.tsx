@@ -59,13 +59,58 @@ function topCardColor(cardId: string): string {
   return fallbackPalette[hash % fallbackPalette.length];
 }
 
+function cardArtAccent(cardId: string): string {
+  const paletteSet = ["#8A7CB8", "#7FA7BF", "#9A86A7", "#7A95C9", "#93A0BE", "#78A6A1"];
+  const hash = Array.from(cardId).reduce((sum, char) => sum + char.charCodeAt(0) * 3, 0);
+  return paletteSet[hash % paletteSet.length];
+}
+
+function cardArtStripe(cardId: string): string {
+  const stripeSet = ["#5B4A83", "#305C73", "#6B4B6B", "#3A57A8", "#3D4D74", "#2F6978"];
+  const hash = Array.from(cardId).reduce((sum, char) => sum + char.charCodeAt(0) * 7, 0);
+  return stripeSet[hash % stripeSet.length];
+}
+
+function GenericCardSurface({
+  cardId,
+  brand,
+  name,
+  containerStyle,
+  brandStyle,
+  nameStyle,
+}: {
+  cardId: string;
+  brand: string;
+  name: string;
+  containerStyle: object;
+  brandStyle: object;
+  nameStyle: object;
+}) {
+  return (
+    <View style={[styles.genericCardSurface, { backgroundColor: topCardColor(cardId) }, containerStyle]}>
+      <View style={[styles.cardArtStripe, { backgroundColor: cardArtStripe(cardId) }]} />
+      <View style={[styles.cardArtOrb, { backgroundColor: cardArtAccent(cardId) }]} />
+      <View style={styles.cardArtSheen} />
+      <View style={styles.cardArtChip} />
+      <Text style={[styles.cardArtBrand, brandStyle]}>{brand.toUpperCase()}</Text>
+      <Text style={[styles.cardArtName, nameStyle]} numberOfLines={2}>
+        {name}
+      </Text>
+    </View>
+  );
+}
+
 function CardPreview({ card }: { card: Card }) {
   return (
     <View style={styles.cardFlipContainer}>
-      <View style={[styles.cardPreview, { backgroundColor: topCardColor(card.id) }]}>
-        <Text style={styles.cardPreviewBrand}>{card.brand}</Text>
-        <Text style={styles.cardPreviewName}>{card.name}</Text>
-      </View>
+      <GenericCardSurface
+        cardId={card.id}
+        brand={card.brand}
+        name={card.name}
+        containerStyle={styles.cardPreview}
+        brandStyle={styles.cardPreviewBrand}
+        nameStyle={styles.cardPreviewName}
+      />
     </View>
   );
 }
@@ -128,10 +173,14 @@ function WalletCard({
         >
           <View style={styles.walletCardTopRow}>
             <View style={styles.walletCardPreviewContainer}>
-              <View style={[styles.cardPreview, { backgroundColor: topCardColor(card.id) }]}>
-                <Text style={styles.cardPreviewBrand}>{card.brand}</Text>
-                <Text style={styles.cardPreviewName}>{card.name}</Text>
-              </View>
+              <GenericCardSurface
+                cardId={card.id}
+                brand={card.brand}
+                name={card.name}
+                containerStyle={styles.cardPreview}
+                brandStyle={styles.cardPreviewBrand}
+                nameStyle={styles.cardPreviewName}
+              />
             </View>
             <View style={styles.walletCardBody}>
               <View style={styles.walletCardHeader}>
@@ -508,13 +557,14 @@ function StrategyScreen({
                 <View style={styles.searchPhotoGrid}>
                   {searchResults.map((card) => (
                     <Pressable key={`${card.id}-search-result`} style={styles.searchPhotoTile} onPress={() => setSelectedSearchCard(card)}>
-                      <View style={[styles.searchPhotoCard, { backgroundColor: topCardColor(card.id) }]}>
-                        <View style={styles.searchPhotoShine} />
-                        <Text style={styles.searchPhotoBrand}>{card.brand.toUpperCase()}</Text>
-                        <Text style={styles.searchPhotoName} numberOfLines={2}>
-                          {card.name}
-                        </Text>
-                      </View>
+                      <GenericCardSurface
+                        cardId={card.id}
+                        brand={card.brand}
+                        name={card.name}
+                        containerStyle={styles.searchPhotoCard}
+                        brandStyle={styles.searchPhotoBrand}
+                        nameStyle={styles.searchPhotoName}
+                      />
                       <Text style={styles.searchPhotoTileTitle} numberOfLines={1}>
                         {card.name}
                       </Text>
@@ -589,11 +639,14 @@ function StrategyScreen({
 
             {selectedSearchCard ? (
               <ScrollView contentContainerStyle={styles.searchModalBody}>
-                <View style={[styles.searchModalHeroCard, { backgroundColor: topCardColor(selectedSearchCard.id) }]}>
-                  <View style={styles.searchPhotoShine} />
-                  <Text style={styles.searchPhotoBrand}>{selectedSearchCard.brand.toUpperCase()}</Text>
-                  <Text style={styles.searchModalHeroName}>{selectedSearchCard.name}</Text>
-                </View>
+                <GenericCardSurface
+                  cardId={selectedSearchCard.id}
+                  brand={selectedSearchCard.brand}
+                  name={selectedSearchCard.name}
+                  containerStyle={styles.searchModalHeroCard}
+                  brandStyle={styles.searchPhotoBrand}
+                  nameStyle={styles.searchModalHeroName}
+                />
 
                 <View style={styles.searchModalInfoGrid}>
                   <View style={styles.searchModalInfoTile}>
@@ -1271,28 +1324,85 @@ const styles = StyleSheet.create({
     fontSize: typeScale.sm,
     fontWeight: "700",
   },
-  cardPreview: {
+  genericCardSurface: {
     width: "100%",
     height: "100%",
     borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: "rgba(147, 167, 213, 0.35)",
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xs,
     justifyContent: "space-between",
+    overflow: "hidden",
+  },
+  cardArtStripe: {
+    position: "absolute",
+    left: -6,
+    bottom: -14,
+    width: "72%",
+    height: 34,
+    borderRadius: 18,
+    opacity: 0.42,
+  },
+  cardArtOrb: {
+    position: "absolute",
+    top: -22,
+    right: -18,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    opacity: 0.56,
+  },
+  cardArtSheen: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 28,
+    backgroundColor: "rgba(255,255,255,0.09)",
+  },
+  cardArtChip: {
+    position: "absolute",
+    top: 28,
+    left: 12,
+    width: 28,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "rgba(234, 240, 255, 0.55)",
+    backgroundColor: "rgba(224, 233, 255, 0.2)",
+  },
+  cardArtBrand: {
+    color: "#F4F7FF",
+    fontSize: typeScale.xs,
+    letterSpacing: 2,
+    fontWeight: "700",
+    zIndex: 1,
+  },
+  cardArtName: {
+    color: "#FFFFFF",
+    fontSize: typeScale.base,
+    fontWeight: "700",
+    zIndex: 1,
+  },
+  cardPreview: {
+    width: "100%",
+    height: "100%",
   },
   cardFlipContainer: {
     width: 124,
     height: 78,
   },
   cardPreviewBrand: {
-    color: palette.textPrimary,
+    color: "#F4F7FF",
     fontSize: typeScale.xs,
-    letterSpacing: 2,
-    fontWeight: "600",
+    letterSpacing: 1.8,
+    fontWeight: "700",
   },
   cardPreviewName: {
-    color: palette.textPrimary,
+    color: "#FFFFFF",
     fontSize: typeScale.base,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   walletCardBackBody: {
     flex: 1,
@@ -1476,15 +1586,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     justifyContent: "space-between",
     overflow: "hidden",
-  },
-  searchPhotoShine: {
-    position: "absolute",
-    top: -18,
-    right: -24,
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: "rgba(255,255,255,0.22)",
   },
   searchPhotoBrand: {
     color: "#F2F6FF",
