@@ -161,7 +161,7 @@ function WalletCard({
 
   return (
     <Pressable onPress={onToggle} style={styles.walletCard}>
-      <View style={styles.walletCardFlipFrame}>
+      <View style={[styles.walletCardFlipFrame, expanded ? styles.walletCardFlipFrameExpanded : styles.walletCardFlipFrameCollapsed]}>
         <Animated.View
           style={[
             styles.walletCardFace,
@@ -172,7 +172,7 @@ function WalletCard({
           ]}
         >
           <View style={styles.walletCardTopRow}>
-            <View style={styles.walletCardPreviewContainer}>
+            <View style={[styles.walletCardPreviewContainer, expanded ? styles.walletCardPreviewContainerExpanded : styles.walletCardPreviewContainerCollapsed]}>
               <GenericCardSurface
                 cardId={card.id}
                 brand={card.brand}
@@ -232,7 +232,7 @@ function WalletCard({
                 }}
               >
                 <Text style={styles.askRevoLabel}>ASK REVO</Text>
-                <Text style={styles.askRevoText}>Ask REVO about {card.name}</Text>
+                <Text style={styles.askRevoText}>Ask REVO about {card.name} card</Text>
               </Pressable>
               <Text style={[styles.tapHint, styles.tapHintBack]}>Tap to return</Text>
             </View>
@@ -1237,9 +1237,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#304366",
     backgroundColor: "#101A33",
-    minHeight: 250,
     position: "relative",
     overflow: "hidden",
+  },
+  walletCardFlipFrameCollapsed: {
+    minHeight: 166,
+  },
+  walletCardFlipFrameExpanded: {
+    minHeight: 250,
   },
   walletCardFace: {
     position: "absolute",
@@ -1254,13 +1259,19 @@ const styles = StyleSheet.create({
   },
   walletCardTopRow: {
     flexDirection: "row",
-    gap: spacing.sm,
+    gap: spacing.xs,
     alignItems: "flex-start",
   },
   walletCardPreviewContainer: {
+    flexShrink: 0,
+  },
+  walletCardPreviewContainerCollapsed: {
+    width: 112,
+    height: 70,
+  },
+  walletCardPreviewContainerExpanded: {
     width: 132,
     height: 84,
-    flexShrink: 0,
   },
   walletCardBody: {
     flex: 1,
@@ -1274,7 +1285,7 @@ const styles = StyleSheet.create({
   },
   walletCardName: {
     color: palette.textPrimary,
-    fontSize: typeScale.lg,
+    fontSize: typeScale.base,
     fontWeight: "700",
     flexShrink: 1,
   },
@@ -1297,8 +1308,8 @@ const styles = StyleSheet.create({
   },
   walletCardBestUse: {
     color: palette.textPrimary,
-    fontSize: typeScale.base,
-    lineHeight: 21,
+    fontSize: typeScale.sm,
+    lineHeight: 18,
     fontWeight: "600",
   },
   walletFooterRow: {
