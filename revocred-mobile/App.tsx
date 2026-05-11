@@ -54,7 +54,7 @@ function topCardColor(cardId: string): string {
       break;
   }
 
-  const fallbackPalette = ["#2B3656", "#28417A", "#3A3565", "#2E4D5B", "#5A3D57", "#24526A"];
+  const fallbackPalette = ["#1A2438", "#1B2C42", "#21273A", "#20303F", "#2A2F41", "#1E3244"];
   const hash = Array.from(cardId).reduce((sum, char) => sum + char.charCodeAt(0), 0);
   return fallbackPalette[hash % fallbackPalette.length];
 }
@@ -598,9 +598,9 @@ function StrategyScreen({
                         <Text style={styles.benefitText}>{benefit}</Text>
                       </View>
                     ))}
-                    <Pressable style={styles.askRevoButton} onPress={() => onAskRevo(`Tell me more about ${card.name}`)}>
+                    <Pressable style={styles.askRevoButton} onPress={() => onAskRevo(`Tell me more about ${card.name} card`)}>
                       <Text style={styles.askRevoLabel}>ASK REVO</Text>
-                      <Text style={styles.askRevoText}>Ask REVO about {card.name}</Text>
+                      <Text style={styles.askRevoText}>Ask REVO about {card.name} card</Text>
                     </Pressable>
                   </View>
                 ) : null}
@@ -1209,7 +1209,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#33456C",
     backgroundColor: "#162341",
-    padding: spacing.xs,
+    padding: 6,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.25,
@@ -1225,7 +1225,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   walletCardFlipFrameCollapsed: {
-    minHeight: 166,
+    minHeight: 142,
   },
   walletCardFlipFrameExpanded: {
     minHeight: 250,
@@ -1243,19 +1243,19 @@ const styles = StyleSheet.create({
   },
   walletCardTopRow: {
     flexDirection: "row",
-    gap: spacing.xs,
+    gap: 6,
     alignItems: "flex-start",
   },
   walletCardPreviewContainer: {
     flexShrink: 0,
   },
   walletCardPreviewContainerCollapsed: {
-    width: 112,
-    height: 70,
+    width: 94,
+    height: 58,
   },
   walletCardPreviewContainerExpanded: {
-    width: 132,
-    height: 84,
+    width: 124,
+    height: 78,
   },
   walletCardBody: {
     flex: 1,
@@ -1269,7 +1269,7 @@ const styles = StyleSheet.create({
   },
   walletCardName: {
     color: palette.textPrimary,
-    fontSize: typeScale.base,
+    fontSize: typeScale.sm,
     fontWeight: "700",
     flexShrink: 1,
   },
@@ -1281,7 +1281,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: palette.textPrimary,
-    fontSize: typeScale.xs,
+    fontSize: 11,
     fontWeight: "600",
   },
   walletCardSubLabel: {
@@ -1292,8 +1292,8 @@ const styles = StyleSheet.create({
   },
   walletCardBestUse: {
     color: palette.textPrimary,
-    fontSize: typeScale.sm,
-    lineHeight: 18,
+    fontSize: typeScale.xs,
+    lineHeight: 16,
     fontWeight: "600",
   },
   walletFooterRow: {
