@@ -1357,12 +1357,12 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   walletCardPreviewContainerCollapsed: {
-    width: 94,
-    height: 58,
+    width: 127,
+    height: 78,
   },
   walletCardPreviewContainerExpanded: {
-    width: 124,
-    height: 78,
+    width: 167,
+    height: 105,
   },
   walletCardBody: {
     flex: 1,
