@@ -871,6 +871,19 @@ function ProfileScreen({
           <Text style={styles.panelHint}>No analytics events yet. Ask REVO to start collecting usage stats.</Text>
         )}
       </View>
+      <View style={styles.panelSection}>
+        <Text style={styles.cardSectionLabel}>LEGAL & SUPPORT</Text>
+        <View style={styles.complianceCard}>
+          <Text style={styles.complianceTitle}>Important disclaimer</Text>
+          <Text style={styles.complianceText}>
+            REVO provides educational insights only and is not financial, tax, or legal advice.
+          </Text>
+        </View>
+        <View style={styles.complianceCard}>
+          <Text style={styles.complianceTitle}>Support</Text>
+          <Text style={styles.complianceText}>revocredapp@gmail.com</Text>
+        </View>
+      </View>
       <Pressable style={styles.signOutButton} onPress={() => void onSignOut()}>
         <Text style={styles.resetButtonText}>Sign out</Text>
       </Pressable>
@@ -2052,6 +2065,25 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontSize: typeScale.xs,
     marginTop: spacing.xs,
+  },
+  complianceCard: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: "#111B35",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    gap: 4,
+  },
+  complianceTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  complianceText: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    lineHeight: 20,
   },
   resetButton: {
     borderRadius: radii.md,
