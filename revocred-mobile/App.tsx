@@ -40,22 +40,79 @@ const typeScale = {
   hero: 36,
 };
 
-function topCardColor(cardId: string): string {
-  switch (cardId) {
-    case "amex-gold":
-      return "#B68B3A";
-    case "venture-x":
-      return "#2A355A";
-    case "freedom-unlimited":
-      return "#3554BF";
-    case "freedom-flex":
-      return "#7B44C9";
-    default:
-      break;
+function containsToken(source: string, token: string): boolean {
+  return source.includes(token);
+}
+
+function looksLight(colorHex: string): boolean {
+  const normalized = colorHex.replace("#", "");
+  const cleanHex = normalized.length === 3 ? normalized.split("").map((char) => `${char}${char}`).join("") : normalized;
+  const red = Number.parseInt(cleanHex.slice(0, 2), 16);
+  const green = Number.parseInt(cleanHex.slice(2, 4), 16);
+  const blue = Number.parseInt(cleanHex.slice(4, 6), 16);
+  if (Number.isNaN(red) || Number.isNaN(green) || Number.isNaN(blue)) {
+    return false;
+  }
+  const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+  return luminance > 0.62;
+}
+
+function topCardColor(cardId: string, brand: string, name: string): string {
+  const fingerprint = `${cardId} ${brand} ${name}`.toLowerCase();
+
+  if (containsToken(fingerprint, "amex") || containsToken(fingerprint, "american express")) {
+    if (containsToken(fingerprint, "gold")) return "#C89A3D";
+    if (containsToken(fingerprint, "platinum")) return "#AAB4C2";
+    if (containsToken(fingerprint, "green")) return "#2E6A4C";
+    if (containsToken(fingerprint, "blue cash")) return "#2F63AF";
+    if (containsToken(fingerprint, "delta reserve")) return "#5A4F7B";
+    if (containsToken(fingerprint, "delta")) return "#355E9C";
+    if (containsToken(fingerprint, "hilton")) return "#344D86";
+    if (containsToken(fingerprint, "marriott")) return "#566D8B";
+    return "#3D5F8D";
   }
 
-  const fallbackPalette = ["#1A2438", "#1B2C42", "#21273A", "#20303F", "#2A2F41", "#1E3244"];
-  const hash = Array.from(cardId).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  if (containsToken(fingerprint, "chase")) {
+    if (containsToken(fingerprint, "sapphire reserve")) return "#0F2E63";
+    if (containsToken(fingerprint, "sapphire preferred")) return "#1E4E9D";
+    if (containsToken(fingerprint, "freedom unlimited")) return "#2E59CA";
+    if (containsToken(fingerprint, "freedom flex")) return "#6A3DB6";
+    if (containsToken(fingerprint, "ink")) return "#214A87";
+    if (containsToken(fingerprint, "world of hyatt")) return "#474F68";
+    if (containsToken(fingerprint, "united")) return "#18508C";
+    if (containsToken(fingerprint, "southwest")) return "#5C2B89";
+    if (containsToken(fingerprint, "ihg")) return "#5B4676";
+    return "#2257AA";
+  }
+
+  if (containsToken(fingerprint, "capital one")) {
+    if (containsToken(fingerprint, "venture x")) return "#1B2E57";
+    if (containsToken(fingerprint, "venture")) return "#34619C";
+    if (containsToken(fingerprint, "quicksilver")) return "#7A828E";
+    if (containsToken(fingerprint, "savor")) return "#A33845";
+    if (containsToken(fingerprint, "spark")) return "#3E4F6C";
+    return "#3A5488";
+  }
+
+  if (containsToken(fingerprint, "discover")) return "#E37D2F";
+
+  if (containsToken(fingerprint, "citi")) {
+    if (containsToken(fingerprint, "strata")) return "#1E4D8D";
+    if (containsToken(fingerprint, "premier")) return "#225EA7";
+    if (containsToken(fingerprint, "double cash")) return "#2A66AC";
+    if (containsToken(fingerprint, "custom cash")) return "#2E71BC";
+    return "#245FAE";
+  }
+
+  if (containsToken(fingerprint, "bilt")) return "#302E53";
+  if (containsToken(fingerprint, "wells fargo") || containsToken(fingerprint, "autograph")) return "#A43A45";
+  if (containsToken(fingerprint, "u.s. bank") || containsToken(fingerprint, "us bank") || containsToken(fingerprint, "altitude")) return "#2F5C95";
+  if (containsToken(fingerprint, "apple card")) return "#D5DCE5";
+  if (containsToken(fingerprint, "bank of america")) return "#C53D46";
+  if (containsToken(fingerprint, "amazon")) return "#25272E";
+
+  const fallbackPalette = ["#1A2F4F", "#27445E", "#3B3566", "#215165", "#5B3F61", "#27456B", "#364E7B", "#1F4950"];
+  const hash = Array.from(fingerprint).reduce((sum, char) => sum + char.charCodeAt(0), 0);
   return fallbackPalette[hash % fallbackPalette.length];
 }
 
@@ -74,10 +131,13 @@ function GenericCardSurface({
   brandStyle: object;
   nameStyle: object;
 }) {
+  const backgroundColor = topCardColor(cardId, brand, name);
+  const lightBackground = looksLight(backgroundColor);
+
   return (
-    <View style={[styles.genericCardSurface, { backgroundColor: topCardColor(cardId) }, containerStyle]}>
-      <Text style={[styles.cardArtBrand, brandStyle]}>{brand.toUpperCase()}</Text>
-      <Text style={[styles.cardArtName, nameStyle]} numberOfLines={2}>
+    <View style={[styles.genericCardSurface, { backgroundColor }, containerStyle]}>
+      <Text style={[styles.cardArtBrand, brandStyle, lightBackground ? styles.cardArtBrandOnLight : undefined]}>{brand.toUpperCase()}</Text>
+      <Text style={[styles.cardArtName, nameStyle, lightBackground ? styles.cardArtNameOnLight : undefined]} numberOfLines={2}>
         {name}
       </Text>
     </View>
@@ -112,7 +172,9 @@ function WalletCard({
 }) {
   const flipProgress = useRef(new Animated.Value(expanded ? 180 : 0)).current;
   const visibleBenefits = card.benefits.slice(0, 2);
+  const hiddenBenefits = card.benefits.slice(2);
   const hiddenBenefitCount = Math.max(0, card.benefits.length - visibleBenefits.length);
+  const [showBenefitsModal, setShowBenefitsModal] = useState(false);
 
   useEffect(() => {
     Animated.spring(flipProgress, {
@@ -205,7 +267,17 @@ function WalletCard({
                   </View>
                 ))}
               </View>
-              {hiddenBenefitCount ? <Text style={styles.walletCardMoreBenefits}>+{hiddenBenefitCount} more benefit(s)</Text> : null}
+              {hiddenBenefitCount ? (
+                <Pressable
+                  style={styles.walletCardMoreBenefitsButton}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    setShowBenefitsModal(true);
+                  }}
+                >
+                  <Text style={styles.walletCardMoreBenefits}>+{hiddenBenefitCount} more benefit(s)</Text>
+                </Pressable>
+              ) : null}
             </View>
             <View style={styles.walletCardBackBottom}>
               <Pressable
@@ -223,6 +295,28 @@ function WalletCard({
           </View>
         </Animated.View>
       </View>
+      <Modal visible={showBenefitsModal} transparent animationType="fade" onRequestClose={() => setShowBenefitsModal(false)}>
+        <Pressable style={styles.benefitsModalBackdrop} onPress={() => setShowBenefitsModal(false)}>
+          <Pressable
+            style={styles.benefitsModalSheet}
+            onPress={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <Text style={styles.benefitsModalTitle}>More benefits for {card.name}</Text>
+            <View style={styles.benefitsModalList}>
+              {hiddenBenefits.map((benefit) => (
+                <View key={`${card.id}-hidden-${benefit}`} style={styles.benefitPill}>
+                  <Text style={styles.benefitText}>{benefit}</Text>
+                </View>
+              ))}
+            </View>
+            <Pressable style={styles.benefitsModalCloseButton} onPress={() => setShowBenefitsModal(false)}>
+              <Text style={styles.benefitsModalCloseText}>Done</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Pressable>
   );
 }
@@ -1350,11 +1444,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     zIndex: 1,
   },
+  cardArtBrandOnLight: {
+    color: "#24324F",
+  },
   cardArtName: {
     color: "#FFFFFF",
     fontSize: typeScale.base,
     fontWeight: "700",
     zIndex: 1,
+  },
+  cardArtNameOnLight: {
+    color: "#17243D",
   },
   cardPreview: {
     width: "100%",
@@ -1406,8 +1506,51 @@ const styles = StyleSheet.create({
     fontSize: typeScale.xs,
   },
   walletCardMoreBenefits: {
-    color: palette.textSecondary,
+    color: "#B3C4F3",
     fontSize: typeScale.xs,
+    textDecorationLine: "underline",
+  },
+  walletCardMoreBenefitsButton: {
+    alignSelf: "flex-start",
+    borderRadius: radii.sm,
+    paddingVertical: 2,
+  },
+  benefitsModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(6, 11, 23, 0.82)",
+    justifyContent: "center",
+    paddingHorizontal: spacing.sm,
+  },
+  benefitsModalSheet: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "#334A79",
+    backgroundColor: "#0F1B38",
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  benefitsModalTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.lg,
+    fontWeight: "700",
+  },
+  benefitsModalList: {
+    gap: 6,
+  },
+  benefitsModalCloseButton: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: "#4B66B8",
+    backgroundColor: "#22366B",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  benefitsModalCloseText: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
   },
   askRevoButton: {
     borderRadius: radii.md,
