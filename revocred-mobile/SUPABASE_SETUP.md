@@ -28,11 +28,14 @@ This creates:
 - `profiles`
 - `wallet_cards`
 - `revo_messages`
+- `revo_usage_logs`
+- `user_preferences`
+- `card_catalog`
 
 ...with row-level security so each user can only access their own data.
 
-If you've already run an older schema, re-run the latest `supabase/schema.sql` so the
-new `revo_usage_logs` table and policies are added.
+If you've already run an older schema, re-run the latest `supabase/schema.sql` so newer
+tables/policies (including `revo_usage_logs`, `user_preferences`, `card_catalog`) are added.
 
 ## 3) Run app
 
@@ -81,6 +84,7 @@ supabase secrets set OPENAI_MODEL=gpt-4o-mini --project-ref jylwvumrzgihfndpurvq
 - The app only uses the public anon key.
 - REVO replies are generated server-side by `supabase/functions/revo-chat`.
 - REVO now includes rate limiting, prompt guardrails, and usage logs for monitoring.
+- Strategy card search will read from `card_catalog` when populated, and safely falls back to local seed data if this table is empty.
 
 ## Observability setup (analytics + crash monitoring)
 

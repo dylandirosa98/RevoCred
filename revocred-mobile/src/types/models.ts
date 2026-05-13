@@ -1,6 +1,8 @@
 export type TabKey = "Home" | "Cards" | "Strategy" | "REVO" | "Profile";
 
 export type CardStatus = "Active" | "Inactive";
+export type RedemptionType = "cash_back" | "points" | "hybrid";
+export type TravelScope = "domestic" | "international" | "both" | "none";
 
 export type Card = {
   id: string;
@@ -26,6 +28,10 @@ export type CardSearchEntry = {
   summary?: string;
   bestUse: string;
   multiplier: string;
+  redemptionType?: RedemptionType;
+  travelScope?: TravelScope;
+  noForeignTxFee?: boolean;
+  annualFeeTier?: "0" | "low" | "mid" | "high";
 };
 
 export type Recommendation = {
@@ -41,6 +47,8 @@ export type Profile = {
   goal: string;
   topSpendCategories: string;
   nextApplicationTarget: string;
+  redemptionType?: RedemptionType;
+  travelScope?: TravelScope;
 };
 
 export type ChatMessage = {

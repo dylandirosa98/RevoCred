@@ -15,6 +15,11 @@ type ProfileRow = {
   projected_yearly_value: number;
 };
 
+type UserPreferenceRow = {
+  redemption_type: "cash_back" | "points" | "hybrid";
+  travel_scope: "domestic" | "international" | "both" | "none";
+};
+
 type WalletRow = {
   card_id: string;
 };
@@ -65,6 +70,14 @@ function buildSystemPrompt(profile: ProfileRow | null, walletRows: WalletRow[]):
     "Do not provide instructions for fraud, identity theft, policy bypass, or illegal behavior.",
     "Keep responses concise and practical. Avoid long legal disclaimers unless relevant.",
   ].join("\n");
+}
+
+function isMissingTableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const maybeError = error as { code?: string; message?: string };
+  return maybeError.code === "42P01" || maybeError.message?.toLowerCase().includes("does not exist") === true;
 }
 
 function detectPromptGuardrail(prompt: string): { blocked: boolean; reason?: string; userMessage?: string } {
@@ -330,7 +343,7 @@ Deno.serve(async (req) => {
     }
 
     const startedAt = Date.now();
-    const [profileResult, walletResult, historyResult] = await Promise.all([
+    const [profileResult, walletResult, historyResult, preferenceResult] = await Promise.all([
       supabase
         .from("profiles")
         .select(
@@ -346,14 +359,20 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(8)
         .returns<MessageRow[]>(),
+      supabase.from("user_preferences").select("redemption_type, travel_scope").eq("user_id", user.id).maybeSingle<UserPreferenceRow>(),
     ]);
 
     if (profileResult.error) throw profileResult.error;
     if (walletResult.error) throw walletResult.error;
     if (historyResult.error) throw historyResult.error;
+    if (preferenceResult.error && !isMissingTableError(preferenceResult.error)) throw preferenceResult.error;
 
     const history = [...(historyResult.data ?? [])].reverse();
-    const systemPrompt = buildSystemPrompt(profileResult.data ?? null, walletResult.data ?? []);
+    const preferences = preferenceResult.error ? null : preferenceResult.data;
+    const systemPromptBase = buildSystemPrompt(profileResult.data ?? null, walletResult.data ?? []);
+    const systemPrompt = preferences
+      ? `${systemPromptBase}\nPreferred redemption type: ${preferences.redemption_type}\nPreferred travel scope: ${preferences.travel_scope}`
+      : systemPromptBase;
     const generation = await generateAssistantReply(Deno.env.get("OPENAI_API_KEY"), systemPrompt, history, prompt);
     const assistantReply = generation.assistantReply;
     const latencyMs = Date.now() - startedAt;

@@ -1,5 +1,5 @@
 import { seedCardCatalog, seedCardSearchCatalog, seedMetrics, seedPopularPicks, seedProfile, seedQuickPrompts, seedTimeline, seedWalletCards } from "../data/seed";
-import { AppData, Card, CardStatus, ChatMessage, Profile, RevoAnalyticsSummary } from "../types/models";
+import { AppData, Card, CardSearchEntry, CardStatus, ChatMessage, Profile, RedemptionType, RevoAnalyticsSummary, TravelScope } from "../types/models";
 import { supabase } from "./supabaseClient";
 
 type ProfileRow = {
@@ -31,6 +31,31 @@ type RevoUsageLogRow = {
   created_at: string;
 };
 
+type UserPreferenceRow = {
+  redemption_type: RedemptionType;
+  travel_scope: TravelScope;
+};
+
+type CardCatalogRow = {
+  id: string;
+  issuer: string;
+  brand: string;
+  name: string;
+  network: string | null;
+  annual_fee: string;
+  point_multipliers: string[] | null;
+  transferable_points: boolean;
+  transfer_partners: string[] | null;
+  benefits: string[] | null;
+  summary: string | null;
+  best_use: string;
+  multiplier: string;
+  redemption_type: RedemptionType | null;
+  travel_scope: TravelScope | null;
+  no_foreign_tx_fee: boolean | null;
+  annual_fee_tier: "0" | "low" | "mid" | "high" | null;
+};
+
 const REVO_CHAT_TIMEOUT_MS = 15000;
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
@@ -51,13 +76,23 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMes
   }
 }
 
-function toProfile(row: ProfileRow): Profile {
+function isMissingTableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const maybeError = error as { code?: string; message?: string };
+  return maybeError.code === "42P01" || maybeError.message?.toLowerCase().includes("does not exist") === true;
+}
+
+function toProfile(row: ProfileRow, preferences: UserPreferenceRow | null): Profile {
   return {
     name: row.name,
     creditCardStrategy: row.credit_card_strategy,
     goal: row.goal,
     topSpendCategories: row.top_spend_categories,
     nextApplicationTarget: row.next_application_target,
+    redemptionType: preferences?.redemption_type,
+    travelScope: preferences?.travel_scope,
   };
 }
 
@@ -86,12 +121,78 @@ function hydrateMessages(rows: RevoMessageRow[]): ChatMessage[] {
   }));
 }
 
-function composeAppData(profileRow: ProfileRow, walletRows: WalletCardRow[], messageRows: RevoMessageRow[]): AppData {
+function mapCardCatalogRow(row: CardCatalogRow): CardSearchEntry {
+  return {
+    id: row.id,
+    issuer: row.issuer,
+    brand: row.brand,
+    name: row.name,
+    network: row.network ?? undefined,
+    annualFee: row.annual_fee,
+    pointMultipliers: row.point_multipliers ?? [],
+    transferablePoints: row.transferable_points,
+    transferPartners: row.transfer_partners ?? undefined,
+    benefits: row.benefits ?? [],
+    summary: row.summary ?? undefined,
+    bestUse: row.best_use,
+    multiplier: row.multiplier,
+    redemptionType: row.redemption_type ?? undefined,
+    travelScope: row.travel_scope ?? undefined,
+    noForeignTxFee: row.no_foreign_tx_fee ?? undefined,
+    annualFeeTier: row.annual_fee_tier ?? undefined,
+  };
+}
+
+async function fetchUserPreferences(userId: string): Promise<UserPreferenceRow | null> {
+  const { data, error } = await supabase
+    .from("user_preferences")
+    .select("redemption_type, travel_scope")
+    .eq("user_id", userId)
+    .maybeSingle<UserPreferenceRow>();
+
+  if (error) {
+    if (isMissingTableError(error)) {
+      return null;
+    }
+    throw error;
+  }
+  return data ?? null;
+}
+
+async function fetchCardSearchCatalogFromDb(): Promise<CardSearchEntry[]> {
+  const { data, error } = await supabase
+    .from("card_catalog")
+    .select(
+      "id, issuer, brand, name, network, annual_fee, point_multipliers, transferable_points, transfer_partners, benefits, summary, best_use, multiplier, redemption_type, travel_scope, no_foreign_tx_fee, annual_fee_tier"
+    )
+    .order("issuer", { ascending: true })
+    .order("name", { ascending: true })
+    .returns<CardCatalogRow[]>();
+
+  if (error) {
+    if (isMissingTableError(error)) {
+      return [...seedCardSearchCatalog];
+    }
+    throw error;
+  }
+  if (!data?.length) {
+    return [...seedCardSearchCatalog];
+  }
+  return data.map(mapCardCatalogRow);
+}
+
+function composeAppData(
+  profileRow: ProfileRow,
+  walletRows: WalletCardRow[],
+  messageRows: RevoMessageRow[],
+  preferences: UserPreferenceRow | null,
+  cardSearchCatalog: CardSearchEntry[]
+): AppData {
   const walletCards = hydrateWallet(walletRows);
   const activeIds = new Set(walletCards.map((card) => card.id));
 
   return {
-    profile: toProfile(profileRow),
+    profile: toProfile(profileRow, preferences),
     metrics: {
       pointsValue: profileRow.points_value,
       projectedYearlyValue: profileRow.projected_yearly_value,
@@ -99,7 +200,7 @@ function composeAppData(profileRow: ProfileRow, walletRows: WalletCardRow[], mes
     walletCards,
     strategyTimeline: seedTimeline,
     popularPicks: seedPopularPicks.map((card) => ({ ...card, status: activeIds.has(card.id) ? "Active" : "Inactive" })),
-    cardSearchCatalog: seedCardSearchCatalog,
+    cardSearchCatalog,
     quickPrompts: [...seedQuickPrompts],
     chatMessages: hydrateMessages(messageRows),
     cardCatalog: seedCardCatalog.map((card) => ({ ...card, status: activeIds.has(card.id) ? "Active" : "Inactive" })),
@@ -197,6 +298,29 @@ export async function ensureUserBootstrap(userId: string): Promise<void> {
       throw messageInsertError;
     }
   }
+
+  const { data: existingPreferences, error: preferenceReadError } = await supabase
+    .from("user_preferences")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (preferenceReadError) {
+    if (isMissingTableError(preferenceReadError)) {
+      return;
+    }
+    throw preferenceReadError;
+  }
+
+  if (!existingPreferences) {
+    const { error: preferenceInsertError } = await supabase.from("user_preferences").insert({
+      user_id: userId,
+      redemption_type: "hybrid",
+      travel_scope: "both",
+    });
+    if (preferenceInsertError && !isMissingTableError(preferenceInsertError)) {
+      throw preferenceInsertError;
+    }
+  }
 }
 
 export async function fetchUserAppData(userId: string): Promise<AppData> {
@@ -213,27 +337,21 @@ export async function fetchUserAppData(userId: string): Promise<AppData> {
     throw new Error("Profile not found. Run bootstrap setup first.");
   }
 
-  const { data: walletRows, error: walletError } = await supabase
-    .from("wallet_cards")
-    .select("card_id, status")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true })
-    .returns<WalletCardRow[]>();
-  if (walletError) {
-    throw walletError;
+  const [walletResult, messageResult, preferences, cardSearchCatalog] = await Promise.all([
+    supabase.from("wallet_cards").select("card_id, status").eq("user_id", userId).order("created_at", { ascending: true }).returns<WalletCardRow[]>(),
+    supabase.from("revo_messages").select("id, role, content, created_at").eq("user_id", userId).order("created_at", { ascending: true }).returns<RevoMessageRow[]>(),
+    fetchUserPreferences(userId),
+    fetchCardSearchCatalogFromDb(),
+  ]);
+
+  if (walletResult.error) {
+    throw walletResult.error;
+  }
+  if (messageResult.error) {
+    throw messageResult.error;
   }
 
-  const { data: messageRows, error: messageError } = await supabase
-    .from("revo_messages")
-    .select("id, role, content, created_at")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true })
-    .returns<RevoMessageRow[]>();
-  if (messageError) {
-    throw messageError;
-  }
-
-  return composeAppData(profile, walletRows ?? [], messageRows ?? []);
+  return composeAppData(profile, walletResult.data ?? [], messageResult.data ?? [], preferences, cardSearchCatalog);
 }
 
 export async function fetchRevoAnalyticsSummary(userId: string): Promise<RevoAnalyticsSummary> {
@@ -290,6 +408,34 @@ export async function appendPromptAndReply(prompt: string): Promise<void> {
   }
   if (!data?.assistantReply) {
     throw new Error("No assistant reply returned from revo-chat function.");
+  }
+}
+
+export async function updateUserPreferences(
+  userId: string,
+  updates: {
+    redemptionType?: RedemptionType;
+    travelScope?: TravelScope;
+  }
+): Promise<void> {
+  const payload: {
+    user_id: string;
+    redemption_type?: RedemptionType;
+    travel_scope?: TravelScope;
+  } = {
+    user_id: userId,
+  };
+
+  if (updates.redemptionType) {
+    payload.redemption_type = updates.redemptionType;
+  }
+  if (updates.travelScope) {
+    payload.travel_scope = updates.travelScope;
+  }
+
+  const { error } = await supabase.from("user_preferences").upsert(payload, { onConflict: "user_id" });
+  if (error) {
+    throw error;
   }
 }
 
