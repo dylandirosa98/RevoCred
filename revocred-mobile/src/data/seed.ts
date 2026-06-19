@@ -106,7 +106,7 @@ export const seedProfile: Profile = {
   creditCardStrategy: "Hybrid cash back + travel",
   goal: "Maximize points without wasting perks",
   topSpendCategories: "Dining, groceries, travel",
-  nextApplicationTarget: "Citi Custom Cash",
+  nextApplicationTarget: "Citi Strata Premier",
 };
 
 export const seedMetrics: Metrics = {
@@ -123,15 +123,6 @@ export const seedQuickPrompts = [
 export const seedCardCatalog: Card[] = [
   ...seedWalletCards,
   ...seedPopularPicks.filter((pick) => !seedWalletCards.some((walletCard) => walletCard.id === pick.id)),
-  {
-    id: "citi-custom-cash",
-    brand: "MC",
-    name: "Citi Custom Cash",
-    bestUse: "Top Eligible Category",
-    multiplier: "5x",
-    status: "Inactive",
-    benefits: ["5x top category", "No annual fee", "Flexible earning", "Great pairing card"],
-  },
 ];
 
 function parseCsvLine(line: string): string[] {
@@ -224,7 +215,6 @@ delta-skymiles-blue,American Express,Amex,Delta SkyMiles Blue,$0.00,2x Delta pur
 delta-skymiles-gold,American Express,Amex,Delta SkyMiles Gold,$0 intro first year then $150,2x Delta purchases | 2x U.S. supermarkets | 2x restaurants worldwide | 1x everywhere,Delta Starter,FALSE,"first checked bag free | priority boarding | up to $200 Delta flight credit after $10,000 annual spend | $100 Delta Stays credit annually | 20% back on Delta inflight purchases"
 delta-skymiles-platinum,American Express,Amex,Delta SkyMiles Platinum,$350.00,3x Delta purchases | 3x hotels booked directly | 2x U.S. supermarkets | 2x restaurants worldwide | 1x everywhere,Delta Frequent Flyer,FALSE,annual companion certificate Main Cabin | first checked bag free | priority boarding | up to $120 Global Entry/TSA PreCheck credit every 4 years | $150 Delta Stays credit annually | up to $120 rideshare credit annually | up to $120 Resy credit annually
 delta-skymiles-reserve,American Express,Amex,Delta SkyMiles Reserve,$650.00,3x Delta purchases | 1x everywhere,Premium Delta,FALSE,Delta Sky Club access when flying Delta with visit limits | Centurion Lounge access when flying Delta | annual companion certificate First Class Comfort Plus or Main Cabin | first checked bag free | priority boarding | up to $120 Global Entry/TSA PreCheck credit every 4 years | $200 Delta Stays credit annually | up to $120 rideshare credit annually | up to $240 Resy credit annually
-citi-custom-cash,Citi,Mastercard,Custom Cash,$0.00,5x top eligible spend category each billing cycle up to monthly cap | 1x everywhere,Flexible Cash Back,true_pairing,no annual fee | automatic top-category rewards
 citi-double-cash,Citi,Mastercard,Double Cash,$0.00,2% total cash back everywhere with 1% when buying and 1% when paying,Flat Cash Back,true_pairing,no annual fee | simple cash back | ThankYou points option
 citi-strata,Citi,Mastercard,Strata,$0.00,3x select transit | 3x EV charging | 3x gas | 3x supermarkets | 3x restaurants | 1x everywhere,Everyday Rewards,true_pairing,no annual fee | Citi Entertainment access
 citi-strata-premier,Citi,Mastercard,Strata Premier,$95.00,10x hotels car rentals and attractions through Citi Travel | 3x air travel and hotels | 3x restaurants | 3x supermarkets | 3x gas and EV charging | 1x everywhere,Travel Rewards,true_direct,$100 hotel savings benefit annually on eligible Citi Travel hotel stay of $500+ | transfer partners

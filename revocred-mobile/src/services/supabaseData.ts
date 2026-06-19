@@ -57,6 +57,7 @@ type CardCatalogRow = {
 };
 
 const REVO_CHAT_TIMEOUT_MS = 15000;
+const REMOVED_CARD_IDS = new Set(["citi-custom-cash"]);
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -171,14 +172,14 @@ async function fetchCardSearchCatalogFromDb(): Promise<CardSearchEntry[]> {
 
   if (error) {
     if (isMissingTableError(error)) {
-      return [...seedCardSearchCatalog];
+      return seedCardSearchCatalog.filter((card) => !REMOVED_CARD_IDS.has(card.id));
     }
     throw error;
   }
   if (!data?.length) {
-    return [...seedCardSearchCatalog];
+    return seedCardSearchCatalog.filter((card) => !REMOVED_CARD_IDS.has(card.id));
   }
-  return data.map(mapCardCatalogRow);
+  return data.map(mapCardCatalogRow).filter((card) => !REMOVED_CARD_IDS.has(card.id));
 }
 
 function composeAppData(
