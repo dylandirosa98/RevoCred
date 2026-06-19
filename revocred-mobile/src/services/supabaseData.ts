@@ -58,6 +58,31 @@ type CardCatalogRow = {
 
 const REVO_CHAT_TIMEOUT_MS = 15000;
 const REMOVED_CARD_IDS = new Set(["citi-custom-cash"]);
+const CARD_CATALOG_OVERRIDES: Record<string, Partial<CardSearchEntry>> = {
+  "sapphire-preferred": {
+    annualFee: "$95.00",
+    pointMultipliers: [
+      "5x Chase Travel",
+      "3x dining",
+      "3x online groceries",
+      "3x top streaming services",
+      "2x travel",
+      "1x everywhere",
+      "3x on gas and EV charging",
+      "3x on vacation homes like Airbnb, Vrbo, and more",
+    ],
+    bestUse: "Travel Starter",
+    transferablePoints: true,
+    benefits: [
+      "up to $100 Chase Travel hotel credit annually",
+      "TSA Recheck, Nexus, or Global entry credit",
+      "trip cancellation/interruption insurance",
+      "primary rental car coverage",
+      "Complimentary DashPass membership for 12 months ($120 value)",
+    ],
+    multiplier: "5x",
+  },
+};
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -144,6 +169,17 @@ function mapCardCatalogRow(row: CardCatalogRow): CardSearchEntry {
   };
 }
 
+function applyCatalogOverrides(card: CardSearchEntry): CardSearchEntry {
+  const override = CARD_CATALOG_OVERRIDES[card.id];
+  if (!override) {
+    return card;
+  }
+  return {
+    ...card,
+    ...override,
+  };
+}
+
 async function fetchUserPreferences(userId: string): Promise<UserPreferenceRow | null> {
   const { data, error } = await supabase
     .from("user_preferences")
@@ -172,14 +208,14 @@ async function fetchCardSearchCatalogFromDb(): Promise<CardSearchEntry[]> {
 
   if (error) {
     if (isMissingTableError(error)) {
-      return seedCardSearchCatalog.filter((card) => !REMOVED_CARD_IDS.has(card.id));
+      return seedCardSearchCatalog.filter((card) => !REMOVED_CARD_IDS.has(card.id)).map(applyCatalogOverrides);
     }
     throw error;
   }
   if (!data?.length) {
-    return seedCardSearchCatalog.filter((card) => !REMOVED_CARD_IDS.has(card.id));
+    return seedCardSearchCatalog.filter((card) => !REMOVED_CARD_IDS.has(card.id)).map(applyCatalogOverrides);
   }
-  return data.map(mapCardCatalogRow).filter((card) => !REMOVED_CARD_IDS.has(card.id));
+  return data.map(mapCardCatalogRow).filter((card) => !REMOVED_CARD_IDS.has(card.id)).map(applyCatalogOverrides);
 }
 
 function composeAppData(
