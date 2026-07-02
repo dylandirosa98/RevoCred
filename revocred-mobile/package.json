@@ -7,9 +7,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:android:preview": "npx eas-cli build --platform android --profile preview",
-    "build:ios:testflight": "npx eas-cli build --platform ios --profile testflight",
-    "submit:ios:testflight": "npx eas-cli submit --platform ios --profile testflight"
+    "build:android:preview": "npx eas-cli build --platform android --profile preview --non-interactive",
+    "build:ios:testflight": "npx eas-cli build --platform ios --profile testflight --non-interactive",
+    "submit:ios:testflight": "npx eas-cli submit --platform ios --profile testflight --latest --non-interactive --wait"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
