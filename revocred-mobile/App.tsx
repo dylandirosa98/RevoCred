@@ -1,7 +1,8 @@
 import { StatusBar } from "expo-status-bar";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ComponentProps, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAppData } from "./src/hooks/useAppData";
 import { initializeObservability, trackEvent, trackScreenView } from "./src/services/observability";
 import { Card, CardSearchEntry, ChatMessage, Profile, Recommendation, RedemptionType, RevoAnalyticsSummary, TabKey, TravelScope } from "./src/types/models";
@@ -975,29 +976,107 @@ type OnboardingAnswers = {
   pointsGoal: OnboardingPointsGoal | null;
 };
 
-function OnboardingPillGroup<T extends string>({
+type IoniconName = ComponentProps<typeof Ionicons>["name"];
+
+const GRADIENT_PRIMARY = ["#5B7CFA", "#8B5CF6"] as const;
+
+function GradientButton({
+  label,
+  onPress,
+  disabled,
+  trailingIcon,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  trailingIcon?: IoniconName;
+}) {
+  return (
+    <Pressable onPress={onPress} disabled={disabled} style={[styles.gradientButtonWrap, disabled ? styles.disabledCard : undefined]}>
+      <LinearGradient colors={GRADIENT_PRIMARY} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.gradientButton}>
+        <Text style={styles.gradientButtonText}>{label}</Text>
+        {trailingIcon ? <Ionicons name={trailingIcon} size={18} color="#FFFFFF" /> : null}
+      </LinearGradient>
+    </Pressable>
+  );
+}
+
+function SegmentedProgress({ current, total }: { current: number; total: number }) {
+  return (
+    <View style={styles.segmentRow}>
+      {Array.from({ length: total }).map((_, index) => {
+        const filled = index < current;
+        return filled ? (
+          <LinearGradient
+            key={`segment-${index}`}
+            colors={GRADIENT_PRIMARY}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.segment}
+          />
+        ) : (
+          <View key={`segment-${index}`} style={[styles.segment, styles.segmentEmpty]} />
+        );
+      })}
+    </View>
+  );
+}
+
+function OptionCard({
+  title,
+  subtitle,
+  icon,
+  iconColor,
+  selected,
+  onPress,
+}: {
+  title: string;
+  subtitle?: string;
+  icon: IoniconName;
+  iconColor: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={[styles.optionCard, selected ? styles.optionCardSelected : undefined]}>
+      <View style={[styles.optionIconBadge, { backgroundColor: iconColor }]}>
+        <Ionicons name={icon} size={18} color="#FFFFFF" />
+      </View>
+      <View style={styles.optionCardText}>
+        <Text style={styles.optionCardTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.optionCardSubtitle}>{subtitle}</Text> : null}
+      </View>
+      {selected ? (
+        <Ionicons name="checkmark-circle" size={22} color={palette.accent} />
+      ) : (
+        <Ionicons name="chevron-forward" size={18} color={palette.textSecondary} />
+      )}
+    </Pressable>
+  );
+}
+
+function OnboardingChoiceList<T extends string>({
   options,
   value,
   onSelect,
 }: {
-  options: Array<{ value: T; label: string }>;
+  options: Array<{ value: T; label: string; detail?: string; icon: IoniconName; color: string }>;
   value: T | null;
   onSelect: (value: T) => void;
 }) {
   return (
-    <View style={styles.onboardingPillRow}>
-      {options.map((option) => {
-        const selected = value === option.value;
-        return (
-          <Pressable
-            key={`pill-${option.value}`}
-            style={[styles.onboardingPill, selected ? styles.onboardingPillSelected : undefined]}
-            onPress={() => onSelect(option.value)}
-          >
-            <Text style={[styles.onboardingPillText, selected ? styles.onboardingPillTextSelected : undefined]}>{option.label}</Text>
-          </Pressable>
-        );
-      })}
+    <View style={styles.optionList}>
+      {options.map((option) => (
+        <OptionCard
+          key={`option-${option.value}`}
+          title={option.label}
+          subtitle={option.detail}
+          icon={option.icon}
+          iconColor={option.color}
+          selected={value === option.value}
+          onPress={() => onSelect(option.value)}
+        />
+      ))}
     </View>
   );
 }
@@ -1104,41 +1183,50 @@ function OnboardingScreen({
     { value: "misc", label: "Misc" },
   ];
 
+  const spendCategoryMeta: Record<OnboardingSpendCategory, { icon: IoniconName; color: string }> = {
+    rent: { icon: "home", color: "#5B7CFA" },
+    food: { icon: "restaurant", color: "#22C55E" },
+    travel: { icon: "airplane", color: "#8B5CF6" },
+    misc: { icon: "grid", color: "#F5B740" },
+  };
+
   const steps: Array<{ title: string; hint?: string; render: () => ReactNode }> = [
     {
-      title: "What is your age group?",
+      title: "What's your age group?",
+      hint: "This helps REVO tailor recommendations to your stage.",
       render: () => (
-        <OnboardingPillGroup
+        <OnboardingChoiceList
           value={ageGroup}
           onSelect={setAgeGroup}
           options={[
-            { value: "18-21", label: "18-21" },
-            { value: "21-25", label: "21-25" },
-            { value: "25-30", label: "25-30" },
-            { value: "30+", label: "30+" },
+            { value: "18-21", label: "18-21", detail: "Just getting started", icon: "sparkles", color: "#5B7CFA" },
+            { value: "21-25", label: "21-25", detail: "Building credit early", icon: "trending-up", color: "#22C55E" },
+            { value: "25-30", label: "25-30", detail: "Establishing yourself", icon: "briefcase", color: "#8B5CF6" },
+            { value: "30+", label: "30+", detail: "Optimizing your rewards", icon: "star", color: "#F5B740" },
           ]}
         />
       ),
     },
     {
-      title: "How many credit cards do you currently have?",
+      title: "How many credit cards do you have?",
+      hint: "We'll build the right strategy for where you are today.",
       render: () => (
-        <OnboardingPillGroup
+        <OnboardingChoiceList
           value={cardCount}
           onSelect={setCardCount}
           options={[
-            { value: "debit", label: "Debit card only" },
-            { value: "0", label: "0 cards" },
-            { value: "1-2", label: "1-2 cards" },
-            { value: "2-4", label: "2-4 cards" },
-            { value: "5+", label: "5+ cards" },
+            { value: "debit", label: "Debit card only", detail: "New to credit cards", icon: "card-outline", color: "#64748B" },
+            { value: "0", label: "0 cards", detail: "Starting fresh", icon: "add-circle", color: "#5B7CFA" },
+            { value: "1-2", label: "1-2 cards", detail: "A couple in your wallet", icon: "card", color: "#22C55E" },
+            { value: "2-4", label: "2-4 cards", detail: "Growing your setup", icon: "albums", color: "#8B5CF6" },
+            { value: "5+", label: "5+ cards", detail: "Power user", icon: "trophy", color: "#F5B740" },
           ]}
         />
       ),
     },
     {
-      title: "Which credit cards do you currently have?",
-      hint: "Search our database and tap to add the cards in your wallet today.",
+      title: "Which credit cards do you have?",
+      hint: "Search our database and tap to add the cards you already own.",
       render: () => (
         <>
           {selectedCards.length ? (
@@ -1146,43 +1234,37 @@ function OnboardingScreen({
               {selectedCards.map((card) => (
                 <Pressable key={`chip-${card.id}`} style={styles.onboardingChip} onPress={() => toggleOwnedCard(card.id)}>
                   <Text style={styles.onboardingChipText}>{card.name}</Text>
-                  <Text style={styles.onboardingChipRemove}>×</Text>
+                  <Ionicons name="close" size={14} color={palette.textSecondary} />
                 </Pressable>
               ))}
             </View>
           ) : null}
-          <View style={styles.searchBar}>
+          <View style={styles.onboardingSearchBar}>
+            <Ionicons name="search" size={18} color={palette.textSecondary} />
             <TextInput
               value={searchTerm}
               onChangeText={setSearchTerm}
-              placeholder="Search credit cards (e.g. Amex Gold, Venture X)"
+              placeholder="Search cards (e.g. Amex Gold, Venture X)"
               placeholderTextColor={palette.textSecondary}
-              style={styles.searchInput}
+              style={styles.onboardingSearchInput}
               autoCapitalize="none"
               autoCorrect={false}
             />
           </View>
           {normalizedSearch ? (
             searchResults.length ? (
-              <View style={styles.onboardingResultsWrap}>
-                {searchResults.map((card) => {
-                  const selected = ownedCardIds.includes(card.id);
-                  return (
-                    <Pressable
-                      key={`result-${card.id}`}
-                      style={[styles.onboardingResultRow, selected ? styles.onboardingResultRowSelected : undefined]}
-                      onPress={() => toggleOwnedCard(card.id)}
-                    >
-                      <View style={styles.onboardingResultMeta}>
-                        <Text style={styles.onboardingResultName}>{card.name}</Text>
-                        <Text style={styles.onboardingResultIssuer}>
-                          {card.issuer} · {card.annualFee}
-                        </Text>
-                      </View>
-                      <Text style={[styles.onboardingResultCheck, selected ? styles.onboardingResultCheckSelected : undefined]}>{selected ? "✓" : "+"}</Text>
-                    </Pressable>
-                  );
-                })}
+              <View style={styles.optionList}>
+                {searchResults.map((card) => (
+                  <OptionCard
+                    key={`result-${card.id}`}
+                    title={card.name}
+                    subtitle={`${card.issuer} · ${card.annualFee}`}
+                    icon="card"
+                    iconColor="#5B7CFA"
+                    selected={ownedCardIds.includes(card.id)}
+                    onPress={() => toggleOwnedCard(card.id)}
+                  />
+                ))}
               </View>
             ) : (
               <Text style={styles.panelHint}>No matches yet. Try a different keyword.</Text>
@@ -1193,68 +1275,79 @@ function OnboardingScreen({
     },
     {
       title: "What's your annual fee tolerance?",
+      hint: "How much are you comfortable paying per year?",
       render: () => (
-        <OnboardingPillGroup
+        <OnboardingChoiceList
           value={feeTolerance}
           onSelect={setFeeTolerance}
           options={[
-            { value: "0", label: "$0" },
-            { value: "low", label: "Low" },
-            { value: "mid", label: "Mid" },
-            { value: "high", label: "High" },
+            { value: "0", label: "$0", detail: "No annual fees", icon: "wallet", color: "#22C55E" },
+            { value: "low", label: "Low", detail: "Around $95 a year", icon: "pricetag", color: "#5B7CFA" },
+            { value: "mid", label: "Mid", detail: "$95 - $250 a year", icon: "card", color: "#8B5CF6" },
+            { value: "high", label: "High", detail: "$250+ for premium perks", icon: "diamond", color: "#F5B740" },
           ]}
         />
       ),
     },
     {
-      title: "Do you take more domestic or international flights?",
+      title: "Do you fly more domestic or international?",
+      hint: "REVO optimizes travel perks around how you fly.",
       render: () => (
-        <OnboardingPillGroup
+        <OnboardingChoiceList
           value={flightScope}
           onSelect={setFlightScope}
           options={[
-            { value: "domestic", label: "Domestic" },
-            { value: "international", label: "International" },
+            { value: "domestic", label: "Domestic", detail: "Mostly within the U.S.", icon: "airplane", color: "#5B7CFA" },
+            { value: "international", label: "International", detail: "Frequent global trips", icon: "earth", color: "#8B5CF6" },
           ]}
         />
       ),
     },
     {
       title: "What's your credit score?",
+      hint: "This helps REVO recommend cards you can actually get.",
       render: () => (
-        <OnboardingPillGroup
+        <OnboardingChoiceList
           value={creditScore}
           onSelect={setCreditScore}
           options={[
-            { value: "under-580", label: "Under 580" },
-            { value: "580-650", label: "580-650" },
-            { value: "650-720", label: "650-720" },
-            { value: "720+", label: "720+" },
+            { value: "under-580", label: "Under 580", detail: "Building or repairing", icon: "alert-circle", color: "#F26D6D" },
+            { value: "580-650", label: "580-650", detail: "Fair credit", icon: "trending-up", color: "#FB923C" },
+            { value: "650-720", label: "650-720", detail: "Good credit", icon: "checkmark-circle", color: "#5B7CFA" },
+            { value: "720+", label: "720+", detail: "Excellent credit", icon: "shield-checkmark", color: "#22C55E" },
           ]}
         />
       ),
     },
     {
-      title: "Roughly how much do you spend in each category?",
-      hint: "Enter approximate monthly amounts. REVO ranks them from least to most for you.",
+      title: "How much do you spend each month?",
+      hint: "Enter rough amounts. REVO ranks them from least to most for you.",
       render: () => (
         <>
-          {spendCategories.map((category) => (
-            <View key={`spend-${category.value}`} style={styles.onboardingSpendRow}>
-              <Text style={styles.onboardingSpendLabel}>{category.label}</Text>
-              <View style={styles.onboardingAmountField}>
-                <Text style={styles.onboardingAmountPrefix}>$</Text>
-                <TextInput
-                  value={spendByCategory[category.value]}
-                  onChangeText={(amount) => setSpendAmount(category.value, amount)}
-                  placeholder="0"
-                  placeholderTextColor={palette.textSecondary}
-                  style={styles.onboardingAmountInput}
-                  keyboardType="number-pad"
-                />
-              </View>
-            </View>
-          ))}
+          <View style={styles.optionList}>
+            {spendCategories.map((category) => {
+              const meta = spendCategoryMeta[category.value];
+              return (
+                <View key={`spend-${category.value}`} style={styles.onboardingSpendRow}>
+                  <View style={[styles.optionIconBadge, { backgroundColor: meta.color }]}>
+                    <Ionicons name={meta.icon} size={18} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.onboardingSpendLabel}>{category.label}</Text>
+                  <View style={styles.onboardingAmountField}>
+                    <Text style={styles.onboardingAmountPrefix}>$</Text>
+                    <TextInput
+                      value={spendByCategory[category.value]}
+                      onChangeText={(amount) => setSpendAmount(category.value, amount)}
+                      placeholder="0"
+                      placeholderTextColor={palette.textSecondary}
+                      style={styles.onboardingAmountInput}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
           {spendRanking.length ? (
             <View style={styles.onboardingRankingWrap}>
               <Text style={styles.cardSectionLabel}>LEAST → MOST</Text>
@@ -1267,26 +1360,17 @@ function OnboardingScreen({
       ),
     },
     {
-      title: "What is your goal with credit card points?",
+      title: "What's your goal with points?",
+      hint: "This shapes how REVO values every card for you.",
       render: () => (
-        <View style={styles.questionnaireOptionsWrap}>
-          {[
-            { value: "travel" as OnboardingPointsGoal, label: "Unlock free travel", detail: "Maximize transferable points for flights and hotels." },
-            { value: "cash_back" as OnboardingPointsGoal, label: "Cash back & statement credits", detail: "Prioritize cash back, statement credits, and gift cards." },
-          ].map((option) => {
-            const selected = pointsGoal === option.value;
-            return (
-              <Pressable
-                key={`goal-${option.value}`}
-                style={[styles.questionnaireOptionCard, selected ? styles.questionnaireOptionCardSelected : undefined]}
-                onPress={() => setPointsGoal(option.value)}
-              >
-                <Text style={[styles.questionnaireOptionTitle, selected ? styles.questionnaireOptionTitleSelected : undefined]}>{option.label}</Text>
-                <Text style={styles.questionnaireOptionDetail}>{option.detail}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <OnboardingChoiceList
+          value={pointsGoal}
+          onSelect={setPointsGoal}
+          options={[
+            { value: "travel", label: "Unlock free travel", detail: "Maximize points for flights & hotels", icon: "airplane", color: "#5B7CFA" },
+            { value: "cash_back", label: "Cash back & credits", detail: "Cash back, statement credits & gift cards", icon: "cash", color: "#22C55E" },
+          ]}
+        />
       ),
     },
   ];
@@ -1312,33 +1396,31 @@ function OnboardingScreen({
   return (
     <View style={styles.onboardingWizard}>
       <View style={styles.onboardingTopBar}>
-        <View style={styles.onboardingTopBarRow}>
-          <Text style={styles.brandLabel}>REVOCRED</Text>
-          <Text style={styles.onboardingProgressLabel}>
-            Question {safeStepIndex + 1} of {totalSteps}
-          </Text>
+        <Pressable
+          style={[styles.onboardingBackButton, isFirstStep ? styles.onboardingBackButtonHidden : undefined]}
+          onPress={goBack}
+          disabled={isFirstStep}
+        >
+          <Ionicons name="arrow-back" size={22} color={palette.textPrimary} />
+        </Pressable>
+        <View style={styles.onboardingProgressWrap}>
+          <SegmentedProgress current={safeStepIndex + 1} total={totalSteps} />
         </View>
-        <View style={styles.onboardingProgressTrack}>
-          <View style={[styles.onboardingProgressFill, { flex: safeStepIndex + 1 }]} />
-          <View style={{ flex: totalSteps - (safeStepIndex + 1) }} />
-        </View>
+        <Text style={styles.onboardingCountLabel}>
+          {safeStepIndex + 1}/{totalSteps}
+        </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.onboardingStepBody} keyboardShouldPersistTaps="handled">
-        <Text style={styles.screenSectionTitle}>Let's personalize REVO</Text>
-        <View style={styles.panelSection}>
-          <Text style={styles.questionnaireQuestionTitle}>{currentStep.title}</Text>
-          {currentStep.hint ? <Text style={styles.panelHint}>{currentStep.hint}</Text> : null}
-          {currentStep.render()}
-        </View>
+      <ScrollView contentContainerStyle={styles.onboardingStepBody} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <Text style={styles.onboardingHeading}>{currentStep.title}</Text>
+        {currentStep.hint ? <Text style={styles.onboardingSubheading}>{currentStep.hint}</Text> : null}
+        <View style={styles.onboardingStepContent}>{currentStep.render()}</View>
       </ScrollView>
 
       <View style={styles.onboardingNavBar}>
-        <Pressable style={styles.questionnaireSecondaryButton} onPress={isFirstStep ? onSkip : goBack}>
-          <Text style={styles.questionnaireSecondaryButtonText}>{isFirstStep ? "Skip for now" : "Back"}</Text>
-        </Pressable>
-        <Pressable style={styles.questionnairePrimaryButton} onPress={goNext}>
-          <Text style={styles.questionnairePrimaryButtonText}>{isLastStep ? "Finish setup" : "Next"}</Text>
+        <GradientButton label={isLastStep ? "Finish setup" : "Next"} trailingIcon="chevron-forward" onPress={goNext} />
+        <Pressable style={styles.onboardingSkipButton} onPress={onSkip}>
+          <Text style={styles.onboardingSkipText}>Skip for now</Text>
         </Pressable>
       </View>
     </View>
@@ -2854,12 +2936,18 @@ const styles = StyleSheet.create({
   onboardingSpendRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: spacing.xs,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceRaised,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.xs,
   },
   onboardingSpendLabel: {
+    flex: 1,
     color: palette.textPrimary,
-    fontSize: typeScale.sm,
+    fontSize: typeScale.base,
     fontWeight: "700",
   },
   onboardingAmountField: {
@@ -2939,14 +3027,152 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   onboardingNavBar: {
-    flexDirection: "row",
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingTop: spacing.xs,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: palette.border,
     backgroundColor: palette.background,
+  },
+  gradientButtonWrap: {
+    borderRadius: radii.lg,
+    overflow: "hidden",
+    shadowColor: "#5B7CFA",
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  gradientButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 16,
+    borderRadius: radii.lg,
+  },
+  gradientButtonText: {
+    color: "#FFFFFF",
+    fontSize: typeScale.base,
+    fontWeight: "700",
+  },
+  onboardingBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: palette.surfaceRaised,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  onboardingBackButtonHidden: {
+    opacity: 0,
+  },
+  onboardingProgressWrap: {
+    flex: 1,
+    marginHorizontal: spacing.sm,
+  },
+  onboardingCountLabel: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+    minWidth: 34,
+    textAlign: "right",
+  },
+  segmentRow: {
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
+  },
+  segment: {
+    flex: 1,
+    height: 6,
+    borderRadius: 999,
+  },
+  segmentEmpty: {
+    backgroundColor: "#1C2846",
+  },
+  onboardingHeading: {
+    color: palette.textPrimary,
+    fontSize: typeScale.xl,
+    fontWeight: "800",
+    lineHeight: 34,
+  },
+  onboardingSubheading: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  onboardingStepContent: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  onboardingSkipButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.xs,
+  },
+  onboardingSkipText: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    fontWeight: "600",
+  },
+  optionList: {
+    gap: spacing.xs,
+  },
+  optionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceRaised,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.xs,
+  },
+  optionCardSelected: {
+    borderColor: palette.accent,
+    backgroundColor: "#1A2952",
+  },
+  optionIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  optionCardText: {
+    flex: 1,
+    gap: 2,
+  },
+  optionCardTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    fontWeight: "700",
+  },
+  optionCardSubtitle: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    lineHeight: 16,
+  },
+  onboardingSearchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceRaised,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 12,
+  },
+  onboardingSearchInput: {
+    flex: 1,
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "500",
+    padding: 0,
   },
   analyticsHeaderRow: {
     flexDirection: "row",
