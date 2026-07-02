@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppData } from "./src/hooks/useAppData";
 import { initializeObservability, trackEvent, trackScreenView } from "./src/services/observability";
-import { Card, CardSearchEntry, ChatMessage, Profile, Recommendation, RevoAnalyticsSummary, TabKey } from "./src/types/models";
+import { Card, CardSearchEntry, ChatMessage, Profile, Recommendation, RedemptionType, RevoAnalyticsSummary, TabKey, TravelScope } from "./src/types/models";
 
 const palette = {
   background: "#060B17",
@@ -857,12 +857,112 @@ function RevoScreen({
   );
 }
 
+function QuestionnaireScreen({
+  initialRedemptionType,
+  initialTravelScope,
+  onSaveAnswers,
+  onClose,
+}: {
+  initialRedemptionType?: RedemptionType;
+  initialTravelScope?: TravelScope;
+  onSaveAnswers: (answers: { redemptionType: RedemptionType; travelScope: TravelScope }) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [redemptionType, setRedemptionType] = useState<RedemptionType>(initialRedemptionType ?? "hybrid");
+  const [travelScope, setTravelScope] = useState<TravelScope>(initialTravelScope ?? "both");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const redemptionOptions: Array<{ value: RedemptionType; label: string; detail: string }> = [
+    { value: "points", label: "Points", detail: "Maximize transferable points and partner redemptions." },
+    { value: "cash_back", label: "Cash back", detail: "Prioritize simple statement-value rewards." },
+    { value: "hybrid", label: "Hybrid", detail: "Balance points value and cash-back flexibility." },
+  ];
+
+  const travelScopeOptions: Array<{ value: TravelScope; label: string; detail: string }> = [
+    { value: "domestic", label: "Domestic", detail: "Mostly U.S. or local travel and benefits." },
+    { value: "international", label: "International", detail: "Focus on international routing and perks." },
+    { value: "both", label: "Both", detail: "Mix of domestic and international usage." },
+    { value: "none", label: "No travel focus", detail: "Everyday value over travel-specific perks." },
+  ];
+
+  const saveAnswers = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await onSaveAnswers({ redemptionType, travelScope });
+      onClose();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not save your answers. Please try again.";
+      setSaveError(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.screenBody}>
+      <Text style={styles.cardSectionLabel}>QUESTIONNAIRE</Text>
+      <Text style={styles.screenSectionTitle}>Tell REVO your preferences</Text>
+      <Text style={styles.panelHint}>Your answers tune recommendations across Strategy, Home, and chat responses.</Text>
+
+      <View style={styles.panelSection}>
+        <Text style={styles.questionnaireQuestionTitle}>1) What kind of rewards do you care about most?</Text>
+        <View style={styles.questionnaireOptionsWrap}>
+          {redemptionOptions.map((option) => (
+            <Pressable
+              key={`redemption-${option.value}`}
+              style={[styles.questionnaireOptionCard, redemptionType === option.value ? styles.questionnaireOptionCardSelected : undefined]}
+              onPress={() => setRedemptionType(option.value)}
+            >
+              <Text style={[styles.questionnaireOptionTitle, redemptionType === option.value ? styles.questionnaireOptionTitleSelected : undefined]}>
+                {option.label}
+              </Text>
+              <Text style={styles.questionnaireOptionDetail}>{option.detail}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.panelSection}>
+        <Text style={styles.questionnaireQuestionTitle}>2) What travel scope should REVO optimize for?</Text>
+        <View style={styles.questionnaireOptionsWrap}>
+          {travelScopeOptions.map((option) => (
+            <Pressable
+              key={`travel-${option.value}`}
+              style={[styles.questionnaireOptionCard, travelScope === option.value ? styles.questionnaireOptionCardSelected : undefined]}
+              onPress={() => setTravelScope(option.value)}
+            >
+              <Text style={[styles.questionnaireOptionTitle, travelScope === option.value ? styles.questionnaireOptionTitleSelected : undefined]}>
+                {option.label}
+              </Text>
+              <Text style={styles.questionnaireOptionDetail}>{option.detail}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      {saveError ? <Text style={styles.questionnaireErrorText}>{saveError}</Text> : null}
+
+      <View style={styles.questionnaireActionsRow}>
+        <Pressable style={styles.questionnaireSecondaryButton} onPress={onClose} disabled={saving}>
+          <Text style={styles.questionnaireSecondaryButtonText}>Cancel</Text>
+        </Pressable>
+        <Pressable style={[styles.questionnairePrimaryButton, saving ? styles.disabledCard : undefined]} onPress={() => void saveAnswers()} disabled={saving}>
+          <Text style={styles.questionnairePrimaryButtonText}>{saving ? "Saving..." : "Save answers"}</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+}
+
 function ProfileScreen({
   profile,
   walletCount,
   analyticsSummary,
   analyticsLoading,
   onRefreshAnalytics,
+  onOpenQuestionnaire,
   onSignOut,
 }: {
   profile: Profile;
@@ -870,6 +970,7 @@ function ProfileScreen({
   analyticsSummary: RevoAnalyticsSummary | null;
   analyticsLoading: boolean;
   onRefreshAnalytics: () => Promise<void>;
+  onOpenQuestionnaire: () => void;
   onSignOut: () => Promise<void>;
 }) {
   const successRate = analyticsSummary?.successRate ?? 0;
@@ -890,6 +991,8 @@ function ProfileScreen({
     { key: "Setup", value: `${walletCount} active cards` },
     { key: "Top Spend Categories", value: profile.topSpendCategories },
     { key: "Next Application Target", value: profile.nextApplicationTarget },
+    { key: "Rewards Preference", value: profile.redemptionType ? profile.redemptionType.replace("_", " ") : "Not set" },
+    { key: "Travel Scope", value: profile.travelScope ? profile.travelScope.replace("_", " ") : "Not set" },
   ];
 
   return (
@@ -978,6 +1081,11 @@ function ProfileScreen({
           <Text style={styles.complianceText}>revocredapp@gmail.com</Text>
         </View>
       </View>
+      <Pressable style={styles.questionnaireLaunchButton} onPress={onOpenQuestionnaire}>
+        <Text style={styles.cardSectionLabel}>QUESTIONNAIRE</Text>
+        <Text style={styles.questionnaireLaunchTitle}>Answer user questions</Text>
+        <Text style={styles.metricHint}>Set rewards and travel preferences so REVO recommendations stay aligned.</Text>
+      </Pressable>
       <Pressable style={styles.signOutButton} onPress={() => void onSignOut()}>
         <Text style={styles.resetButtonText}>Sign out</Text>
       </Pressable>
@@ -1019,6 +1127,7 @@ function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab:
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("Home");
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const screenEntrance = useRef(new Animated.Value(1)).current;
   const {
     data,
@@ -1034,6 +1143,7 @@ export default function App() {
     analyticsSummary,
     analyticsLoading,
     refreshAnalytics,
+    saveQuestionnaireAnswers,
   } = useAppData();
 
   const handleAskRevo = (prompt: string) => {
@@ -1117,6 +1227,7 @@ export default function App() {
             analyticsSummary={analyticsSummary}
             analyticsLoading={analyticsLoading}
             onRefreshAnalytics={refreshAnalytics}
+            onOpenQuestionnaire={() => setShowQuestionnaire(true)}
             onSignOut={signOut}
           />
         );
@@ -1138,6 +1249,7 @@ export default function App() {
     availableCardsToAdd,
     data,
     refreshAnalytics,
+    saveQuestionnaireAnswers,
     signOut,
     submitPrompt,
   ]);
@@ -1162,6 +1274,19 @@ export default function App() {
           )}
         </View>
         {loading || !session ? null : <BottomNav activeTab={activeTab} onChange={setActiveTab} />}
+        <Modal visible={showQuestionnaire} animationType="slide" onRequestClose={() => setShowQuestionnaire(false)}>
+          <SafeAreaView style={styles.safeArea}>
+            <View style={styles.appBackground}>
+              <View style={styles.glow} />
+              <QuestionnaireScreen
+                initialRedemptionType={data?.profile.redemptionType}
+                initialTravelScope={data?.profile.travelScope}
+                onSaveAnswers={saveQuestionnaireAnswers}
+                onClose={() => setShowQuestionnaire(false)}
+              />
+            </View>
+          </SafeAreaView>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -2131,6 +2256,94 @@ const styles = StyleSheet.create({
     fontSize: typeScale.xl,
     lineHeight: 32,
     fontWeight: "700",
+  },
+  questionnaireLaunchButton: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "#4B66B8",
+    backgroundColor: "#172957",
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  questionnaireLaunchTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.lg,
+    fontWeight: "700",
+  },
+  questionnaireQuestionTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    fontWeight: "700",
+    lineHeight: 22,
+  },
+  questionnaireOptionsWrap: {
+    gap: spacing.xs,
+  },
+  questionnaireOptionCard: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: "#101B36",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    gap: 4,
+  },
+  questionnaireOptionCardSelected: {
+    borderColor: "#6F8BFF",
+    backgroundColor: "#1A2D5B",
+  },
+  questionnaireOptionTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  questionnaireOptionTitleSelected: {
+    color: "#DDE6FF",
+  },
+  questionnaireOptionDetail: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    lineHeight: 18,
+  },
+  questionnaireErrorText: {
+    color: "#FF8E8E",
+    fontSize: typeScale.sm,
+    fontWeight: "600",
+  },
+  questionnaireActionsRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  questionnairePrimaryButton: {
+    flex: 1,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: "#4B66B8",
+    backgroundColor: "#223A72",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.xs,
+  },
+  questionnairePrimaryButtonText: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  questionnaireSecondaryButton: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  questionnaireSecondaryButtonText: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    fontWeight: "600",
   },
   analyticsHeaderRow: {
     flexDirection: "row",

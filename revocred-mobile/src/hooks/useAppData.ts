@@ -7,11 +7,12 @@ import {
   fetchRevoAnalyticsSummary,
   fetchUserAppData,
   resetUserData,
+  updateUserPreferences,
 } from "../services/supabaseData";
 import { seedAppData } from "../data/seed";
 import { captureError, identifyUser, resetUserIdentity, trackEvent } from "../services/observability";
 import { supabase } from "../services/supabaseClient";
-import { AppData, Card, ChatMessage, RevoAnalyticsSummary } from "../types/models";
+import { AppData, Card, ChatMessage, RedemptionType, RevoAnalyticsSummary, TravelScope } from "../types/models";
 
 type AuthResult = {
   ok: boolean;
@@ -34,6 +35,7 @@ type UseAppDataResult = {
   analyticsSummary: RevoAnalyticsSummary | null;
   analyticsLoading: boolean;
   refreshAnalytics: () => Promise<void>;
+  saveQuestionnaireAnswers: (answers: { redemptionType: RedemptionType; travelScope: TravelScope }) => Promise<void>;
 };
 
 function toErrorMessage(error: unknown): string {
@@ -244,6 +246,26 @@ export function useAppData(): UseAppDataResult {
     }
   };
 
+  const saveQuestionnaireAnswers = async (answers: { redemptionType: RedemptionType; travelScope: TravelScope }) => {
+    if (!session) {
+      return;
+    }
+    try {
+      await updateUserPreferences(session.user.id, {
+        redemptionType: answers.redemptionType,
+        travelScope: answers.travelScope,
+      });
+      const refreshed = await fetchUserAppData(session.user.id);
+      setData(refreshed);
+      trackEvent("questionnaire.answers_saved", answers);
+    } catch (error) {
+      captureError(error, "saveQuestionnaireAnswers");
+      trackEvent("questionnaire.answers_save_failed");
+      setAuthError(toErrorMessage(error));
+      throw error;
+    }
+  };
+
   const submitPrompt = async (prompt: string) => {
     const trimmed = prompt.trim();
     if (!trimmed || !data || !session) {
@@ -364,5 +386,6 @@ export function useAppData(): UseAppDataResult {
     analyticsSummary,
     analyticsLoading,
     refreshAnalytics,
+    saveQuestionnaireAnswers,
   };
 }
