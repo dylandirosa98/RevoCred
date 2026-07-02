@@ -956,6 +956,343 @@ function QuestionnaireScreen({
   );
 }
 
+type OnboardingAgeGroup = "18-21" | "21-25" | "25-30" | "30+";
+type OnboardingCardCount = "debit" | "0" | "1-2" | "2-4" | "5+";
+type OnboardingFeeTolerance = "0" | "low" | "mid" | "high";
+type OnboardingFlightScope = "domestic" | "international";
+type OnboardingCreditScore = "under-580" | "580-650" | "650-720" | "720+";
+type OnboardingPointsGoal = "travel" | "cash_back";
+type OnboardingSpendCategory = "rent" | "food" | "travel" | "misc";
+
+type OnboardingAnswers = {
+  ageGroup: OnboardingAgeGroup | null;
+  cardCount: OnboardingCardCount | null;
+  ownedCardIds: string[];
+  feeTolerance: OnboardingFeeTolerance | null;
+  flightScope: OnboardingFlightScope | null;
+  creditScore: OnboardingCreditScore | null;
+  spendByCategory: Record<OnboardingSpendCategory, string>;
+  pointsGoal: OnboardingPointsGoal | null;
+};
+
+function OnboardingPillGroup<T extends string>({
+  options,
+  value,
+  onSelect,
+}: {
+  options: Array<{ value: T; label: string }>;
+  value: T | null;
+  onSelect: (value: T) => void;
+}) {
+  return (
+    <View style={styles.onboardingPillRow}>
+      {options.map((option) => {
+        const selected = value === option.value;
+        return (
+          <Pressable
+            key={`pill-${option.value}`}
+            style={[styles.onboardingPill, selected ? styles.onboardingPillSelected : undefined]}
+            onPress={() => onSelect(option.value)}
+          >
+            <Text style={[styles.onboardingPillText, selected ? styles.onboardingPillTextSelected : undefined]}>{option.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function OnboardingScreen({
+  searchCatalog,
+  onComplete,
+  onSkip,
+}: {
+  searchCatalog: CardSearchEntry[];
+  onComplete: (answers: OnboardingAnswers) => void;
+  onSkip: () => void;
+}) {
+  const [ageGroup, setAgeGroup] = useState<OnboardingAgeGroup | null>(null);
+  const [cardCount, setCardCount] = useState<OnboardingCardCount | null>(null);
+  const [ownedCardIds, setOwnedCardIds] = useState<string[]>([]);
+  const [feeTolerance, setFeeTolerance] = useState<OnboardingFeeTolerance | null>(null);
+  const [flightScope, setFlightScope] = useState<OnboardingFlightScope | null>(null);
+  const [creditScore, setCreditScore] = useState<OnboardingCreditScore | null>(null);
+  const [spendByCategory, setSpendByCategory] = useState<Record<OnboardingSpendCategory, string>>({
+    rent: "",
+    food: "",
+    travel: "",
+    misc: "",
+  });
+  const [pointsGoal, setPointsGoal] = useState<OnboardingPointsGoal | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const searchTokens = normalizedSearch.split(/\s+/).filter(Boolean);
+  const searchResults = useMemo(() => {
+    if (!searchTokens.length) {
+      return [];
+    }
+    return searchCatalog
+      .map((card) => {
+        const searchableFields = [card.id.toLowerCase(), card.issuer.toLowerCase(), card.brand.toLowerCase(), card.name.toLowerCase()];
+        let score = 0;
+        for (const token of searchTokens) {
+          const exactFieldMatch = searchableFields.some((field) => field === token);
+          const startsWithMatch = searchableFields.some((field) => field.startsWith(token));
+          const wordMatch = searchableFields.some((field) => field.split(/[\s-]+/).some((word) => word.startsWith(token)));
+          if (exactFieldMatch) {
+            score += 30;
+          } else if (startsWithMatch || wordMatch) {
+            score += 14;
+          } else {
+            return null;
+          }
+        }
+        return { card, score };
+      })
+      .filter((entry): entry is { card: CardSearchEntry; score: number } => Boolean(entry))
+      .sort((a, b) => (b.score === a.score ? a.card.name.localeCompare(b.card.name) : b.score - a.score))
+      .slice(0, 8)
+      .map((entry) => entry.card);
+  }, [searchCatalog, searchTokens]);
+
+  const selectedCards = useMemo(
+    () => ownedCardIds.map((id) => searchCatalog.find((card) => card.id === id)).filter((card): card is CardSearchEntry => Boolean(card)),
+    [ownedCardIds, searchCatalog]
+  );
+
+  const toggleOwnedCard = (cardId: string) => {
+    setOwnedCardIds((existing) => (existing.includes(cardId) ? existing.filter((id) => id !== cardId) : [...existing, cardId]));
+  };
+
+  const setSpendAmount = (category: OnboardingSpendCategory, amount: string) => {
+    const cleaned = amount.replace(/[^0-9]/g, "");
+    setSpendByCategory((existing) => ({ ...existing, [category]: cleaned }));
+  };
+
+  const spendRanking = useMemo(() => {
+    const categoryLabels: Record<OnboardingSpendCategory, string> = {
+      rent: "Rent",
+      food: "Food",
+      travel: "Travel",
+      misc: "Misc",
+    };
+    return (Object.keys(categoryLabels) as OnboardingSpendCategory[])
+      .map((category) => ({ category, label: categoryLabels[category], amount: Number.parseInt(spendByCategory[category] || "0", 10) }))
+      .filter((entry) => entry.amount > 0)
+      .sort((a, b) => a.amount - b.amount);
+  }, [spendByCategory]);
+
+  const finishOnboarding = () => {
+    onComplete({
+      ageGroup,
+      cardCount,
+      ownedCardIds,
+      feeTolerance,
+      flightScope,
+      creditScore,
+      spendByCategory,
+      pointsGoal,
+    });
+  };
+
+  const spendCategories: Array<{ value: OnboardingSpendCategory; label: string }> = [
+    { value: "rent", label: "Rent" },
+    { value: "food", label: "Food" },
+    { value: "travel", label: "Travel" },
+    { value: "misc", label: "Misc" },
+  ];
+
+  return (
+    <ScrollView contentContainerStyle={styles.screenBody}>
+      <Text style={styles.brandLabel}>REVOCRED</Text>
+      <Text style={styles.screenSectionTitle}>Let's personalize REVO</Text>
+      <Text style={styles.panelHint}>Answer a few quick questions so REVO can tailor your card strategy from day one.</Text>
+
+      <View style={styles.panelSection}>
+        <Text style={styles.questionnaireQuestionTitle}>1) What is your age group?</Text>
+        <OnboardingPillGroup
+          value={ageGroup}
+          onSelect={setAgeGroup}
+          options={[
+            { value: "18-21", label: "18-21" },
+            { value: "21-25", label: "21-25" },
+            { value: "25-30", label: "25-30" },
+            { value: "30+", label: "30+" },
+          ]}
+        />
+      </View>
+
+      <View style={styles.panelSection}>
+        <Text style={styles.questionnaireQuestionTitle}>2) How many credit cards do you currently have?</Text>
+        <OnboardingPillGroup
+          value={cardCount}
+          onSelect={setCardCount}
+          options={[
+            { value: "debit", label: "Debit card only" },
+            { value: "0", label: "0 cards" },
+            { value: "1-2", label: "1-2 cards" },
+            { value: "2-4", label: "2-4 cards" },
+            { value: "5+", label: "5+ cards" },
+          ]}
+        />
+      </View>
+
+      <View style={styles.panelSection}>
+        <Text style={styles.questionnaireQuestionTitle}>3) Which credit cards do you currently have?</Text>
+        <Text style={styles.panelHint}>Search our database and tap to add the cards in your wallet today.</Text>
+        {selectedCards.length ? (
+          <View style={styles.onboardingChipRow}>
+            {selectedCards.map((card) => (
+              <Pressable key={`chip-${card.id}`} style={styles.onboardingChip} onPress={() => toggleOwnedCard(card.id)}>
+                <Text style={styles.onboardingChipText}>{card.name}</Text>
+                <Text style={styles.onboardingChipRemove}>×</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.searchBar}>
+          <TextInput
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            placeholder="Search credit cards (e.g. Amex Gold, Venture X)"
+            placeholderTextColor={palette.textSecondary}
+            style={styles.searchInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+        {normalizedSearch ? (
+          searchResults.length ? (
+            <View style={styles.onboardingResultsWrap}>
+              {searchResults.map((card) => {
+                const selected = ownedCardIds.includes(card.id);
+                return (
+                  <Pressable
+                    key={`result-${card.id}`}
+                    style={[styles.onboardingResultRow, selected ? styles.onboardingResultRowSelected : undefined]}
+                    onPress={() => toggleOwnedCard(card.id)}
+                  >
+                    <View style={styles.onboardingResultMeta}>
+                      <Text style={styles.onboardingResultName}>{card.name}</Text>
+                      <Text style={styles.onboardingResultIssuer}>
+                        {card.issuer} · {card.annualFee}
+                      </Text>
+                    </View>
+                    <Text style={[styles.onboardingResultCheck, selected ? styles.onboardingResultCheckSelected : undefined]}>{selected ? "✓" : "+"}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.panelHint}>No matches yet. Try a different keyword.</Text>
+          )
+        ) : null}
+      </View>
+
+      <View style={styles.panelSection}>
+        <Text style={styles.questionnaireQuestionTitle}>4) What's your annual fee tolerance?</Text>
+        <OnboardingPillGroup
+          value={feeTolerance}
+          onSelect={setFeeTolerance}
+          options={[
+            { value: "0", label: "$0" },
+            { value: "low", label: "Low" },
+            { value: "mid", label: "Mid" },
+            { value: "high", label: "High" },
+          ]}
+        />
+      </View>
+
+      <View style={styles.panelSection}>
+        <Text style={styles.questionnaireQuestionTitle}>5) Do you take more domestic or international flights?</Text>
+        <OnboardingPillGroup
+          value={flightScope}
+          onSelect={setFlightScope}
+          options={[
+            { value: "domestic", label: "Domestic" },
+            { value: "international", label: "International" },
+          ]}
+        />
+      </View>
+
+      <View style={styles.panelSection}>
+        <Text style={styles.questionnaireQuestionTitle}>6) What's your credit score?</Text>
+        <OnboardingPillGroup
+          value={creditScore}
+          onSelect={setCreditScore}
+          options={[
+            { value: "under-580", label: "Under 580" },
+            { value: "580-650", label: "580-650" },
+            { value: "650-720", label: "650-720" },
+            { value: "720+", label: "720+" },
+          ]}
+        />
+      </View>
+
+      <View style={styles.panelSection}>
+        <Text style={styles.questionnaireQuestionTitle}>7) Roughly how much do you spend in each category?</Text>
+        <Text style={styles.panelHint}>Enter approximate monthly amounts. REVO ranks them from least to most for you.</Text>
+        {spendCategories.map((category) => (
+          <View key={`spend-${category.value}`} style={styles.onboardingSpendRow}>
+            <Text style={styles.onboardingSpendLabel}>{category.label}</Text>
+            <View style={styles.onboardingAmountField}>
+              <Text style={styles.onboardingAmountPrefix}>$</Text>
+              <TextInput
+                value={spendByCategory[category.value]}
+                onChangeText={(amount) => setSpendAmount(category.value, amount)}
+                placeholder="0"
+                placeholderTextColor={palette.textSecondary}
+                style={styles.onboardingAmountInput}
+                keyboardType="number-pad"
+              />
+            </View>
+          </View>
+        ))}
+        {spendRanking.length ? (
+          <View style={styles.onboardingRankingWrap}>
+            <Text style={styles.cardSectionLabel}>LEAST → MOST</Text>
+            <Text style={styles.onboardingRankingText}>
+              {spendRanking.map((entry) => `${entry.label} ($${entry.amount})`).join("  →  ")}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.panelSection}>
+        <Text style={styles.questionnaireQuestionTitle}>8) What is your goal with credit card points?</Text>
+        <View style={styles.questionnaireOptionsWrap}>
+          {[
+            { value: "travel" as OnboardingPointsGoal, label: "Unlock free travel", detail: "Maximize transferable points for flights and hotels." },
+            { value: "cash_back" as OnboardingPointsGoal, label: "Cash back & statement credits", detail: "Prioritize cash back, statement credits, and gift cards." },
+          ].map((option) => {
+            const selected = pointsGoal === option.value;
+            return (
+              <Pressable
+                key={`goal-${option.value}`}
+                style={[styles.questionnaireOptionCard, selected ? styles.questionnaireOptionCardSelected : undefined]}
+                onPress={() => setPointsGoal(option.value)}
+              >
+                <Text style={[styles.questionnaireOptionTitle, selected ? styles.questionnaireOptionTitleSelected : undefined]}>{option.label}</Text>
+                <Text style={styles.questionnaireOptionDetail}>{option.detail}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.questionnaireActionsRow}>
+        <Pressable style={styles.questionnaireSecondaryButton} onPress={onSkip}>
+          <Text style={styles.questionnaireSecondaryButtonText}>Skip for now</Text>
+        </Pressable>
+        <Pressable style={styles.questionnairePrimaryButton} onPress={finishOnboarding}>
+          <Text style={styles.questionnairePrimaryButtonText}>Finish setup</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+}
+
 function ProfileScreen({
   profile,
   walletCount,
@@ -1128,6 +1465,8 @@ function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab:
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("Home");
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const onboardingShownForSession = useRef<string | null>(null);
   const screenEntrance = useRef(new Animated.Value(1)).current;
   const {
     data,
@@ -1164,6 +1503,17 @@ export default function App() {
       tab: activeTab,
     });
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!session) {
+      onboardingShownForSession.current = null;
+      return;
+    }
+    if (data && onboardingShownForSession.current !== session.user.id) {
+      onboardingShownForSession.current = session.user.id;
+      setShowOnboarding(true);
+    }
+  }, [session, data]);
 
   useEffect(() => {
     screenEntrance.setValue(0.94);
@@ -1283,6 +1633,18 @@ export default function App() {
                 initialTravelScope={data?.profile.travelScope}
                 onSaveAnswers={saveQuestionnaireAnswers}
                 onClose={() => setShowQuestionnaire(false)}
+              />
+            </View>
+          </SafeAreaView>
+        </Modal>
+        <Modal visible={showOnboarding && Boolean(session)} animationType="slide" onRequestClose={() => setShowOnboarding(false)}>
+          <SafeAreaView style={styles.safeArea}>
+            <View style={styles.appBackground}>
+              <View style={styles.glow} />
+              <OnboardingScreen
+                searchCatalog={data?.cardSearchCatalog ?? []}
+                onComplete={() => setShowOnboarding(false)}
+                onSkip={() => setShowOnboarding(false)}
               />
             </View>
           </SafeAreaView>
@@ -2342,6 +2704,146 @@ const styles = StyleSheet.create({
   },
   questionnaireSecondaryButtonText: {
     color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    fontWeight: "600",
+  },
+  onboardingPillRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  onboardingPill: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: "#101B36",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+  },
+  onboardingPillSelected: {
+    borderColor: "#6F8BFF",
+    backgroundColor: "#1A2D5B",
+  },
+  onboardingPillText: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  onboardingPillTextSelected: {
+    color: "#DDE6FF",
+  },
+  onboardingChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  onboardingChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: "#4B66B8",
+    backgroundColor: "#1A2D5B",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 6,
+  },
+  onboardingChipText: {
+    color: "#DDE6FF",
+    fontSize: typeScale.xs,
+    fontWeight: "700",
+  },
+  onboardingChipRemove: {
+    color: palette.textSecondary,
+    fontSize: typeScale.base,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  onboardingResultsWrap: {
+    gap: spacing.xs,
+  },
+  onboardingResultRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: "#101B36",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  onboardingResultRowSelected: {
+    borderColor: "#6F8BFF",
+    backgroundColor: "#1A2D5B",
+  },
+  onboardingResultMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  onboardingResultName: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  onboardingResultIssuer: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+  },
+  onboardingResultCheck: {
+    color: palette.textSecondary,
+    fontSize: typeScale.lg,
+    fontWeight: "700",
+    marginLeft: spacing.xs,
+  },
+  onboardingResultCheckSelected: {
+    color: palette.success,
+  },
+  onboardingSpendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.xs,
+  },
+  onboardingSpendLabel: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  onboardingAmountField: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: "#101B36",
+    paddingHorizontal: spacing.xs,
+    minWidth: 120,
+  },
+  onboardingAmountPrefix: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  onboardingAmountInput: {
+    flex: 1,
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "600",
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+  },
+  onboardingRankingWrap: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: "#0F1A34",
+    padding: spacing.xs,
+    gap: 4,
+    marginTop: 4,
+  },
+  onboardingRankingText: {
+    color: palette.textPrimary,
     fontSize: typeScale.sm,
     fontWeight: "600",
   },
