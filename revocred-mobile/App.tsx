@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppData } from "./src/hooks/useAppData";
 import { initializeObservability, trackEvent, trackScreenView } from "./src/services/observability";
@@ -1025,6 +1025,7 @@ function OnboardingScreen({
   });
   const [pointsGoal, setPointsGoal] = useState<OnboardingPointsGoal | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [stepIndex, setStepIndex] = useState(0);
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const searchTokens = normalizedSearch.split(/\s+/).filter(Boolean);
@@ -1103,14 +1104,10 @@ function OnboardingScreen({
     { value: "misc", label: "Misc" },
   ];
 
-  return (
-    <ScrollView contentContainerStyle={styles.screenBody}>
-      <Text style={styles.brandLabel}>REVOCRED</Text>
-      <Text style={styles.screenSectionTitle}>Let's personalize REVO</Text>
-      <Text style={styles.panelHint}>Answer a few quick questions so REVO can tailor your card strategy from day one.</Text>
-
-      <View style={styles.panelSection}>
-        <Text style={styles.questionnaireQuestionTitle}>1) What is your age group?</Text>
+  const steps: Array<{ title: string; hint?: string; render: () => ReactNode }> = [
+    {
+      title: "What is your age group?",
+      render: () => (
         <OnboardingPillGroup
           value={ageGroup}
           onSelect={setAgeGroup}
@@ -1121,10 +1118,11 @@ function OnboardingScreen({
             { value: "30+", label: "30+" },
           ]}
         />
-      </View>
-
-      <View style={styles.panelSection}>
-        <Text style={styles.questionnaireQuestionTitle}>2) How many credit cards do you currently have?</Text>
+      ),
+    },
+    {
+      title: "How many credit cards do you currently have?",
+      render: () => (
         <OnboardingPillGroup
           value={cardCount}
           onSelect={setCardCount}
@@ -1136,62 +1134,66 @@ function OnboardingScreen({
             { value: "5+", label: "5+ cards" },
           ]}
         />
-      </View>
-
-      <View style={styles.panelSection}>
-        <Text style={styles.questionnaireQuestionTitle}>3) Which credit cards do you currently have?</Text>
-        <Text style={styles.panelHint}>Search our database and tap to add the cards in your wallet today.</Text>
-        {selectedCards.length ? (
-          <View style={styles.onboardingChipRow}>
-            {selectedCards.map((card) => (
-              <Pressable key={`chip-${card.id}`} style={styles.onboardingChip} onPress={() => toggleOwnedCard(card.id)}>
-                <Text style={styles.onboardingChipText}>{card.name}</Text>
-                <Text style={styles.onboardingChipRemove}>×</Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-        <View style={styles.searchBar}>
-          <TextInput
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-            placeholder="Search credit cards (e.g. Amex Gold, Venture X)"
-            placeholderTextColor={palette.textSecondary}
-            style={styles.searchInput}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-        {normalizedSearch ? (
-          searchResults.length ? (
-            <View style={styles.onboardingResultsWrap}>
-              {searchResults.map((card) => {
-                const selected = ownedCardIds.includes(card.id);
-                return (
-                  <Pressable
-                    key={`result-${card.id}`}
-                    style={[styles.onboardingResultRow, selected ? styles.onboardingResultRowSelected : undefined]}
-                    onPress={() => toggleOwnedCard(card.id)}
-                  >
-                    <View style={styles.onboardingResultMeta}>
-                      <Text style={styles.onboardingResultName}>{card.name}</Text>
-                      <Text style={styles.onboardingResultIssuer}>
-                        {card.issuer} · {card.annualFee}
-                      </Text>
-                    </View>
-                    <Text style={[styles.onboardingResultCheck, selected ? styles.onboardingResultCheckSelected : undefined]}>{selected ? "✓" : "+"}</Text>
-                  </Pressable>
-                );
-              })}
+      ),
+    },
+    {
+      title: "Which credit cards do you currently have?",
+      hint: "Search our database and tap to add the cards in your wallet today.",
+      render: () => (
+        <>
+          {selectedCards.length ? (
+            <View style={styles.onboardingChipRow}>
+              {selectedCards.map((card) => (
+                <Pressable key={`chip-${card.id}`} style={styles.onboardingChip} onPress={() => toggleOwnedCard(card.id)}>
+                  <Text style={styles.onboardingChipText}>{card.name}</Text>
+                  <Text style={styles.onboardingChipRemove}>×</Text>
+                </Pressable>
+              ))}
             </View>
-          ) : (
-            <Text style={styles.panelHint}>No matches yet. Try a different keyword.</Text>
-          )
-        ) : null}
-      </View>
-
-      <View style={styles.panelSection}>
-        <Text style={styles.questionnaireQuestionTitle}>4) What's your annual fee tolerance?</Text>
+          ) : null}
+          <View style={styles.searchBar}>
+            <TextInput
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+              placeholder="Search credit cards (e.g. Amex Gold, Venture X)"
+              placeholderTextColor={palette.textSecondary}
+              style={styles.searchInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          {normalizedSearch ? (
+            searchResults.length ? (
+              <View style={styles.onboardingResultsWrap}>
+                {searchResults.map((card) => {
+                  const selected = ownedCardIds.includes(card.id);
+                  return (
+                    <Pressable
+                      key={`result-${card.id}`}
+                      style={[styles.onboardingResultRow, selected ? styles.onboardingResultRowSelected : undefined]}
+                      onPress={() => toggleOwnedCard(card.id)}
+                    >
+                      <View style={styles.onboardingResultMeta}>
+                        <Text style={styles.onboardingResultName}>{card.name}</Text>
+                        <Text style={styles.onboardingResultIssuer}>
+                          {card.issuer} · {card.annualFee}
+                        </Text>
+                      </View>
+                      <Text style={[styles.onboardingResultCheck, selected ? styles.onboardingResultCheckSelected : undefined]}>{selected ? "✓" : "+"}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={styles.panelHint}>No matches yet. Try a different keyword.</Text>
+            )
+          ) : null}
+        </>
+      ),
+    },
+    {
+      title: "What's your annual fee tolerance?",
+      render: () => (
         <OnboardingPillGroup
           value={feeTolerance}
           onSelect={setFeeTolerance}
@@ -1202,10 +1204,11 @@ function OnboardingScreen({
             { value: "high", label: "High" },
           ]}
         />
-      </View>
-
-      <View style={styles.panelSection}>
-        <Text style={styles.questionnaireQuestionTitle}>5) Do you take more domestic or international flights?</Text>
+      ),
+    },
+    {
+      title: "Do you take more domestic or international flights?",
+      render: () => (
         <OnboardingPillGroup
           value={flightScope}
           onSelect={setFlightScope}
@@ -1214,10 +1217,11 @@ function OnboardingScreen({
             { value: "international", label: "International" },
           ]}
         />
-      </View>
-
-      <View style={styles.panelSection}>
-        <Text style={styles.questionnaireQuestionTitle}>6) What's your credit score?</Text>
+      ),
+    },
+    {
+      title: "What's your credit score?",
+      render: () => (
         <OnboardingPillGroup
           value={creditScore}
           onSelect={setCreditScore}
@@ -1228,39 +1232,43 @@ function OnboardingScreen({
             { value: "720+", label: "720+" },
           ]}
         />
-      </View>
-
-      <View style={styles.panelSection}>
-        <Text style={styles.questionnaireQuestionTitle}>7) Roughly how much do you spend in each category?</Text>
-        <Text style={styles.panelHint}>Enter approximate monthly amounts. REVO ranks them from least to most for you.</Text>
-        {spendCategories.map((category) => (
-          <View key={`spend-${category.value}`} style={styles.onboardingSpendRow}>
-            <Text style={styles.onboardingSpendLabel}>{category.label}</Text>
-            <View style={styles.onboardingAmountField}>
-              <Text style={styles.onboardingAmountPrefix}>$</Text>
-              <TextInput
-                value={spendByCategory[category.value]}
-                onChangeText={(amount) => setSpendAmount(category.value, amount)}
-                placeholder="0"
-                placeholderTextColor={palette.textSecondary}
-                style={styles.onboardingAmountInput}
-                keyboardType="number-pad"
-              />
+      ),
+    },
+    {
+      title: "Roughly how much do you spend in each category?",
+      hint: "Enter approximate monthly amounts. REVO ranks them from least to most for you.",
+      render: () => (
+        <>
+          {spendCategories.map((category) => (
+            <View key={`spend-${category.value}`} style={styles.onboardingSpendRow}>
+              <Text style={styles.onboardingSpendLabel}>{category.label}</Text>
+              <View style={styles.onboardingAmountField}>
+                <Text style={styles.onboardingAmountPrefix}>$</Text>
+                <TextInput
+                  value={spendByCategory[category.value]}
+                  onChangeText={(amount) => setSpendAmount(category.value, amount)}
+                  placeholder="0"
+                  placeholderTextColor={palette.textSecondary}
+                  style={styles.onboardingAmountInput}
+                  keyboardType="number-pad"
+                />
+              </View>
             </View>
-          </View>
-        ))}
-        {spendRanking.length ? (
-          <View style={styles.onboardingRankingWrap}>
-            <Text style={styles.cardSectionLabel}>LEAST → MOST</Text>
-            <Text style={styles.onboardingRankingText}>
-              {spendRanking.map((entry) => `${entry.label} ($${entry.amount})`).join("  →  ")}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View style={styles.panelSection}>
-        <Text style={styles.questionnaireQuestionTitle}>8) What is your goal with credit card points?</Text>
+          ))}
+          {spendRanking.length ? (
+            <View style={styles.onboardingRankingWrap}>
+              <Text style={styles.cardSectionLabel}>LEAST → MOST</Text>
+              <Text style={styles.onboardingRankingText}>
+                {spendRanking.map((entry) => `${entry.label} ($${entry.amount})`).join("  →  ")}
+              </Text>
+            </View>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      title: "What is your goal with credit card points?",
+      render: () => (
         <View style={styles.questionnaireOptionsWrap}>
           {[
             { value: "travel" as OnboardingPointsGoal, label: "Unlock free travel", detail: "Maximize transferable points for flights and hotels." },
@@ -1279,17 +1287,61 @@ function OnboardingScreen({
             );
           })}
         </View>
+      ),
+    },
+  ];
+
+  const totalSteps = steps.length;
+  const safeStepIndex = Math.min(stepIndex, totalSteps - 1);
+  const currentStep = steps[safeStepIndex];
+  const isFirstStep = safeStepIndex === 0;
+  const isLastStep = safeStepIndex === totalSteps - 1;
+
+  const goNext = () => {
+    if (isLastStep) {
+      finishOnboarding();
+      return;
+    }
+    setStepIndex((index) => Math.min(totalSteps - 1, index + 1));
+  };
+
+  const goBack = () => {
+    setStepIndex((index) => Math.max(0, index - 1));
+  };
+
+  return (
+    <View style={styles.onboardingWizard}>
+      <View style={styles.onboardingTopBar}>
+        <View style={styles.onboardingTopBarRow}>
+          <Text style={styles.brandLabel}>REVOCRED</Text>
+          <Text style={styles.onboardingProgressLabel}>
+            Question {safeStepIndex + 1} of {totalSteps}
+          </Text>
+        </View>
+        <View style={styles.onboardingProgressTrack}>
+          <View style={[styles.onboardingProgressFill, { flex: safeStepIndex + 1 }]} />
+          <View style={{ flex: totalSteps - (safeStepIndex + 1) }} />
+        </View>
       </View>
 
-      <View style={styles.questionnaireActionsRow}>
-        <Pressable style={styles.questionnaireSecondaryButton} onPress={onSkip}>
-          <Text style={styles.questionnaireSecondaryButtonText}>Skip for now</Text>
+      <ScrollView contentContainerStyle={styles.onboardingStepBody} keyboardShouldPersistTaps="handled">
+        <Text style={styles.screenSectionTitle}>Let's personalize REVO</Text>
+        <View style={styles.panelSection}>
+          <Text style={styles.questionnaireQuestionTitle}>{currentStep.title}</Text>
+          {currentStep.hint ? <Text style={styles.panelHint}>{currentStep.hint}</Text> : null}
+          {currentStep.render()}
+        </View>
+      </ScrollView>
+
+      <View style={styles.onboardingNavBar}>
+        <Pressable style={styles.questionnaireSecondaryButton} onPress={isFirstStep ? onSkip : goBack}>
+          <Text style={styles.questionnaireSecondaryButtonText}>{isFirstStep ? "Skip for now" : "Back"}</Text>
         </Pressable>
-        <Pressable style={styles.questionnairePrimaryButton} onPress={finishOnboarding}>
-          <Text style={styles.questionnairePrimaryButtonText}>Finish setup</Text>
+        <Pressable style={styles.questionnairePrimaryButton} onPress={goNext}>
+          <Text style={styles.questionnairePrimaryButtonText}>{isLastStep ? "Finish setup" : "Next"}</Text>
         </Pressable>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -2846,6 +2898,55 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: typeScale.sm,
     fontWeight: "600",
+  },
+  onboardingWizard: {
+    flex: 1,
+  },
+  onboardingTopBar: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    gap: spacing.xs,
+  },
+  onboardingTopBarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  onboardingProgressLabel: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  onboardingProgressTrack: {
+    flexDirection: "row",
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "#101B36",
+    borderWidth: 1,
+    borderColor: palette.border,
+    overflow: "hidden",
+  },
+  onboardingProgressFill: {
+    backgroundColor: palette.accent,
+    borderRadius: 999,
+  },
+  onboardingStepBody: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  onboardingNavBar: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: palette.border,
+    backgroundColor: palette.background,
   },
   analyticsHeaderRow: {
     flexDirection: "row",
