@@ -416,7 +416,7 @@ function HomeScreen({
   const overviewCards = cards.slice(0, 2);
   const estimatedFirstYearValue = Math.round(projectedValue + pointsValue * 7);
   const strategyScore = Math.min(97, 82 + cards.length * 2);
-  const topPriorities = Array.from(new Set(cards.map((card) => `Use ${card.name} for ${card.bestUse.toLowerCase()}`))).slice(0, 3);
+  const topPriorities = ["Maximize travel rewards", "Earn more on dining & groceries", "Unlock premium travel perks"];
 
   return (
     <ScrollView contentContainerStyle={styles.screenBody}>
@@ -661,8 +661,15 @@ function StrategyScreen({
   return (
     <>
       <ScrollView contentContainerStyle={styles.screenBody}>
+        <Text style={styles.cardSectionLabel}>STRATEGY</Text>
         <Text style={styles.screenSectionTitle}>Your Roadmap</Text>
         <Text style={styles.panelHint}>The best cards to apply for and when.</Text>
+        <View style={styles.roadmapSummaryCard}>
+          <Text style={styles.roadmapSummaryTitle}>Built for your profile</Text>
+          <Text style={styles.roadmapSummaryText}>
+            Apply in a sequence that balances approval odds, welcome bonus timing, and long-term category coverage.
+          </Text>
+        </View>
 
         <View style={styles.roadmapTimeline}>
           {roadmapEntries.map((entry, index) => (
@@ -888,6 +895,35 @@ function RevoScreen({
     }
   };
 
+  const recommendationFromMessage = (content: string) => {
+    const normalized = content.toLowerCase();
+    if (normalized.includes("dining") || normalized.includes("restaurant")) {
+      return {
+        id: "amex-gold",
+        brand: "AMEX",
+        name: "American Express Gold Card",
+        detail: "4X points on dining worldwide",
+      };
+    }
+    if (normalized.includes("groc")) {
+      return {
+        id: "amex-gold",
+        brand: "AMEX",
+        name: "American Express Gold Card",
+        detail: "4X points at U.S. supermarkets",
+      };
+    }
+    if (normalized.includes("travel") || normalized.includes("flight")) {
+      return {
+        id: "venture-x",
+        brand: "VISA",
+        name: "Venture X",
+        detail: "2X everywhere + premium travel perks",
+      };
+    }
+    return null;
+  };
+
   return (
     <View style={styles.revoWrap}>
       <ScrollView contentContainerStyle={styles.screenBody}>
@@ -918,6 +954,30 @@ function RevoScreen({
                   <Text style={[styles.chatBubbleText, message.role === "user" ? styles.chatBubbleTextUser : styles.chatBubbleTextAssistant]}>
                     {message.content}
                   </Text>
+                  {message.role === "assistant" ? (
+                    (() => {
+                      const recommendation = recommendationFromMessage(message.content);
+                      if (!recommendation) {
+                        return null;
+                      }
+                      return (
+                        <View style={styles.revoSuggestionCard}>
+                          <GenericCardSurface
+                            cardId={recommendation.id}
+                            brand={recommendation.brand}
+                            name={recommendation.name}
+                            containerStyle={styles.revoSuggestionPreview}
+                            brandStyle={styles.searchPhotoBrand}
+                            nameStyle={styles.searchPhotoName}
+                          />
+                          <View style={styles.revoSuggestionMeta}>
+                            <Text style={styles.revoSuggestionTitle}>{recommendation.name}</Text>
+                            <Text style={styles.revoSuggestionDetail}>{recommendation.detail}</Text>
+                          </View>
+                        </View>
+                      );
+                    })()
+                  ) : null}
                 </View>
               </View>
             ))}
@@ -961,6 +1021,40 @@ function RevoScreen({
             )}
           </Pressable>
         </View>
+      </View>
+    </View>
+  );
+}
+
+function StrategyBuildScreen({ completedCount }: { completedCount: number }) {
+  const safeCompletedCount = Math.min(Math.max(completedCount, 0), STRATEGY_BUILD_STEPS.length);
+
+  return (
+    <View style={styles.strategyBuildWrap}>
+      <Text style={styles.strategyBuildHeading}>Building your strategy...</Text>
+      <Text style={styles.strategyBuildSubheading}>This will only take a few seconds.</Text>
+
+      <View style={styles.strategyBuildOrbWrap}>
+        <LinearGradient colors={["#4F7DFF", "#8B5CF6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.strategyBuildOrb}>
+          <Text style={styles.strategyBuildOrbLetter}>R</Text>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.strategyBuildList}>
+        {STRATEGY_BUILD_STEPS.map((step, index) => {
+          const isComplete = index < safeCompletedCount;
+          const isActive = index === safeCompletedCount && safeCompletedCount < STRATEGY_BUILD_STEPS.length;
+          return (
+            <View key={step} style={styles.strategyBuildStepRow}>
+              <Ionicons
+                name={isComplete ? "checkmark-circle" : isActive ? "ellipse" : "ellipse-outline"}
+                size={16}
+                color={isComplete || isActive ? "#79A1FF" : "#4A5E8E"}
+              />
+              <Text style={[styles.strategyBuildStepText, isComplete ? styles.strategyBuildStepTextComplete : undefined]}>{step}</Text>
+            </View>
+          );
+        })}
       </View>
     </View>
   );
@@ -1087,6 +1181,14 @@ type OnboardingAnswers = {
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
 const GRADIENT_PRIMARY = ["#5B7CFA", "#8B5CF6"] as const;
+const STRATEGY_BUILD_STEPS = [
+  "Analyzing your goals",
+  "Reviewing your spending",
+  "Comparing 200+ cards",
+  "Finding the best combinations",
+  "Calculating your potential value",
+  "Finalizing your strategy",
+] as const;
 
 function GradientButton({
   label,
@@ -1676,8 +1778,8 @@ function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab:
   const tabs: Array<{ key: TabKey; kind: "ion" | "mc" | "text"; icon: string }> = [
     { key: "Home", kind: "ion", icon: "home-outline" },
     { key: "Cards", kind: "ion", icon: "card-outline" },
-    { key: "Strategy", kind: "mc", icon: "chess-knight" },
     { key: "REVO", kind: "text", icon: "R" },
+    { key: "Strategy", kind: "mc", icon: "chess-knight" },
     { key: "Profile", kind: "ion", icon: "person-circle-outline" },
   ];
 
@@ -1713,6 +1815,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("Home");
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showStrategyBuild, setShowStrategyBuild] = useState(false);
+  const [strategyBuildCompletedCount, setStrategyBuildCompletedCount] = useState(0);
   const onboardingShownForSession = useRef<string | null>(null);
   const screenEntrance = useRef(new Animated.Value(1)).current;
   const {
@@ -1770,6 +1874,24 @@ export default function App() {
       useNativeDriver: true,
     }).start();
   }, [activeTab, screenEntrance]);
+
+  useEffect(() => {
+    if (!showStrategyBuild) {
+      return;
+    }
+
+    if (strategyBuildCompletedCount >= STRATEGY_BUILD_STEPS.length) {
+      const completeTimer = setTimeout(() => {
+        setShowStrategyBuild(false);
+      }, 480);
+      return () => clearTimeout(completeTimer);
+    }
+
+    const tickTimer = setTimeout(() => {
+      setStrategyBuildCompletedCount((current) => current + 1);
+    }, 620);
+    return () => clearTimeout(tickTimer);
+  }, [showStrategyBuild, strategyBuildCompletedCount]);
 
   const screenTranslateY = screenEntrance.interpolate({
     inputRange: [0.94, 1],
@@ -1858,6 +1980,7 @@ export default function App() {
       <StatusBar style="light" />
       <View style={styles.appBackground}>
         <View style={styles.glow} />
+        <View style={styles.glowSecondary} />
         <View style={styles.screenContainer}>
           {loading ? (
             <View style={styles.loadingWrap}>
@@ -1877,6 +2000,7 @@ export default function App() {
           <SafeAreaView style={styles.safeArea}>
             <View style={styles.appBackground}>
               <View style={styles.glow} />
+              <View style={styles.glowSecondary} />
               <QuestionnaireScreen
                 initialRedemptionType={data?.profile.redemptionType}
                 initialTravelScope={data?.profile.travelScope}
@@ -1890,13 +2014,30 @@ export default function App() {
           <SafeAreaView style={styles.safeArea}>
             <View style={styles.appBackground}>
               <View style={styles.glow} />
+              <View style={styles.glowSecondary} />
               <OnboardingScreen
                 searchCatalog={data?.cardSearchCatalog ?? []}
-                onComplete={() => setShowOnboarding(false)}
+                onComplete={() => {
+                  setShowOnboarding(false);
+                  setStrategyBuildCompletedCount(0);
+                  setShowStrategyBuild(true);
+                  setActiveTab("Home");
+                }}
                 onSkip={() => setShowOnboarding(false)}
               />
             </View>
           </SafeAreaView>
+        </Modal>
+        <Modal visible={showStrategyBuild && Boolean(session)} animationType="fade" transparent onRequestClose={() => setShowStrategyBuild(false)}>
+          <View style={styles.strategyBuildModalBackdrop}>
+            <SafeAreaView style={styles.strategyBuildModalSafeArea}>
+              <View style={styles.appBackground}>
+                <View style={styles.glow} />
+                <View style={styles.glowSecondary} />
+                <StrategyBuildScreen completedCount={strategyBuildCompletedCount} />
+              </View>
+            </SafeAreaView>
+          </View>
         </Modal>
       </View>
     </SafeAreaView>
@@ -1921,6 +2062,16 @@ const styles = StyleSheet.create({
     borderRadius: 96,
     backgroundColor: palette.accent,
     opacity: 0.12,
+  },
+  glowSecondary: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 999,
+    right: -52,
+    bottom: 80,
+    backgroundColor: "#8B5CF6",
+    opacity: 0.1,
   },
   screenContainer: {
     flex: 1,
@@ -2825,13 +2976,36 @@ const styles = StyleSheet.create({
   recommendationExpanded: {
     gap: spacing.xs,
   },
+  roadmapSummaryCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "#304879",
+    backgroundColor: "#112041",
+    padding: spacing.sm,
+    gap: 6,
+  },
+  roadmapSummaryTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    fontWeight: "700",
+  },
+  roadmapSummaryText: {
+    color: "#C5D3F5",
+    fontSize: typeScale.sm,
+    lineHeight: 20,
+  },
   roadmapTimeline: {
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: "#2D3F66",
-    backgroundColor: "#0D172F",
+    borderColor: "#304778",
+    backgroundColor: "#0C1836",
     padding: spacing.sm,
     gap: spacing.sm,
+    shadowColor: "#274A9A",
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
   },
   roadmapStepRow: {
     flexDirection: "row",
@@ -2858,8 +3032,8 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#334A78",
-    backgroundColor: "#122247",
+    borderColor: "#365189",
+    backgroundColor: "#132651",
     padding: spacing.xs,
     gap: 8,
   },
@@ -2877,7 +3051,7 @@ const styles = StyleSheet.create({
     height: 68,
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: "#4963A2",
+    borderColor: "#5A76B5",
     paddingHorizontal: 8,
     paddingVertical: 8,
   },
@@ -2953,8 +3127,8 @@ const styles = StyleSheet.create({
   promptChip: {
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#344A7D",
-    backgroundColor: "#162445",
+    borderColor: "#3B4F82",
+    backgroundColor: "#132146",
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xs,
   },
@@ -2966,8 +3140,8 @@ const styles = StyleSheet.create({
   chatPanel: {
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
+    borderColor: "#314A7C",
+    backgroundColor: "#0E1938",
     padding: spacing.sm,
     gap: spacing.xs,
   },
@@ -3008,7 +3182,7 @@ const styles = StyleSheet.create({
   },
   chatBubbleAssistant: {
     alignSelf: "flex-start",
-    backgroundColor: "#1A2748",
+    backgroundColor: "#16264D",
   },
   chatBubbleText: {
     fontSize: typeScale.sm,
@@ -3019,6 +3193,40 @@ const styles = StyleSheet.create({
   },
   chatBubbleTextAssistant: {
     color: "#D7E2FF",
+  },
+  revoSuggestionCard: {
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: "#3A5388",
+    backgroundColor: "#0E1E40",
+    marginTop: 8,
+    padding: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  revoSuggestionPreview: {
+    width: 84,
+    height: 54,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#5067A5",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  revoSuggestionMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  revoSuggestionTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  revoSuggestionDetail: {
+    color: "#B8C8EF",
+    fontSize: typeScale.xs,
+    lineHeight: 16,
   },
   emptyStateCard: {
     borderRadius: radii.lg,
@@ -3537,6 +3745,85 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     padding: 0,
   },
+  strategyBuildModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(4, 8, 20, 0.78)",
+  },
+  strategyBuildModalSafeArea: {
+    flex: 1,
+  },
+  strategyBuildWrap: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  strategyBuildHeading: {
+    color: palette.textPrimary,
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  strategyBuildSubheading: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  strategyBuildOrbWrap: {
+    width: 214,
+    height: 214,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: "#2E4475",
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: spacing.xs,
+    shadowColor: "#456EF8",
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 10,
+  },
+  strategyBuildOrb: {
+    width: 138,
+    height: 138,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  strategyBuildOrbLetter: {
+    color: "#EEF3FF",
+    fontSize: 54,
+    fontWeight: "800",
+    lineHeight: 60,
+  },
+  strategyBuildList: {
+    width: "100%",
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "#304878",
+    backgroundColor: "#0E1938",
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  strategyBuildStepRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  strategyBuildStepText: {
+    color: "#8FA3D5",
+    fontSize: typeScale.sm,
+    lineHeight: 20,
+  },
+  strategyBuildStepTextComplete: {
+    color: "#D9E4FF",
+    fontWeight: "600",
+  },
   analyticsHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -3663,8 +3950,8 @@ const styles = StyleSheet.create({
   bottomTabsPill: {
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: "#293B63",
-    backgroundColor: "rgba(12, 19, 38, 0.92)",
+    borderColor: "#324878",
+    backgroundColor: "rgba(10, 17, 36, 0.95)",
     paddingHorizontal: spacing.xs,
     paddingVertical: 6,
     flexDirection: "row",
@@ -3686,7 +3973,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   navButtonActive: {
-    backgroundColor: "rgba(111, 139, 255, 0.22)",
+    backgroundColor: "rgba(111, 139, 255, 0.2)",
   },
   navIcon: {
     color: palette.textSecondary,
