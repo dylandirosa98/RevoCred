@@ -404,50 +404,79 @@ function HomeScreen({
   pointsValue,
   projectedValue,
   onAskRevo,
+  onOpenRoadmap,
 }: {
   cards: Card[];
   pointsValue: number;
   projectedValue: number;
   onAskRevo: (prompt: string) => void;
+  onOpenRoadmap: () => void;
 }) {
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const overviewCards = cards.slice(0, 2);
+  const estimatedFirstYearValue = Math.round(projectedValue + pointsValue * 7);
+  const strategyScore = Math.min(97, 82 + cards.length * 2);
+  const topPriorities = Array.from(new Set(cards.map((card) => `Use ${card.name} for ${card.bestUse.toLowerCase()}`))).slice(0, 3);
 
   return (
     <ScrollView contentContainerStyle={styles.screenBody}>
       <View style={styles.screenHeader}>
         <Text style={styles.brandLabel}>REVOCRED</Text>
-        <View style={styles.avatarWrap}>
-          <Text style={styles.avatarText}>JS</Text>
+        <Pressable style={styles.homeBellButton}>
+          <Ionicons name="notifications-outline" size={20} color={palette.textPrimary} />
+        </Pressable>
+      </View>
+      <Text style={styles.strategyReadyHeading}>Your Strategy is Ready 🎉</Text>
+      <Text style={styles.panelHint}>{"Here's your personalized credit card strategy."}</Text>
+
+      <View style={styles.strategyValueCard}>
+        <Text style={styles.cardSectionLabel}>ESTIMATED FIRST-YEAR VALUE</Text>
+        <Text style={styles.strategyValueAmount}>${estimatedFirstYearValue.toLocaleString()}</Text>
+        <View style={styles.strategyStatsRow}>
+          <View style={styles.strategyStatTile}>
+            <Ionicons name="airplane" size={15} color="#72A2FF" />
+            <Text style={styles.strategyStatLabel}>Travel</Text>
+            <Text style={styles.strategyStatValue}>4</Text>
+          </View>
+          <View style={styles.strategyStatTile}>
+            <Ionicons name="bed-outline" size={15} color="#8B5CF6" />
+            <Text style={styles.strategyStatLabel}>Hotels</Text>
+            <Text style={styles.strategyStatValue}>6</Text>
+          </View>
+          <View style={styles.strategyStatTile}>
+            <Ionicons name="cash-outline" size={15} color="#34D399" />
+            <Text style={styles.strategyStatLabel}>Cash Value</Text>
+            <Text style={styles.strategyStatValue}>${projectedValue}</Text>
+          </View>
         </View>
       </View>
-      <Text style={styles.welcomeText}>Welcome back, Javed</Text>
 
-      <View style={styles.homeHeroCard}>
-        <Text style={styles.cardSectionLabel}>COMMAND CENTER</Text>
-        <View style={styles.heroMetricsRow}>
-          <View style={styles.heroMetricBlock}>
-            <Text style={styles.heroMetricValue}>${pointsValue}</Text>
-            <Text style={styles.heroMetricLabel}>Points value</Text>
-          </View>
-          <View style={styles.heroMetricDivider} />
-          <View style={styles.heroMetricBlock}>
-            <Text style={styles.heroMetricValue}>${projectedValue}</Text>
-            <Text style={styles.heroMetricLabel}>Projected yearly value</Text>
-          </View>
+      <View style={styles.optimizationCard}>
+        <View style={styles.optimizationRing}>
+          <Text style={styles.optimizationRingValue}>{strategyScore}</Text>
+          <Text style={styles.optimizationRingTotal}>/100</Text>
+        </View>
+        <View style={styles.optimizationMeta}>
+          <Text style={styles.optimizationTitle}>Optimization Score</Text>
+          <Text style={styles.metricHint}>{"You're doing great. REVO keeps tuning your setup as your profile grows."}</Text>
         </View>
       </View>
-
-      <Pressable style={styles.heroActionCard} onPress={() => onAskRevo("What card should I use right now?")}>
-        <Text style={styles.cardSectionLabel}>NEXT BEST ACTION</Text>
-        <Text style={styles.heroActionTitle}>Ask REVO what to use now</Text>
-        <Text style={styles.metricHint}>Get an instant recommendation based on your wallet setup.</Text>
-      </Pressable>
 
       <View style={styles.panelSection}>
-        <Text style={styles.cardSectionLabel}>OVERVIEW</Text>
-        <Text style={styles.screenSectionTitle}>Your Card Setup</Text>
-        <Text style={styles.panelHint}>Tap any card to flip it and view why it matters in your strategy.</Text>
+        <Text style={styles.cardSectionLabel}>YOUR TOP PRIORITIES</Text>
+        {topPriorities.map((priority) => (
+          <View key={priority} style={styles.priorityRow}>
+            <Ionicons name="sparkles" size={14} color="#78A4FF" />
+            <Text style={styles.priorityText}>{priority}</Text>
+          </View>
+        ))}
+      </View>
+
+      <GradientButton label="View Your Roadmap" trailingIcon="chevron-forward" onPress={onOpenRoadmap} />
+
+      <View style={styles.panelSection}>
+        <Text style={styles.cardSectionLabel}>WALLET SNAPSHOT</Text>
+        <Text style={styles.panelHint}>Tap any card to flip and see why it matters in your strategy.</Text>
         {overviewCards.map((card) => (
           <WalletCard
             key={card.id}
@@ -458,6 +487,12 @@ function HomeScreen({
           />
         ))}
       </View>
+
+      <Pressable style={styles.heroActionCard} onPress={() => onAskRevo("What card should I use right now?")}>
+        <Text style={styles.cardSectionLabel}>NEXT BEST ACTION</Text>
+        <Text style={styles.heroActionTitle}>Ask REVO what to use now</Text>
+        <Text style={styles.metricHint}>Get an instant recommendation based on your wallet setup.</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -607,9 +642,82 @@ function StrategyScreen({
       .map((entry) => entry.card);
   }, [normalizedSearch, searchCatalog, searchTokens]);
 
+  const roadmapEntries = useMemo(() => {
+    const accentPalette = ["#34D399", "#5B7CFA", "#8B5CF6", "#F5B740"];
+    return timeline.map((entry, index) => {
+      const card = recommendedCards[index % Math.max(recommendedCards.length, 1)] ?? null;
+      const stageLabel = index === 0 ? "Apply Now" : `In ${index * 6} Months`;
+      const estimatedValue = 220 + (index + 1) * 190 + (card?.benefits.length ?? 2) * 40;
+      return {
+        ...entry,
+        card,
+        stageLabel,
+        accent: accentPalette[index % accentPalette.length],
+        estimatedValue,
+      };
+    });
+  }, [recommendedCards, timeline]);
+
   return (
     <>
       <ScrollView contentContainerStyle={styles.screenBody}>
+        <Text style={styles.screenSectionTitle}>Your Roadmap</Text>
+        <Text style={styles.panelHint}>The best cards to apply for and when.</Text>
+
+        <View style={styles.roadmapTimeline}>
+          {roadmapEntries.map((entry, index) => (
+            <View key={entry.id} style={styles.roadmapStepRow}>
+              <View style={styles.roadmapRailWrap}>
+                <View style={[styles.roadmapDot, { backgroundColor: entry.accent }]} />
+                {index < roadmapEntries.length - 1 ? <View style={styles.roadmapRail} /> : null}
+              </View>
+
+              <View style={styles.roadmapStepCard}>
+                <Text style={[styles.roadmapStageLabel, { color: entry.accent }]}>{entry.stageLabel}</Text>
+                <View style={styles.roadmapHeaderRow}>
+                  {entry.card ? (
+                    <GenericCardSurface
+                      cardId={entry.card.id}
+                      brand={entry.card.brand}
+                      name={entry.card.name}
+                      containerStyle={styles.roadmapPreviewCard}
+                      brandStyle={styles.searchPhotoBrand}
+                      nameStyle={styles.searchPhotoName}
+                    />
+                  ) : null}
+                  <View style={styles.roadmapHeaderMeta}>
+                    <Text style={styles.roadmapCardTitle}>{entry.card?.name ?? entry.title}</Text>
+                    <Text style={styles.roadmapCardSubtitle}>{entry.note}</Text>
+                  </View>
+                </View>
+
+                {entry.card ? (
+                  <View style={styles.roadmapBenefits}>
+                    {entry.card.benefits.slice(0, 2).map((benefit) => (
+                      <View key={`${entry.id}-${benefit}`} style={styles.roadmapBenefitRow}>
+                        <Ionicons name="checkmark-circle" size={14} color="#6F8BFF" />
+                        <Text style={styles.roadmapBenefitText}>{benefit}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                <View style={styles.roadmapValueRow}>
+                  <Text style={styles.roadmapValueLabel}>Est. Value</Text>
+                  <Text style={styles.roadmapValueAmount}>${entry.estimatedValue}</Text>
+                </View>
+                {entry.card ? (
+                  <Pressable style={styles.askRevoButton} onPress={() => onAskRevo(`Tell me more about ${entry.card?.name} and timing`)}>
+                    <Text style={styles.askRevoLabel}>ASK REVO</Text>
+                    <Text style={styles.askRevoText}>Should I apply now or wait?</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          ))}
+          <Text style={styles.roadmapFootnote}>Timeline is based on good credit and approval odds.</Text>
+        </View>
+
         <View style={styles.searchBar}>
           <TextInput
             value={searchTerm}
@@ -655,22 +763,6 @@ function StrategyScreen({
             ) : null}
           </View>
         ) : null}
-
-        <Text style={styles.screenSectionTitle}>Your Timeline</Text>
-        <Text style={styles.panelHint}>Build your setup step by step</Text>
-
-        <View style={styles.timelineWrap}>
-          {timeline.map((entry, index) => (
-            <View key={entry.id} style={styles.timelineStep}>
-              <View style={[styles.timelinePill, index === 0 ? styles.timelinePillStart : undefined]}>
-                <Text style={styles.timelinePillText}>{entry.title}</Text>
-              </View>
-              <Text style={styles.timelineMonth}>{entry.monthLabel}</Text>
-              <Text style={styles.timelineNote}>{entry.note}</Text>
-              {index < timeline.length - 1 ? <Text style={styles.timelineArrow}>↓</Text> : null}
-            </View>
-          ))}
-        </View>
 
         <View style={styles.panelSection}>
           <Text style={styles.cardSectionLabel}>POPULAR PICKS</Text>
@@ -800,7 +892,7 @@ function RevoScreen({
     <View style={styles.revoWrap}>
       <ScrollView contentContainerStyle={styles.screenBody}>
         <Text style={styles.revoHeading}>Ask REVO</Text>
-        <Text style={styles.panelHint}>AI recommendations for every swipe, transfer, and spend moment.</Text>
+        <Text style={styles.revoSubheading}>Your personal credit card expert.</Text>
 
         <View style={styles.promptChipWrap}>
           {quickPrompts.map((prompt) => (
@@ -815,16 +907,28 @@ function RevoScreen({
             {messages.map((message, index) => (
               <View
                 key={`${message.id}-${index}`}
-                style={[styles.chatBubble, message.role === "user" ? styles.chatBubbleUser : styles.chatBubbleAssistant]}
+                style={[styles.chatRow, message.role === "user" ? styles.chatRowUser : styles.chatRowAssistant]}
               >
-                <Text style={[styles.chatBubbleText, message.role === "user" ? styles.chatBubbleTextUser : styles.chatBubbleTextAssistant]}>
-                  {message.content}
-                </Text>
+                {message.role === "assistant" ? (
+                  <View style={styles.chatAvatar}>
+                    <Text style={styles.chatAvatarText}>R</Text>
+                  </View>
+                ) : null}
+                <View style={[styles.chatBubble, message.role === "user" ? styles.chatBubbleUser : styles.chatBubbleAssistant]}>
+                  <Text style={[styles.chatBubbleText, message.role === "user" ? styles.chatBubbleTextUser : styles.chatBubbleTextAssistant]}>
+                    {message.content}
+                  </Text>
+                </View>
               </View>
             ))}
             {isThinking ? (
-              <View style={[styles.chatBubble, styles.chatBubbleAssistant]}>
-                <Text style={[styles.chatBubbleText, styles.chatBubbleTextAssistant]}>REVO is thinking...</Text>
+              <View style={[styles.chatRow, styles.chatRowAssistant]}>
+                <View style={styles.chatAvatar}>
+                  <Text style={styles.chatAvatarText}>R</Text>
+                </View>
+                <View style={[styles.chatBubble, styles.chatBubbleAssistant]}>
+                  <Text style={[styles.chatBubbleText, styles.chatBubbleTextAssistant]}>REVO is thinking...</Text>
+                </View>
               </View>
             ) : null}
           </View>
@@ -850,7 +954,11 @@ function RevoScreen({
             onPress={() => void submitPrompt(question)}
             disabled={isThinking}
           >
-            <Text style={styles.sendButtonText}>{isThinking ? "..." : "Send"}</Text>
+            {isThinking ? (
+              <Text style={styles.sendButtonText}>...</Text>
+            ) : (
+              <Ionicons name="arrow-up" size={20} color="#F2F6FF" />
+            )}
           </Pressable>
         </View>
       </View>
@@ -1578,17 +1686,22 @@ function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab:
       <View style={styles.bottomTabsPill}>
         {tabs.map((tab) => (
           <Pressable key={tab.key} onPress={() => onChange(tab.key)} style={[styles.navButton, activeTab === tab.key ? styles.navButtonActive : undefined]}>
-            {tab.kind === "ion" ? (
-              <Ionicons
-                name={tab.icon as "home-outline" | "card-outline" | "person-circle-outline"}
-                size={22}
-                style={[styles.navIcon, activeTab === tab.key ? styles.navIconActive : undefined]}
-              />
-            ) : tab.kind === "mc" ? (
-              <MaterialCommunityIcons name={tab.icon as "chess-knight"} size={22} style={[styles.navIcon, activeTab === tab.key ? styles.navIconActive : undefined]} />
-            ) : (
-              <Text style={[styles.navRevoIcon, activeTab === tab.key ? styles.navIconActive : undefined]}>{tab.icon}</Text>
-            )}
+            <View style={styles.navIconStack}>
+              {tab.kind === "ion" ? (
+                <Ionicons
+                  name={tab.icon as "home-outline" | "card-outline" | "person-circle-outline"}
+                  size={20}
+                  style={[styles.navIcon, activeTab === tab.key ? styles.navIconActive : undefined]}
+                />
+              ) : tab.kind === "mc" ? (
+                <MaterialCommunityIcons name={tab.icon as "chess-knight"} size={20} style={[styles.navIcon, activeTab === tab.key ? styles.navIconActive : undefined]} />
+              ) : (
+                <Text style={[styles.navRevoIcon, activeTab === tab.key ? styles.navIconActive : undefined]}>{tab.icon}</Text>
+              )}
+              <Text style={[styles.navLabel, activeTab === tab.key ? styles.navIconActive : undefined]}>
+                {tab.key === "REVO" ? "Ask REVO" : tab.key}
+              </Text>
+            </View>
           </Pressable>
         ))}
       </View>
@@ -1681,6 +1794,7 @@ export default function App() {
             pointsValue={data.metrics.pointsValue}
             projectedValue={data.metrics.projectedYearlyValue}
             onAskRevo={handleAskRevo}
+            onOpenRoadmap={() => setActiveTab("Strategy")}
           />
         );
       case "Cards":
@@ -1722,6 +1836,7 @@ export default function App() {
             pointsValue={data.metrics.pointsValue}
             projectedValue={data.metrics.projectedYearlyValue}
             onAskRevo={handleAskRevo}
+            onOpenRoadmap={() => setActiveTab("Strategy")}
           />
         );
     }
@@ -1845,12 +1960,123 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: typeScale.sm,
   },
+  homeBellButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#31456F",
+    backgroundColor: "#121E3D",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   welcomeText: {
     color: palette.textPrimary,
     fontSize: typeScale.hero,
     lineHeight: 42,
     fontWeight: "700",
     marginBottom: spacing.xs,
+  },
+  strategyReadyHeading: {
+    color: palette.textPrimary,
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: "800",
+  },
+  strategyValueCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#314B7E",
+    backgroundColor: "#0F1D3E",
+    padding: spacing.sm,
+    gap: spacing.xs,
+    shadowColor: "#3D5DC7",
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  strategyValueAmount: {
+    color: "#45D89A",
+    fontSize: 44,
+    lineHeight: 50,
+    fontWeight: "800",
+  },
+  strategyStatsRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginTop: 2,
+  },
+  strategyStatTile: {
+    flex: 1,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: "#2E436D",
+    backgroundColor: "#12264B",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 3,
+  },
+  strategyStatLabel: {
+    color: "#9BA8CC",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  strategyStatValue: {
+    color: "#E9F1FF",
+    fontSize: typeScale.base,
+    fontWeight: "700",
+  },
+  optimizationCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "#2E426A",
+    backgroundColor: "#0E1A35",
+    padding: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  optimizationRing: {
+    width: 84,
+    height: 84,
+    borderRadius: 999,
+    borderWidth: 6,
+    borderColor: "#3ACF9E",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(13, 47, 48, 0.35)",
+  },
+  optimizationRingValue: {
+    color: palette.textPrimary,
+    fontSize: typeScale.lg,
+    fontWeight: "800",
+    lineHeight: 22,
+  },
+  optimizationRingTotal: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  optimizationMeta: {
+    flex: 1,
+    gap: 4,
+  },
+  optimizationTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    fontWeight: "700",
+  },
+  priorityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  priorityText: {
+    color: "#D9E3FF",
+    fontSize: typeScale.sm,
+    lineHeight: 20,
+    flex: 1,
   },
   homeHeroCard: {
     borderRadius: radii.lg,
@@ -2599,6 +2825,112 @@ const styles = StyleSheet.create({
   recommendationExpanded: {
     gap: spacing.xs,
   },
+  roadmapTimeline: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "#2D3F66",
+    backgroundColor: "#0D172F",
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  roadmapStepRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: spacing.xs,
+  },
+  roadmapRailWrap: {
+    width: 18,
+    alignItems: "center",
+  },
+  roadmapDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    marginTop: 6,
+  },
+  roadmapRail: {
+    width: 2,
+    flex: 1,
+    marginTop: 6,
+    backgroundColor: "#2D406A",
+  },
+  roadmapStepCard: {
+    flex: 1,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: "#334A78",
+    backgroundColor: "#122247",
+    padding: spacing.xs,
+    gap: 8,
+  },
+  roadmapStageLabel: {
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  roadmapHeaderRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    alignItems: "center",
+  },
+  roadmapPreviewCard: {
+    width: 108,
+    height: 68,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: "#4963A2",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  roadmapHeaderMeta: {
+    flex: 1,
+    gap: 4,
+  },
+  roadmapCardTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.base,
+    fontWeight: "700",
+  },
+  roadmapCardSubtitle: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    lineHeight: 16,
+  },
+  roadmapBenefits: {
+    gap: 4,
+  },
+  roadmapBenefitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  roadmapBenefitText: {
+    color: "#D4DEFB",
+    fontSize: typeScale.xs,
+    lineHeight: 16,
+    flex: 1,
+  },
+  roadmapValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  roadmapValueLabel: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  roadmapValueAmount: {
+    color: "#68E0AE",
+    fontSize: typeScale.base,
+    fontWeight: "700",
+  },
+  roadmapFootnote: {
+    color: palette.textSecondary,
+    fontSize: typeScale.xs,
+    textAlign: "center",
+    marginTop: 2,
+  },
   revoWrap: {
     flex: 1,
   },
@@ -2606,6 +2938,12 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: typeScale.hero,
     fontWeight: "700",
+  },
+  revoSubheading: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    lineHeight: 20,
+    marginTop: -6,
   },
   promptChipWrap: {
     flexDirection: "row",
@@ -2632,6 +2970,31 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
     padding: spacing.sm,
     gap: spacing.xs,
+  },
+  chatRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+  },
+  chatRowUser: {
+    justifyContent: "flex-end",
+  },
+  chatRowAssistant: {
+    justifyContent: "flex-start",
+  },
+  chatAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#243D7A",
+    marginBottom: 2,
+  },
+  chatAvatarText: {
+    color: "#EAF1FF",
+    fontSize: 11,
+    fontWeight: "800",
   },
   chatBubble: {
     borderRadius: radii.md,
@@ -3317,6 +3680,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  navIconStack: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+  },
   navButtonActive: {
     backgroundColor: "rgba(111, 139, 255, 0.22)",
   },
@@ -3329,6 +3697,11 @@ const styles = StyleSheet.create({
     fontSize: typeScale.lg,
     fontWeight: "700",
     marginTop: -1,
+  },
+  navLabel: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    fontWeight: "600",
   },
   navIconActive: {
     color: palette.accent,
