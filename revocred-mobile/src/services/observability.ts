@@ -14,11 +14,14 @@ type PostHogLike = {
 
 type EventProps = Record<string, JsonType | undefined>;
 
-const observabilityEnabled = process.env.EXPO_PUBLIC_ENABLE_OBSERVABILITY === "true";
-const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
-const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
-const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
-const appEnv = process.env.EXPO_PUBLIC_APP_ENV ?? (__DEV__ ? "development" : "production");
+const runtimeEnv: Record<string, string | undefined> =
+  typeof process !== "undefined" && process.env ? (process.env as Record<string, string | undefined>) : {};
+
+const observabilityEnabled = runtimeEnv.EXPO_PUBLIC_ENABLE_OBSERVABILITY === "true";
+const sentryDsn = runtimeEnv.EXPO_PUBLIC_SENTRY_DSN;
+const posthogApiKey = runtimeEnv.EXPO_PUBLIC_POSTHOG_API_KEY;
+const posthogHost = runtimeEnv.EXPO_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
+const appEnv = runtimeEnv.EXPO_PUBLIC_APP_ENV ?? (__DEV__ ? "development" : "production");
 
 let isInitialized = false;
 let posthog: PostHogLike | null = null;

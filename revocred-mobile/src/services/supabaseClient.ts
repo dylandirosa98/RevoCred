@@ -2,9 +2,12 @@ import "react-native-url-polyfill/auto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "https://jylwvumrzgihfndpurvq.supabase.co";
+const runtimeEnv: Record<string, string | undefined> =
+  typeof process !== "undefined" && process.env ? (process.env as Record<string, string | undefined>) : {};
+
+const supabaseUrl = runtimeEnv.EXPO_PUBLIC_SUPABASE_URL ?? "https://jylwvumrzgihfndpurvq.supabase.co";
 const supabaseAnonKey =
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
+  runtimeEnv.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5bHd2dW1yemdpaGZuZHB1cnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NjMyNzcsImV4cCI6MjA5MTQzOTI3N30.38v7y1y_tFRTAfEL4MPBdkS_gsAvOdRiylEhFlviyME";
 
 const inMemoryStorage = new Map<string, string>();
