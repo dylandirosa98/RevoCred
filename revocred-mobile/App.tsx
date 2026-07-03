@@ -1189,6 +1189,7 @@ const STRATEGY_BUILD_STEPS = [
   "Calculating your potential value",
   "Finalizing your strategy",
 ] as const;
+const ENABLE_ONBOARDING_MODAL = false;
 
 function GradientButton({
   label,
@@ -1856,6 +1857,9 @@ function AppContent() {
   }, [activeTab]);
 
   useEffect(() => {
+    if (!ENABLE_ONBOARDING_MODAL) {
+      return;
+    }
     if (!session) {
       onboardingShownForSession.current = null;
       return;
@@ -2010,7 +2014,11 @@ function AppContent() {
             </View>
           </SafeAreaView>
         </Modal>
-        <Modal visible={showOnboarding && Boolean(session)} animationType="slide" onRequestClose={() => setShowOnboarding(false)}>
+        <Modal
+          visible={ENABLE_ONBOARDING_MODAL && showOnboarding && Boolean(session)}
+          animationType="slide"
+          onRequestClose={() => setShowOnboarding(false)}
+        >
           <SafeAreaView style={styles.safeArea}>
             <View style={styles.appBackground}>
               <View style={styles.glow} />

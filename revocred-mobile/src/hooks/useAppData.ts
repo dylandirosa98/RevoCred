@@ -69,25 +69,41 @@ export function useAppData(): UseAppDataResult {
     let alive = true;
 
     async function bootstrapAuth() {
-      const {
-        data: { session: currentSession },
-      } = await supabase.auth.getSession();
-      if (alive) {
-        setSession(currentSession);
-        setAuthReady(true);
-        trackEvent("auth.bootstrap.completed", {
-          hasActiveSession: Boolean(currentSession),
-        });
+      try {
+        const {
+          data: { session: currentSession },
+        } = await supabase.auth.getSession();
+        if (alive) {
+          setSession(currentSession);
+          setAuthReady(true);
+          trackEvent("auth.bootstrap.completed", {
+            hasActiveSession: Boolean(currentSession),
+          });
+        }
+      } catch (error) {
+        if (alive) {
+          captureError(error, "bootstrapAuth.getSession");
+          setAuthError(toErrorMessage(error));
+          setSession(null);
+          setAuthReady(true);
+        }
       }
     }
 
-    bootstrapAuth();
+    void bootstrapAuth();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (alive) {
-        setSession(nextSession);
+      try {
+        if (alive) {
+          setSession(nextSession);
+        }
+      } catch (error) {
+        if (alive) {
+          captureError(error, "bootstrapAuth.onAuthStateChange");
+          setAuthError(toErrorMessage(error));
+        }
       }
     });
 
