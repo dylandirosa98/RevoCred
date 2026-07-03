@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { ComponentProps, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Component, ComponentProps, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppData } from "./src/hooks/useAppData";
@@ -1811,7 +1811,7 @@ function BottomNav({ activeTab, onChange }: { activeTab: TabKey; onChange: (tab:
   );
 }
 
-export default function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = useState<TabKey>("Home");
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -2041,6 +2041,56 @@ export default function App() {
         </Modal>
       </View>
     </SafeAreaView>
+  );
+}
+
+type AppErrorBoundaryState = {
+  errorMessage: string | null;
+};
+
+class AppErrorBoundary extends Component<{ children: ReactNode }, AppErrorBoundaryState> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { errorMessage: null };
+  }
+
+  static getDerivedStateFromError(error: Error): AppErrorBoundaryState {
+    return { errorMessage: error.message || "Unknown runtime error" };
+  }
+
+  componentDidCatch(error: Error) {
+    // Keep this log for production diagnostics when JS crashes.
+    console.error("RevoCred runtime crash:", error);
+  }
+
+  render() {
+    if (this.state.errorMessage) {
+      return (
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.appBackground}>
+            <View style={styles.crashFallbackWrap}>
+              <Text style={styles.crashFallbackTitle}>We hit a startup error</Text>
+              <Text style={styles.crashFallbackText}>
+                {this.state.errorMessage}
+              </Text>
+              <Text style={styles.crashFallbackText}>
+                Close and reopen the app. If it keeps happening, reinstall this TestFlight build.
+              </Text>
+            </View>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default function App() {
+  return (
+    <AppErrorBoundary>
+      <AppContent />
+    </AppErrorBoundary>
   );
 }
 
@@ -4002,6 +4052,22 @@ const styles = StyleSheet.create({
   loadingText: {
     color: palette.textSecondary,
     fontSize: typeScale.sm,
+  },
+  crashFallbackWrap: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  crashFallbackTitle: {
+    color: palette.textPrimary,
+    fontSize: typeScale.xl,
+    fontWeight: "800",
+  },
+  crashFallbackText: {
+    color: palette.textSecondary,
+    fontSize: typeScale.sm,
+    lineHeight: 20,
   },
   disabledCard: {
     opacity: 0.55,
