@@ -30,16 +30,24 @@ type MessageRow = {
 };
 
 type UsageStatus = "success" | "rate_limited" | "guardrail_blocked" | "provider_error" | "bad_request";
+type AiProvider = "openai" | "gemini";
 
 const MAX_PROMPT_CHARS = Math.min(Math.max(Number(Deno.env.get("REVO_MAX_PROMPT_CHARS") ?? "500"), 80), 2000);
 const RATE_LIMIT_WINDOW_MIN = Math.min(Math.max(Number(Deno.env.get("REVO_RATE_LIMIT_WINDOW_MIN") ?? "60"), 1), 240);
 const RATE_LIMIT_MAX_REQUESTS = Math.min(Math.max(Number(Deno.env.get("REVO_RATE_LIMIT_MAX_REQUESTS") ?? "20"), 1), 300);
 const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") ?? "gpt-4o-mini";
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
+const AI_PROVIDER: AiProvider = Deno.env.get("REVO_AI_PROVIDER")?.trim().toLowerCase() === "gemini" ? "gemini" : "openai";
+const AI_MODEL = AI_PROVIDER === "gemini" ? GEMINI_MODEL : OPENAI_MODEL;
+const AI_API_KEY_SECRET_NAME = AI_PROVIDER === "gemini" ? "GEMINI_API_KEY" : "OPENAI_API_KEY";
+const AI_API_KEY = Deno.env.get(AI_API_KEY_SECRET_NAME);
 
 type GenerateReplyResult = {
   assistantReply: string;
   providerError: boolean;
   errorCode?: string;
+  provider: AiProvider;
+  model: string;
 };
 
 function buildSystemPrompt(profile: ProfileRow | null, walletRows: WalletRow[]): string {
@@ -148,18 +156,24 @@ async function logUsageEvent(
     responseChars?: number;
     latencyMs?: number;
     errorCode?: string;
+    provider?: AiProvider;
+    model?: string;
     metadata?: Record<string, unknown>;
   }
 ) {
+  const metadata = {
+    provider: payload.provider ?? AI_PROVIDER,
+    ...payload.metadata,
+  };
   const { error } = await supabase.from("revo_usage_logs").insert({
     user_id: userId,
     status: payload.status,
     prompt_chars: payload.promptChars,
     response_chars: payload.responseChars ?? 0,
     latency_ms: payload.latencyMs ?? null,
-    model: OPENAI_MODEL,
+    model: payload.model ?? AI_MODEL,
     error_code: payload.errorCode ?? null,
-    metadata: payload.metadata ?? {},
+    metadata,
   });
   if (error) {
     console.error("usage-log-error", error.message);
@@ -183,20 +197,12 @@ async function isRateLimited(supabase: ReturnType<typeof createClient>, userId: 
   return (count ?? 0) >= RATE_LIMIT_MAX_REQUESTS;
 }
 
-async function generateAssistantReply(
-  openAiApiKey: string | undefined,
+async function generateOpenAiReply(
+  apiKey: string,
   systemPrompt: string,
   history: MessageRow[],
   prompt: string
 ): Promise<GenerateReplyResult> {
-  if (!openAiApiKey) {
-    return {
-      assistantReply: "AI is not configured yet. Please add OPENAI_API_KEY to Supabase Edge Function secrets.",
-      providerError: true,
-      errorCode: "missing_openai_api_key",
-    };
-  }
-
   const messages = [
     { role: "system", content: systemPrompt },
     ...history.map((item) => ({ role: item.role, content: item.content })),
@@ -206,7 +212,7 @@ async function generateAssistantReply(
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${openAiApiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -223,6 +229,8 @@ async function generateAssistantReply(
       assistantReply: `I hit an AI provider error and could not answer right now (${response.status}). Please try again.`,
       providerError: true,
       errorCode: `provider_http_${response.status}`,
+      provider: "openai",
+      model: OPENAI_MODEL,
     };
   }
 
@@ -233,12 +241,120 @@ async function generateAssistantReply(
       assistantReply: "I could not generate a response right now. Please try rephrasing your question.",
       providerError: true,
       errorCode: "provider_invalid_payload",
+      provider: "openai",
+      model: OPENAI_MODEL,
     };
   }
 
   return {
     assistantReply: sanitizeAssistantReply(assistantReply),
     providerError: false,
+    provider: "openai",
+    model: OPENAI_MODEL,
+  };
+}
+
+function toGeminiMessageRole(role: MessageRow["role"]): "user" | "model" {
+  return role === "assistant" ? "model" : "user";
+}
+
+async function generateGeminiReply(
+  apiKey: string,
+  systemPrompt: string,
+  history: MessageRow[],
+  prompt: string
+): Promise<GenerateReplyResult> {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: systemPrompt }],
+      },
+      contents: [
+        ...history.map((item) => ({
+          role: toGeminiMessageRole(item.role),
+          parts: [{ text: item.content }],
+        })),
+        {
+          role: "user",
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.4,
+        maxOutputTokens: 220,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    await response.text();
+    return {
+      assistantReply: `I hit an AI provider error and could not answer right now (${response.status}). Please try again.`,
+      providerError: true,
+      errorCode: `provider_http_${response.status}`,
+      provider: "gemini",
+      model: GEMINI_MODEL,
+    };
+  }
+
+  const data = await response.json();
+  const candidateParts = Array.isArray(data?.candidates?.[0]?.content?.parts)
+    ? (data.candidates[0].content.parts as Array<{ text?: unknown }>)
+    : [];
+  const assistantReply = candidateParts
+    .map((part) => (typeof part.text === "string" ? part.text : ""))
+    .join("\n")
+    .trim();
+
+  if (!assistantReply) {
+    return {
+      assistantReply: "I could not generate a response right now. Please try rephrasing your question.",
+      providerError: true,
+      errorCode: "provider_invalid_payload",
+      provider: "gemini",
+      model: GEMINI_MODEL,
+    };
+  }
+
+  return {
+    assistantReply: sanitizeAssistantReply(assistantReply),
+    providerError: false,
+    provider: "gemini",
+    model: GEMINI_MODEL,
+  };
+}
+
+async function generateAssistantReply(
+  apiKey: string | undefined,
+  systemPrompt: string,
+  history: MessageRow[],
+  prompt: string
+): Promise<GenerateReplyResult> {
+  if (!apiKey) {
+    return {
+      assistantReply: `AI is not configured yet. Please add ${AI_API_KEY_SECRET_NAME} to Supabase Edge Function secrets.`,
+      providerError: true,
+      errorCode: `missing_${AI_PROVIDER}_api_key`,
+      provider: AI_PROVIDER,
+      model: AI_MODEL,
+    };
+  }
+
+  if (AI_PROVIDER === "gemini") {
+    return generateGeminiReply(apiKey, systemPrompt, history, prompt);
+  }
+  return generateOpenAiReply(apiKey, systemPrompt, history, prompt);
+}
+
+function buildProviderMetadata(generation: GenerateReplyResult, historyLength: number): Record<string, unknown> {
+  return {
+    provider: generation.provider,
+    model: generation.model,
+    historyMessagesUsed: historyLength,
   };
 }
 
@@ -373,7 +489,7 @@ Deno.serve(async (req) => {
     const systemPrompt = preferences
       ? `${systemPromptBase}\nPreferred redemption type: ${preferences.redemption_type}\nPreferred travel scope: ${preferences.travel_scope}`
       : systemPromptBase;
-    const generation = await generateAssistantReply(Deno.env.get("OPENAI_API_KEY"), systemPrompt, history, prompt);
+    const generation = await generateAssistantReply(AI_API_KEY, systemPrompt, history, prompt);
     const assistantReply = generation.assistantReply;
     const latencyMs = Date.now() - startedAt;
 
@@ -400,9 +516,9 @@ Deno.serve(async (req) => {
       responseChars: assistantReply.length,
       latencyMs,
       errorCode: generation.errorCode,
-      metadata: {
-        historyMessagesUsed: history.length,
-      },
+      provider: generation.provider,
+      model: generation.model,
+      metadata: buildProviderMetadata(generation, history.length),
     });
 
     return new Response(JSON.stringify({ assistantReply }), {

@@ -60,6 +60,7 @@ supabase functions deploy revo-chat --project-ref jylwvumrzgihfndpurvq
 Set secrets (required):
 
 ```bash
+supabase secrets set REVO_AI_PROVIDER=openai --project-ref jylwvumrzgihfndpurvq
 supabase secrets set OPENAI_API_KEY=your-openai-key --project-ref jylwvumrzgihfndpurvq
 ```
 
@@ -76,6 +77,21 @@ supabase secrets set REVO_RATE_LIMIT_WINDOW_MIN=60 --project-ref jylwvumrzgihfnd
 supabase secrets set REVO_RATE_LIMIT_MAX_REQUESTS=20 --project-ref jylwvumrzgihfndpurvq
 supabase secrets set REVO_MAX_PROMPT_CHARS=500 --project-ref jylwvumrzgihfndpurvq
 supabase secrets set OPENAI_MODEL=gpt-4o-mini --project-ref jylwvumrzgihfndpurvq
+supabase secrets set GEMINI_MODEL=gemini-2.5-flash --project-ref jylwvumrzgihfndpurvq
+```
+
+Switch providers with secrets only (no code change):
+
+```bash
+# OpenAI (recommended production default)
+supabase secrets set REVO_AI_PROVIDER=openai --project-ref jylwvumrzgihfndpurvq
+supabase secrets set OPENAI_API_KEY=your-openai-key --project-ref jylwvumrzgihfndpurvq
+supabase secrets set OPENAI_MODEL=gpt-4o-mini --project-ref jylwvumrzgihfndpurvq
+
+# Gemini (useful for low-cost dev/testing)
+supabase secrets set REVO_AI_PROVIDER=gemini --project-ref jylwvumrzgihfndpurvq
+supabase secrets set GEMINI_API_KEY=your-gemini-key --project-ref jylwvumrzgihfndpurvq
+supabase secrets set GEMINI_MODEL=gemini-2.5-flash --project-ref jylwvumrzgihfndpurvq
 ```
 
 ## Notes
