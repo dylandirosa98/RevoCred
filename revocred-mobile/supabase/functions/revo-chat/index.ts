@@ -50,6 +50,11 @@ type GenerateReplyResult = {
   model: string;
 };
 
+type FactOverride = {
+  factKey: string;
+  assistantReply: string;
+};
+
 function buildSystemPrompt(profile: ProfileRow | null, walletRows: WalletRow[]): string {
   const wallet = walletRows.map((row) => row.card_id).join(", ");
   const safeProfile = profile ?? {
@@ -77,6 +82,7 @@ function buildSystemPrompt(profile: ProfileRow | null, walletRows: WalletRow[]):
     "Never provide guarantees of approval or returns.",
     "Do not provide instructions for fraud, identity theft, policy bypass, or illegal behavior.",
     "Keep responses concise and practical. Avoid long legal disclaimers unless relevant.",
+    "When sharing exact card benefit amounts, only state figures you are confident in and remind users that issuer terms can change.",
   ].join("\n");
 }
 
@@ -145,6 +151,25 @@ function sanitizeAssistantReply(reply: string): string {
   }
 
   return compact;
+}
+
+function detectFactOverride(prompt: string): FactOverride | null {
+  const normalized = prompt.toLowerCase();
+  const asksAboutDunkin = normalized.includes("dunkin");
+  const asksAboutAmexGold =
+    normalized.includes("amex gold") ||
+    normalized.includes("american express gold") ||
+    normalized.includes("gold card");
+
+  if (asksAboutDunkin && asksAboutAmexGold) {
+    return {
+      factKey: "amex_gold_dunkin_credit_2026",
+      assistantReply:
+        "On the Amex Gold, the Dunkin benefit is up to $7 in statement credits per month (up to $84 per calendar year) on eligible U.S. Dunkin purchases. Terms can change, so check your Amex benefits page for the latest details and enrollment requirements.",
+    };
+  }
+
+  return null;
 }
 
 async function logUsageEvent(
@@ -453,6 +478,43 @@ Deno.serve(async (req) => {
         errorCode: "rate_limit_exceeded",
       });
       return new Response(JSON.stringify({ assistantReply: rateLimitMessage }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const factOverride = detectFactOverride(prompt);
+    if (factOverride) {
+      const { error: insertError } = await supabase.from("revo_messages").insert([
+        {
+          user_id: user.id,
+          role: "user",
+          content: prompt,
+        },
+        {
+          user_id: user.id,
+          role: "assistant",
+          content: factOverride.assistantReply,
+        },
+      ]);
+      if (insertError) {
+        throw insertError;
+      }
+
+      await logUsageEvent(supabase, user.id, {
+        status: "success",
+        promptChars: prompt.length,
+        responseChars: factOverride.assistantReply.length,
+        errorCode: "factual_override",
+        provider: AI_PROVIDER,
+        model: AI_MODEL,
+        metadata: {
+          source: "curated_facts",
+          factKey: factOverride.factKey,
+        },
+      });
+
+      return new Response(JSON.stringify({ assistantReply: factOverride.assistantReply }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });

@@ -1,7 +1,20 @@
 import { StatusBar } from "expo-status-bar";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Component, ComponentProps, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Animated,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppData } from "./src/hooks/useAppData";
 import { initializeObservability, trackEvent, trackScreenView } from "./src/services/observability";
@@ -881,6 +894,7 @@ function RevoScreen({
 }) {
   const [question, setQuestion] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const chatScrollRef = useRef<ScrollView | null>(null);
 
   const submitPrompt = async (prompt: string) => {
     if (!prompt.trim()) {
@@ -895,40 +909,30 @@ function RevoScreen({
     }
   };
 
-  const recommendationFromMessage = (content: string) => {
-    const normalized = content.toLowerCase();
-    if (normalized.includes("dining") || normalized.includes("restaurant")) {
-      return {
-        id: "amex-gold",
-        brand: "AMEX",
-        name: "American Express Gold Card",
-        detail: "4X points on dining worldwide",
-      };
-    }
-    if (normalized.includes("groc")) {
-      return {
-        id: "amex-gold",
-        brand: "AMEX",
-        name: "American Express Gold Card",
-        detail: "4X points at U.S. supermarkets",
-      };
-    }
-    if (normalized.includes("travel") || normalized.includes("flight")) {
-      return {
-        id: "venture-x",
-        brand: "VISA",
-        name: "Venture X",
-        detail: "2X everywhere + premium travel perks",
-      };
-    }
-    return null;
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      chatScrollRef.current?.scrollToEnd({ animated: true });
+    }, 40);
+    return () => clearTimeout(timer);
+  }, [messages, isThinking]);
 
   return (
-    <View style={styles.revoWrap}>
-      <ScrollView contentContainerStyle={styles.screenBody}>
-        <Text style={styles.revoHeading}>Ask REVO</Text>
-        <Text style={styles.revoSubheading}>Your personal credit card expert.</Text>
+    <KeyboardAvoidingView
+      style={styles.revoWrap}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+    >
+      <ScrollView
+        ref={chatScrollRef}
+        style={styles.revoScroll}
+        contentContainerStyle={styles.revoScrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+      >
+        <View style={styles.revoHeader}>
+          <Text style={styles.revoHeading}>Ask REVO</Text>
+          <Text style={styles.revoSubheading}>Your personal credit card expert.</Text>
+        </View>
 
         <View style={styles.promptChipWrap}>
           {quickPrompts.map((prompt) => (
@@ -938,91 +942,64 @@ function RevoScreen({
           ))}
         </View>
 
-        {messages.length ? (
-          <View style={styles.chatPanel}>
-            {messages.map((message, index) => (
+        <View style={styles.revoConversation}>
+          {messages.length ? (
+            messages.map((message, index) => (
               <View
                 key={`${message.id}-${index}`}
-                style={[styles.chatRow, message.role === "user" ? styles.chatRowUser : styles.chatRowAssistant]}
+                style={[
+                  styles.revoMessageBlock,
+                  message.role === "user" ? styles.revoMessageBlockUser : styles.revoMessageBlockAssistant,
+                ]}
               >
-                {message.role === "assistant" ? (
-                  <View style={styles.chatAvatar}>
-                    <Text style={styles.chatAvatarText}>R</Text>
-                  </View>
-                ) : null}
-                <View style={[styles.chatBubble, message.role === "user" ? styles.chatBubbleUser : styles.chatBubbleAssistant]}>
-                  <Text style={[styles.chatBubbleText, message.role === "user" ? styles.chatBubbleTextUser : styles.chatBubbleTextAssistant]}>
-                    {message.content}
-                  </Text>
-                  {message.role === "assistant" ? (
-                    (() => {
-                      const recommendation = recommendationFromMessage(message.content);
-                      if (!recommendation) {
-                        return null;
-                      }
-                      return (
-                        <View style={styles.revoSuggestionCard}>
-                          <GenericCardSurface
-                            cardId={recommendation.id}
-                            brand={recommendation.brand}
-                            name={recommendation.name}
-                            containerStyle={styles.revoSuggestionPreview}
-                            brandStyle={styles.searchPhotoBrand}
-                            nameStyle={styles.searchPhotoName}
-                          />
-                          <View style={styles.revoSuggestionMeta}>
-                            <Text style={styles.revoSuggestionTitle}>{recommendation.name}</Text>
-                            <Text style={styles.revoSuggestionDetail}>{recommendation.detail}</Text>
-                          </View>
-                        </View>
-                      );
-                    })()
-                  ) : null}
-                </View>
+                <Text style={[styles.revoMessageRole, message.role === "user" ? styles.revoMessageRoleUser : undefined]}>
+                  {message.role === "user" ? "You" : "REVO"}
+                </Text>
+                <Text style={[styles.revoMessageText, message.role === "user" ? styles.revoMessageTextUser : styles.revoMessageTextAssistant]}>
+                  {message.content}
+                </Text>
               </View>
-            ))}
-            {isThinking ? (
-              <View style={[styles.chatRow, styles.chatRowAssistant]}>
-                <View style={styles.chatAvatar}>
-                  <Text style={styles.chatAvatarText}>R</Text>
-                </View>
-                <View style={[styles.chatBubble, styles.chatBubbleAssistant]}>
-                  <Text style={[styles.chatBubbleText, styles.chatBubbleTextAssistant]}>REVO is thinking...</Text>
-                </View>
-              </View>
-            ) : null}
-          </View>
-        ) : (
-          <View style={styles.emptyStateCard}>
-            <Text style={styles.emptyStateTitle}>No conversation yet</Text>
-            <Text style={styles.emptyStateText}>Tap a prompt or ask REVO your next card move.</Text>
-          </View>
-        )}
+            ))
+          ) : (
+            <View style={styles.emptyStateCard}>
+              <Text style={styles.emptyStateTitle}>Start a conversation</Text>
+              <Text style={styles.emptyStateText}>Ask REVO your next move and get practical card strategy guidance.</Text>
+            </View>
+          )}
+          {isThinking ? (
+            <View style={styles.revoThinkingRow}>
+              <ActivityIndicator color="#C8D7FF" size="small" />
+              <Text style={styles.revoThinkingText}>REVO is thinking...</Text>
+            </View>
+          ) : null}
+        </View>
       </ScrollView>
-      <View style={styles.inputDock}>
-        <View style={styles.inputRow}>
+      <View style={styles.revoComposerDock}>
+        <View style={styles.revoComposerRow}>
           <TextInput
             value={question}
             onChangeText={setQuestion}
             placeholder="Ask REVO anything..."
             placeholderTextColor="#6d7aab"
-            style={styles.input}
-            onSubmitEditing={() => void submitPrompt(question)}
+            style={styles.revoComposerInput}
+            multiline
+            textAlignVertical="top"
+            maxLength={1000}
           />
           <Pressable
-            style={[styles.sendButton, isThinking ? styles.disabledCard : undefined]}
+            style={[styles.revoSendButton, isThinking || !question.trim() ? styles.disabledCard : undefined]}
             onPress={() => void submitPrompt(question)}
-            disabled={isThinking}
+            disabled={isThinking || !question.trim()}
           >
             {isThinking ? (
-              <Text style={styles.sendButtonText}>...</Text>
+              <ActivityIndicator color="#F2F6FF" size="small" />
             ) : (
               <Ionicons name="arrow-up" size={20} color="#F2F6FF" />
             )}
           </Pressable>
         </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -3166,16 +3143,27 @@ const styles = StyleSheet.create({
   revoWrap: {
     flex: 1,
   },
+  revoScroll: {
+    flex: 1,
+  },
+  revoScrollContent: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  revoHeader: {
+    gap: 4,
+  },
   revoHeading: {
     color: palette.textPrimary,
     fontSize: typeScale.hero,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   revoSubheading: {
     color: palette.textSecondary,
     fontSize: typeScale.sm,
     lineHeight: 20,
-    marginTop: -6,
   },
   promptChipWrap: {
     flexDirection: "row",
@@ -3191,156 +3179,112 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   promptChipText: {
-    color: "#D7E1FF",
+    color: "#D3DFFF",
     fontSize: typeScale.sm,
     lineHeight: 18,
   },
-  chatPanel: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: "#314A7C",
-    backgroundColor: "#0E1938",
-    padding: spacing.sm,
-    gap: spacing.xs,
+  revoConversation: {
+    gap: spacing.sm,
+    paddingTop: 4,
+    paddingBottom: 12,
   },
-  chatRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
+  revoMessageBlock: {
+    maxWidth: "94%",
+    gap: 6,
   },
-  chatRowUser: {
-    justifyContent: "flex-end",
-  },
-  chatRowAssistant: {
-    justifyContent: "flex-start",
-  },
-  chatAvatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#243D7A",
-    marginBottom: 2,
-  },
-  chatAvatarText: {
-    color: "#EAF1FF",
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  chatBubble: {
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs,
-    maxWidth: "92%",
-  },
-  chatBubbleUser: {
+  revoMessageBlockUser: {
     alignSelf: "flex-end",
-    backgroundColor: palette.accent,
+    alignItems: "flex-end",
   },
-  chatBubbleAssistant: {
+  revoMessageBlockAssistant: {
     alignSelf: "flex-start",
-    backgroundColor: "#16264D",
   },
-  chatBubbleText: {
+  revoMessageRole: {
+    color: "#9EB2E3",
+    fontSize: typeScale.xs,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  revoMessageRoleUser: {
+    color: "#AEC2FF",
+  },
+  revoMessageText: {
     fontSize: typeScale.sm,
-    lineHeight: 20,
+    lineHeight: 24,
   },
-  chatBubbleTextUser: {
-    color: "#F4F7FF",
+  revoMessageTextUser: {
+    color: "#DCE6FF",
+    textAlign: "right",
   },
-  chatBubbleTextAssistant: {
-    color: "#D7E2FF",
+  revoMessageTextAssistant: {
+    color: "#EDF3FF",
   },
-  revoSuggestionCard: {
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: "#3A5388",
-    backgroundColor: "#0E1E40",
-    marginTop: 8,
-    padding: 8,
+  revoThinkingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
+    paddingTop: 4,
   },
-  revoSuggestionPreview: {
-    width: 84,
-    height: 54,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#5067A5",
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  revoSuggestionMeta: {
-    flex: 1,
-    gap: 2,
-  },
-  revoSuggestionTitle: {
-    color: palette.textPrimary,
-    fontSize: typeScale.sm,
-    fontWeight: "700",
-  },
-  revoSuggestionDetail: {
-    color: "#B8C8EF",
+  revoThinkingText: {
+    color: "#C7D6FB",
     fontSize: typeScale.xs,
-    lineHeight: 16,
+    letterSpacing: 0.3,
   },
   emptyStateCard: {
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
-    padding: spacing.sm,
+    borderColor: "#293A63",
+    backgroundColor: "#0F1831",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     gap: spacing.xs,
-    alignItems: "flex-start",
   },
   emptyStateTitle: {
     color: palette.textPrimary,
-    fontSize: typeScale.lg,
+    fontSize: typeScale.base,
     fontWeight: "600",
   },
   emptyStateText: {
     color: palette.textSecondary,
     fontSize: typeScale.sm,
+    lineHeight: 20,
   },
-  inputDock: {
+  revoComposerDock: {
     borderTopWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: "#070F21",
+    borderColor: "#1C2A48",
+    backgroundColor: "#060E1F",
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.xs,
   },
-  inputRow: {
+  revoComposerRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     gap: spacing.xs,
   },
-  input: {
+  revoComposerInput: {
     flex: 1,
-    height: 52,
-    borderRadius: radii.md,
+    minHeight: 52,
+    maxHeight: 140,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
+    borderColor: "#2C3E67",
+    backgroundColor: "#0E1A35",
     color: palette.textPrimary,
     fontSize: typeScale.base,
-    paddingHorizontal: spacing.xs,
+    lineHeight: 22,
+    paddingHorizontal: 16,
+    paddingTop: 13,
+    paddingBottom: 13,
   },
-  sendButton: {
+  revoSendButton: {
+    width: 52,
     height: 52,
-    minWidth: 70,
-    borderRadius: radii.md,
+    borderRadius: 26,
     backgroundColor: palette.accent,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: spacing.xs,
-  },
-  sendButtonText: {
-    color: "#F2F6FF",
-    fontSize: typeScale.sm,
-    fontWeight: "700",
   },
   profileRow: {
     borderRadius: radii.md,

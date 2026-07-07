@@ -8,7 +8,7 @@ export const seedWalletCards: Card[] = [
     bestUse: "Dining + Grocery",
     multiplier: "4x",
     status: "Active",
-    benefits: ["4x dining", "4x groceries", "$10 dining credit", "Transfer partners"],
+    benefits: ["4x dining", "4x groceries", "Up to $7 monthly Dunkin credit", "Transfer partners"],
   },
   {
     id: "venture-x",
