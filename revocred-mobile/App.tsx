@@ -934,16 +934,16 @@ function RevoScreen({
     };
   }, []);
 
+  const composerBottomOffset = keyboardHeight > 0 ? Math.max(0, keyboardHeight - 6) : 0;
+
   return (
     <View style={styles.revoWrap}>
       <ScrollView
         ref={chatScrollRef}
         style={styles.revoScroll}
-        contentContainerStyle={[styles.revoScrollContent, { paddingBottom: keyboardHeight + 96 }]}
+        contentContainerStyle={styles.revoScrollContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-        automaticallyAdjustKeyboardInsets
-        onContentSizeChange={() => chatScrollRef.current?.scrollToEnd({ animated: true })}
       >
         <View style={styles.revoHeader}>
           <Text style={styles.revoHeading}>Ask REVO</Text>
@@ -990,7 +990,7 @@ function RevoScreen({
           ) : null}
         </View>
       </ScrollView>
-      <View style={[styles.revoComposerDock, keyboardHeight > 0 ? { marginBottom: Math.max(0, keyboardHeight - 6) } : undefined]}>
+      <View style={[styles.revoComposerDock, { bottom: composerBottomOffset }]}>
         <View style={styles.revoComposerRow}>
           <TextInput
             value={question}
@@ -3178,7 +3178,7 @@ const styles = StyleSheet.create({
   revoScrollContent: {
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingBottom: 116,
     gap: spacing.sm,
   },
   revoHeader: {
@@ -3280,6 +3280,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   revoComposerDock: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderTopWidth: 1,
     borderColor: "#1C2A48",
     backgroundColor: "#060E1F",
