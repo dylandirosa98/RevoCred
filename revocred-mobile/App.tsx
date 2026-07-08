@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Animated,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -895,6 +894,7 @@ function RevoScreen({
 }) {
   const [question, setQuestion] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const chatScrollRef = useRef<ScrollView | null>(null);
 
   const submitPrompt = async (prompt: string) => {
@@ -917,16 +917,29 @@ function RevoScreen({
     return () => clearTimeout(timer);
   }, [messages, isThinking]);
 
+  useEffect(() => {
+    const updateKeyboardHeight = (event: { endCoordinates?: { height?: number } }) => {
+      setKeyboardHeight(event.endCoordinates?.height ?? 0);
+    };
+    const resetKeyboardHeight = () => setKeyboardHeight(0);
+    const showEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSubscription = Keyboard.addListener(showEvent, updateKeyboardHeight);
+    const showFallbackSubscription = Platform.OS === "ios" ? Keyboard.addListener("keyboardWillShow", updateKeyboardHeight) : null;
+    const hideSubscription = Keyboard.addListener(hideEvent, resetKeyboardHeight);
+    return () => {
+      showSubscription.remove();
+      showFallbackSubscription?.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
   return (
-    <KeyboardAvoidingView
-      style={styles.revoWrap}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={0}
-    >
+    <View style={styles.revoWrap}>
       <ScrollView
         ref={chatScrollRef}
         style={styles.revoScroll}
-        contentContainerStyle={styles.revoScrollContent}
+        contentContainerStyle={[styles.revoScrollContent, { paddingBottom: keyboardHeight + 96 }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         automaticallyAdjustKeyboardInsets
@@ -977,7 +990,7 @@ function RevoScreen({
           ) : null}
         </View>
       </ScrollView>
-      <View style={styles.revoComposerDock}>
+      <View style={[styles.revoComposerDock, keyboardHeight > 0 ? { marginBottom: Math.max(0, keyboardHeight - 6) } : undefined]}>
         <View style={styles.revoComposerRow}>
           <TextInput
             value={question}
@@ -1003,7 +1016,7 @@ function RevoScreen({
           </Pressable>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
