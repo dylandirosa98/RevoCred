@@ -4,6 +4,7 @@ import { Component, ComponentProps, ReactNode, useEffect, useMemo, useRef, useSt
 import {
   ActivityIndicator,
   Animated,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -920,7 +921,7 @@ function RevoScreen({
     <KeyboardAvoidingView
       style={styles.revoWrap}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+      keyboardVerticalOffset={0}
     >
       <ScrollView
         ref={chatScrollRef}
@@ -928,6 +929,8 @@ function RevoScreen({
         contentContainerStyle={styles.revoScrollContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        automaticallyAdjustKeyboardInsets
+        onContentSizeChange={() => chatScrollRef.current?.scrollToEnd({ animated: true })}
       >
         <View style={styles.revoHeader}>
           <Text style={styles.revoHeading}>Ask REVO</Text>
@@ -985,6 +988,7 @@ function RevoScreen({
             multiline
             textAlignVertical="top"
             maxLength={1000}
+            onFocus={() => chatScrollRef.current?.scrollToEnd({ animated: true })}
           />
           <Pressable
             style={[styles.revoSendButton, isThinking || !question.trim() ? styles.disabledCard : undefined]}
@@ -1795,6 +1799,7 @@ function AppContent() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showStrategyBuild, setShowStrategyBuild] = useState(false);
   const [strategyBuildCompletedCount, setStrategyBuildCompletedCount] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const onboardingShownForSession = useRef<string | null>(null);
   const screenEntrance = useRef(new Animated.Value(1)).current;
   const {
@@ -1832,6 +1837,17 @@ function AppContent() {
       tab: activeTab,
     });
   }, [activeTab]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSubscription = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!ENABLE_ONBOARDING_MODAL) {
@@ -1976,7 +1992,7 @@ function AppContent() {
             <AuthScreen onSignIn={signIn} onSignUp={signUp} authError={authError} />
           )}
         </View>
-        {loading || !session ? null : <BottomNav activeTab={activeTab} onChange={setActiveTab} />}
+        {loading || !session || (activeTab === "REVO" && keyboardVisible) ? null : <BottomNav activeTab={activeTab} onChange={setActiveTab} />}
         <Modal visible={showQuestionnaire} animationType="slide" onRequestClose={() => setShowQuestionnaire(false)}>
           <SafeAreaView style={styles.safeArea}>
             <View style={styles.appBackground}>
