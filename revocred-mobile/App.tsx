@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Animated,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -894,8 +895,16 @@ function RevoScreen({
 }) {
   const [question, setQuestion] = useState("");
   const [isThinking, setIsThinking] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isComposerFocused, setIsComposerFocused] = useState(false);
   const chatScrollRef = useRef<ScrollView | null>(null);
+
+  const scrollToLatest = (animated: boolean) => {
+    chatScrollRef.current?.scrollToEnd({ animated });
+  };
+  const scheduleScrollToLatest = (animated: boolean) => {
+    requestAnimationFrame(() => scrollToLatest(animated));
+    setTimeout(() => scrollToLatest(animated), 140);
+  };
 
   const submitPrompt = async (prompt: string) => {
     if (!prompt.trim()) {
@@ -912,38 +921,40 @@ function RevoScreen({
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      chatScrollRef.current?.scrollToEnd({ animated: true });
+      scrollToLatest(true);
     }, 40);
     return () => clearTimeout(timer);
   }, [messages, isThinking]);
 
   useEffect(() => {
-    const updateKeyboardHeight = (event: { endCoordinates?: { height?: number } }) => {
-      setKeyboardHeight(event.endCoordinates?.height ?? 0);
-    };
-    const resetKeyboardHeight = () => setKeyboardHeight(0);
-    const showEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSubscription = Keyboard.addListener(showEvent, updateKeyboardHeight);
-    const showFallbackSubscription = Platform.OS === "ios" ? Keyboard.addListener("keyboardWillShow", updateKeyboardHeight) : null;
-    const hideSubscription = Keyboard.addListener(hideEvent, resetKeyboardHeight);
+    const handleKeyboardShift = () => scheduleScrollToLatest(false);
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const frameEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
+    const showSubscription = Keyboard.addListener(showEvent, handleKeyboardShift);
+    const frameSubscription = Keyboard.addListener(frameEvent, handleKeyboardShift);
     return () => {
       showSubscription.remove();
-      showFallbackSubscription?.remove();
-      hideSubscription.remove();
+      frameSubscription.remove();
     };
   }, []);
 
-  const composerBottomOffset = keyboardHeight > 0 ? Math.max(0, keyboardHeight - 6) : 0;
-
   return (
-    <View style={styles.revoWrap}>
+    <KeyboardAvoidingView
+      style={styles.revoWrap}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={0}
+    >
       <ScrollView
         ref={chatScrollRef}
         style={styles.revoScroll}
         contentContainerStyle={styles.revoScrollContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        onContentSizeChange={() => {
+          if (isComposerFocused || isThinking) {
+            scheduleScrollToLatest(false);
+          }
+        }}
       >
         <View style={styles.revoHeader}>
           <Text style={styles.revoHeading}>Ask REVO</Text>
@@ -990,7 +1001,7 @@ function RevoScreen({
           ) : null}
         </View>
       </ScrollView>
-      <View style={[styles.revoComposerDock, { bottom: composerBottomOffset }]}>
+      <View style={styles.revoComposerDock}>
         <View style={styles.revoComposerRow}>
           <TextInput
             value={question}
@@ -1001,7 +1012,11 @@ function RevoScreen({
             multiline
             textAlignVertical="top"
             maxLength={1000}
-            onFocus={() => chatScrollRef.current?.scrollToEnd({ animated: true })}
+            onFocus={() => {
+              setIsComposerFocused(true);
+              scheduleScrollToLatest(false);
+            }}
+            onBlur={() => setIsComposerFocused(false)}
           />
           <Pressable
             style={[styles.revoSendButton, isThinking || !question.trim() ? styles.disabledCard : undefined]}
@@ -1016,7 +1031,7 @@ function RevoScreen({
           </Pressable>
         </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -3178,7 +3193,7 @@ const styles = StyleSheet.create({
   revoScrollContent: {
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
-    paddingBottom: 116,
+    paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
   revoHeader: {
@@ -3280,10 +3295,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   revoComposerDock: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
     borderTopWidth: 1,
     borderColor: "#1C2A48",
     backgroundColor: "#060E1F",
