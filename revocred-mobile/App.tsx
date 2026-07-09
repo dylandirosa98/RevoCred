@@ -907,8 +907,11 @@ function RevoScreen({
   const [isComposerFocused, setIsComposerFocused] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [composerHeight, setComposerHeight] = useState(84);
+  const [optimisticUserMessage, setOptimisticUserMessage] = useState<ChatMessage | null>(null);
   const chatScrollRef = useRef<ScrollView | null>(null);
   const scrollTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+
+  const visibleMessages = optimisticUserMessage ? [...messages, optimisticUserMessage] : messages;
 
   const scrollToLatest = (animated: boolean) => {
     chatScrollRef.current?.scrollToEnd({ animated });
@@ -925,15 +928,25 @@ function RevoScreen({
   };
 
   const submitPrompt = async (prompt: string) => {
-    if (!prompt.trim()) {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) {
       return;
     }
+    setQuestion("");
+    setOptimisticUserMessage({
+      id: `optimistic-user-${Date.now()}`,
+      role: "user",
+      content: trimmedPrompt,
+      createdAt: new Date().toISOString(),
+    });
     setIsThinking(true);
+    scheduleScrollToLatest(false);
     try {
-      await onSubmitPrompt(prompt);
-      setQuestion("");
+      await onSubmitPrompt(trimmedPrompt);
     } finally {
+      setOptimisticUserMessage(null);
       setIsThinking(false);
+      scheduleScrollToLatest(false);
     }
   };
 
@@ -942,7 +955,7 @@ function RevoScreen({
       scrollToLatest(true);
     }, 40);
     return () => clearTimeout(timer);
-  }, [messages, isThinking]);
+  }, [messages, optimisticUserMessage, isThinking]);
 
   useEffect(() => {
     const handleKeyboardShift = (event?: { endCoordinates?: { height?: number } }) => {
@@ -1006,8 +1019,8 @@ function RevoScreen({
         </View>
 
         <View style={styles.revoConversation}>
-          {messages.length ? (
-            messages.map((message, index) => (
+          {visibleMessages.length ? (
+            visibleMessages.map((message, index) => (
               <View
                 key={`${message.id}-${index}`}
                 style={[
