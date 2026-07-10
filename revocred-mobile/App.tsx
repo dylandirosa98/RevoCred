@@ -4,6 +4,7 @@ import { Component, ComponentProps, ReactNode, useEffect, useMemo, useRef, useSt
 import {
   ActivityIndicator,
   Animated,
+  Image,
   Keyboard,
   Modal,
   Platform,
@@ -58,13 +59,17 @@ function containsToken(source: string, token: string): boolean {
   return source.includes(token);
 }
 
-function RevoWordmark({ size = "md" }: { size?: "md" | "lg" }) {
-  const compact = size === "md";
+function RevoLogo({ size = "md" }: { size?: "md" | "lg" }) {
+  const dimensions = size === "lg" ? 44 : 34;
+  const borderRadius = size === "lg" ? 12 : 9;
+
   return (
-    <View style={[styles.brandWordmarkRow, compact ? styles.brandWordmarkRowMd : styles.brandWordmarkRowLg]}>
-      <Text style={[styles.brandGlyph, compact ? styles.brandGlyphMd : styles.brandGlyphLg]}>R</Text>
-      <Text style={[styles.brandWordmarkText, compact ? styles.brandWordmarkTextMd : styles.brandWordmarkTextLg]}>EVOCRED</Text>
-    </View>
+    <Image
+      source={require("./assets/icon.png")}
+      style={[styles.brandLogoImage, { width: dimensions, height: dimensions, borderRadius }]}
+      resizeMode="cover"
+      accessibilityLabel="RevoCred"
+    />
   );
 }
 
@@ -389,7 +394,7 @@ function AuthScreen({
 
   return (
     <View style={styles.authWrap}>
-      <RevoWordmark size="lg" />
+      <RevoLogo size="lg" />
       <Text style={styles.authTitle}>Sign in to continue</Text>
       <Text style={styles.authSubtitle}>Your wallet, strategy, and REVO chat are now synced with Supabase.</Text>
       <View style={styles.authCard}>
@@ -444,7 +449,7 @@ function HomeScreen({
   return (
     <ScrollView contentContainerStyle={styles.screenBody}>
       <View style={styles.screenHeader}>
-        <RevoWordmark />
+        <RevoLogo />
         <Pressable style={styles.homeBellButton}>
           <Ionicons name="notifications-outline" size={20} color={palette.textPrimary} />
         </Pressable>
@@ -1990,7 +1995,7 @@ function AppContent() {
       return (
         <View style={styles.loadingWrap}>
           <ActivityIndicator color="#dfe7ff" size="large" />
-          <Text style={styles.loadingText}>Loading your revocred setup...</Text>
+          <Text style={styles.loadingText}>Loading your setup...</Text>
         </View>
       );
     }
@@ -2072,7 +2077,7 @@ function AppContent() {
           {loading ? (
             <View style={styles.loadingWrap}>
               <ActivityIndicator color={palette.textPrimary} size="large" />
-              <Text style={styles.loadingText}>Loading your revocred setup...</Text>
+              <Text style={styles.loadingText}>Loading your setup...</Text>
             </View>
           ) : session ? (
             <Animated.View style={[styles.screenTransitionLayer, { opacity: screenEntrance, transform: [{ translateY: screenTranslateY }] }]}>
@@ -2231,41 +2236,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  brandWordmarkRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  brandWordmarkRowMd: {
-    gap: 2,
-  },
-  brandWordmarkRowLg: {
-    gap: 3,
-  },
-  brandGlyph: {
-    color: "#6F8BFF",
-    fontWeight: "900",
-  },
-  brandGlyphMd: {
-    fontSize: 18,
-    letterSpacing: 0.3,
-    lineHeight: 20,
-  },
-  brandGlyphLg: {
-    fontSize: 22,
-    letterSpacing: 0.4,
-    lineHeight: 24,
-  },
-  brandWordmarkText: {
-    color: "#F2F6FF",
-    fontWeight: "800",
-  },
-  brandWordmarkTextMd: {
-    fontSize: 14,
-    letterSpacing: 1.2,
-  },
-  brandWordmarkTextLg: {
-    fontSize: 18,
-    letterSpacing: 1.4,
+  brandLogoImage: {
+    overflow: "hidden",
   },
   avatarWrap: {
     width: 40,
