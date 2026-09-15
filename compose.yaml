@@ -1,0 +1,12 @@
+services:
+  frontend:
+    build:
+      context: ./revocred_flutter
+      args:
+        REVOCRED_USE_MOCKS: ${REVOCRED_USE_MOCKS:-true}
+        REVOCRED_API_URL: ${REVOCRED_API_URL:-}
+        SUPABASE_URL: ${SUPABASE_URL:-}
+        SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+    ports:
+      - "${REVOCRED_WEB_PORT:-8081}:80"
+    restart: unless-stopped

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#020712">
+  <title>Refreshing RevoCred</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #020712;
+      color: #eef3ff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      display: grid;
+      place-items: center;
+    }
+    main {
+      width: min(320px, calc(100% - 48px));
+      text-align: center;
+    }
+    .bar {
+      height: 3px;
+      margin: 24px 0 16px;
+      overflow: hidden;
+      border-radius: 2px;
+      background: #17223d;
+    }
+    .bar::after {
+      display: block;
+      width: 55%;
+      height: 100%;
+      content: "";
+      background: linear-gradient(90deg, #2478ff, #7546f5);
+      animation: progress 700ms ease-in-out infinite alternate;
+    }
+    p {
+      color: #aeb9d5;
+    }
+    a {
+      color: #6f8bff;
+    }
+    @keyframes progress {
+      from { transform: translateX(-15%); }
+      to { transform: translateX(95%); }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Refreshing RevoCred</h1>
+    <div class="bar" aria-hidden="true"></div>
+    <p id="status">Removing the previous local build...</p>
+    <noscript><a href="/#/welcome">Continue to RevoCred</a></noscript>
+  </main>
+  <script>
+    (async () => {
+      const status = document.getElementById('status');
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+        }
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+        }
+        status.textContent = 'Opening the current build...';
+        window.setTimeout(() => {
+          window.location.replace('/?cache-reset=20260814');
+        }, 350);
+      } catch (error) {
+        status.innerHTML = 'Automatic refresh failed. <a href="/?cache-reset=20260814">Continue manually</a>.';
+      }
+    })();
+  </script>
+</body>
+</html>

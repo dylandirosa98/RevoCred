@@ -55,6 +55,8 @@ const typeScale = {
   hero: 36,
 };
 
+const ENABLE_DEMO_PREVIEW = __DEV__ || Platform.OS === "web";
+
 function containsToken(source: string, token: string): boolean {
   return source.includes(token);
 }
@@ -353,10 +355,12 @@ function WalletCard({
 function AuthScreen({
   onSignIn,
   onSignUp,
+  onViewDemo,
   authError,
 }: {
   onSignIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string; message?: string }>;
   onSignUp: (email: string, password: string) => Promise<{ ok: boolean; error?: string; message?: string }>;
+  onViewDemo?: () => void;
   authError: string | null;
 }) {
   const [email, setEmail] = useState("");
@@ -421,6 +425,11 @@ function AuthScreen({
         <Pressable style={[styles.authButtonSecondary, submitting ? styles.disabledCard : undefined]} onPress={() => void submitSignUp()} disabled={submitting}>
           <Text style={styles.authButtonText}>Create account</Text>
         </Pressable>
+        {onViewDemo ? (
+          <Pressable style={styles.authDemoButton} onPress={onViewDemo}>
+            <Text style={styles.authDemoButtonText}>View demo dashboard</Text>
+          </Pressable>
+        ) : null}
       </View>
       {messageToShow ? <Text style={styles.authMessage}>{messageToShow}</Text> : null}
     </View>
@@ -1910,6 +1919,8 @@ function AppContent() {
     availableCardsToAdd,
     analyticsSummary,
     analyticsLoading,
+    isDemo,
+    enterDemo,
     refreshAnalytics,
     saveQuestionnaireAnswers,
   } = useAppData();
@@ -2079,15 +2090,20 @@ function AppContent() {
               <ActivityIndicator color={palette.textPrimary} size="large" />
               <Text style={styles.loadingText}>Loading your setup...</Text>
             </View>
-          ) : session ? (
+          ) : session || isDemo ? (
             <Animated.View style={[styles.screenTransitionLayer, { opacity: screenEntrance, transform: [{ translateY: screenTranslateY }] }]}>
               {renderedScreen}
             </Animated.View>
           ) : (
-            <AuthScreen onSignIn={signIn} onSignUp={signUp} authError={authError} />
+            <AuthScreen
+              onSignIn={signIn}
+              onSignUp={signUp}
+              onViewDemo={ENABLE_DEMO_PREVIEW ? enterDemo : undefined}
+              authError={authError}
+            />
           )}
         </View>
-        {loading || !session || (activeTab === "REVO" && keyboardVisible) ? null : <BottomNav activeTab={activeTab} onChange={setActiveTab} />}
+        {loading || (!session && !isDemo) || (activeTab === "REVO" && keyboardVisible) ? null : <BottomNav activeTab={activeTab} onChange={setActiveTab} />}
         <Modal visible={showQuestionnaire} animationType="slide" onRequestClose={() => setShowQuestionnaire(false)}>
           <SafeAreaView style={styles.safeArea}>
             <View style={styles.appBackground}>
@@ -4187,6 +4203,15 @@ const styles = StyleSheet.create({
   },
   authButtonText: {
     color: palette.textPrimary,
+    fontSize: typeScale.sm,
+    fontWeight: "700",
+  },
+  authDemoButton: {
+    alignItems: "center",
+    paddingVertical: spacing.xs,
+  },
+  authDemoButtonText: {
+    color: palette.textSecondary,
     fontSize: typeScale.sm,
     fontWeight: "700",
   },

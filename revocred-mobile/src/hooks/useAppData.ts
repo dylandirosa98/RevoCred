@@ -34,6 +34,8 @@ type UseAppDataResult = {
   availableCardsToAdd: Card[];
   analyticsSummary: RevoAnalyticsSummary | null;
   analyticsLoading: boolean;
+  isDemo: boolean;
+  enterDemo: () => void;
   refreshAnalytics: () => Promise<void>;
   saveQuestionnaireAnswers: (answers: { redemptionType: RedemptionType; travelScope: TravelScope }) => Promise<void>;
 };
@@ -64,6 +66,7 @@ export function useAppData(): UseAppDataResult {
   const [authError, setAuthError] = useState<string | null>(null);
   const [analyticsSummary, setAnalyticsSummary] = useState<RevoAnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -122,7 +125,7 @@ export function useAppData(): UseAppDataResult {
     }
 
     if (!session) {
-      setData(null);
+      setData(isDemo ? cloneSeedAppData() : null);
       setAnalyticsSummary(null);
       setLoadingData(false);
       return () => {
@@ -190,7 +193,14 @@ export function useAppData(): UseAppDataResult {
     return () => {
       alive = false;
     };
-  }, [authReady, session]);
+  }, [authReady, isDemo, session]);
+
+  const enterDemo = () => {
+    setAuthError(null);
+    setData(cloneSeedAppData());
+    setIsDemo(true);
+    trackEvent("app.demo_preview_entered");
+  };
 
   const signIn = async (email: string, password: string): Promise<AuthResult> => {
     setAuthError(null);
@@ -207,6 +217,7 @@ export function useAppData(): UseAppDataResult {
       return { ok: false, error: message };
     }
     trackEvent("auth.sign_in.succeeded");
+    setIsDemo(false);
     identifyUser(email.trim(), email.trim());
     return { ok: true };
   };
@@ -232,14 +243,18 @@ export function useAppData(): UseAppDataResult {
     }
 
     trackEvent("auth.sign_up.succeeded");
+    setIsDemo(false);
     identifyUser(email.trim(), email.trim());
     return { ok: true };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (session) {
+      await supabase.auth.signOut();
+    }
     trackEvent("auth.sign_out");
     resetUserIdentity();
+    setIsDemo(false);
     setData(null);
     setAnalyticsSummary(null);
   };
@@ -401,6 +416,8 @@ export function useAppData(): UseAppDataResult {
     availableCardsToAdd,
     analyticsSummary,
     analyticsLoading,
+    isDemo,
+    enterDemo,
     refreshAnalytics,
     saveQuestionnaireAnswers,
   };

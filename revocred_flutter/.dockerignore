@@ -1,0 +1,10 @@
+.dart_tool
+.git
+.idea
+.metadata
+build
+coverage
+ios/Pods
+linux/flutter/ephemeral
+android/.gradle
+*.log
