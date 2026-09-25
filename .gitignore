@@ -1,3 +1,10 @@
 .env
 .env.*
 !.env.example
+**/key.properties
+**/*.jks
+**/*.keystore
+backups/
+.local/
+**/__pycache__/
+.idea/

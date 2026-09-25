@@ -12,7 +12,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/revocred/revocred-api/internal/domain"
+	"github.com/revocred/revocred-api/internal/recommendation"
 	"github.com/revocred/revocred-api/internal/scoring"
+	"github.com/revocred/revocred-api/internal/strategy"
 )
 
 type Postgres struct {
@@ -21,7 +23,16 @@ type Postgres struct {
 
 func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
 
-func (p *Postgres) Ping(ctx context.Context) error { return p.pool.Ping(ctx) }
+func (p *Postgres) Ping(ctx context.Context) error {
+	var ready bool
+	if err := p.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM revocred.catalog_cards WHERE data_kind='issuer_snapshot' AND is_active) AND to_regprocedure('revocred.delete_account(uuid)') IS NOT NULL`).Scan(&ready); err != nil {
+		return err
+	}
+	if !ready {
+		return errors.New("catalog or schema not ready")
+	}
+	return nil
+}
 
 func (p *Postgres) Bootstrap(ctx context.Context, userID string) (domain.Bootstrap, error) {
 	profile, err := p.GetProfile(ctx, userID)
@@ -47,6 +58,30 @@ func (p *Postgres) Bootstrap(ctx context.Context, userID string) (domain.Bootstr
 	spend := map[string]int64{}
 	if questionnaire != nil {
 		spend = questionnaire.MonthlyCategorySpend
+		questionnaire.ExistingCardIDs = []string{}
+		for _, item := range wallet {
+			if item.Status == "active" {
+				questionnaire.ExistingCardIDs = append(questionnaire.ExistingCardIDs, item.CatalogCardID)
+				if item.Card != nil {
+					questionnaire.OwnedCards = append(questionnaire.OwnedCards, *item.Card)
+				}
+			}
+		}
+		// Re-evaluate against the current wallet; saved runs remain immutable audit records.
+		current := recommendation.New().Recommend(*questionnaire, catalog)
+		recommendations = &current
+	}
+	code := ""
+	if profile != nil {
+		code = profile.CreditCardStrategy
+	}
+	if recommendations != nil {
+		recommendations.StrategyCode = code
+	}
+	playbook := strategy.Build(code, walletNames(wallet), playbookPrefs(questionnaire))
+	applyRecommendation(&playbook, recommendations)
+	if profile != nil {
+		profile.NextApplicationTarget = playbook.NextCard
 	}
 	return domain.Bootstrap{
 		Catalog:               catalog,
@@ -55,6 +90,7 @@ func (p *Postgres) Bootstrap(ctx context.Context, userID string) (domain.Bootstr
 		LatestRecommendations: recommendations,
 		LatestQuestionnaire:   questionnaire,
 		WalletMetrics:         scoring.Metrics(wallet, spend),
+		Playbook:              &playbook,
 		QuickPrompts: []string{
 			"What card should I use for groceries?",
 			"What should I apply for next?",
@@ -76,7 +112,7 @@ JOIN LATERAL (
     ORDER BY cv.created_at DESC, cv.id DESC LIMIT 1
 ) v ON true
 JOIN revocred.catalog_sources s ON s.id = v.source_id
-WHERE c.is_active = true
+WHERE c.is_active = true AND c.owner_user_id IS NULL AND c.data_kind = 'issuer_snapshot'
 ORDER BY c.issuer, c.name`
 
 func (p *Postgres) ListCatalog(ctx context.Context) ([]domain.CatalogCard, error) {
@@ -146,6 +182,9 @@ FROM revocred.profiles WHERE user_id = $1`, userID).Scan(
 }
 
 func (p *Postgres) UpsertProfile(ctx context.Context, userID string, profile domain.Profile) (domain.Profile, error) {
+	if profile.TopSpendCategories == nil {
+		profile.TopSpendCategories = []string{}
+	}
 	err := p.pool.QueryRow(ctx, `
 INSERT INTO revocred.profiles (
     user_id, display_name, credit_card_strategy, goal, top_spend_categories,
@@ -228,14 +267,20 @@ func (p *Postgres) CreateWalletCard(ctx context.Context, userID string, input do
 	var item domain.WalletCard
 	err := p.pool.QueryRow(ctx, `
 INSERT INTO revocred.wallet_cards (user_id, catalog_card_id, nickname, status, opened_on)
-VALUES ($1, $2, $3, $4, $5)
+SELECT $1, id, $3, $4, $5 FROM revocred.catalog_cards
+WHERE id = $2 AND is_active AND (owner_user_id IS NULL OR owner_user_id = $1)
 RETURNING id::text, user_id::text, catalog_card_id::text, nickname, status, opened_on, created_at`,
 		userID, input.CatalogCardID, input.Nickname, input.Status, input.OpenedOn,
 	).Scan(&item.ID, &item.UserID, &item.CatalogCardID, &item.Nickname, &item.Status, &item.OpenedOn, &item.CreatedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.WalletCard{}, ErrNotFound
+		}
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			switch pgErr.Code {
+			case "54000":
+				return domain.WalletCard{}, ErrQuota
 			case "23505":
 				return domain.WalletCard{}, ErrConflict
 			case "23503", "22P02":
@@ -247,22 +292,133 @@ RETURNING id::text, user_id::text, catalog_card_id::text, nickname, status, open
 	return item, nil
 }
 
-func (p *Postgres) DeleteWalletCard(ctx context.Context, userID, walletCardID string) error {
-	command, err := p.pool.Exec(ctx, `DELETE FROM revocred.wallet_cards WHERE id = $1 AND user_id = $2`, walletCardID, userID)
+func (p *Postgres) CreateCustomCard(ctx context.Context, userID string, input domain.CreateCustomCard) (domain.WalletCard, error) {
+	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
+		return domain.WalletCard{}, fmt.Errorf("begin custom card: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	slug := customSlug(input.Name)
+	var cardID string
+	err = tx.QueryRow(ctx, `
+INSERT INTO revocred.catalog_cards (slug, issuer, network, name, owner_user_id, data_kind)
+VALUES ($1, $2, $3, $4, $5, 'user_supplied')
+RETURNING id::text`, slug, input.Issuer, input.Network, input.Name, userID).Scan(&cardID)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.WalletCard{}, ErrConflict
+		}
+		if errors.As(err, &pgErr) && pgErr.Code == "54000" {
+			return domain.WalletCard{}, ErrQuota
+		}
+		return domain.WalletCard{}, fmt.Errorf("insert custom catalog card: %w", err)
+	}
+	if input.Benefits == nil {
+		input.Benefits = []string{}
+	}
+	if input.RewardRates == nil {
+		input.RewardRates = map[string]float64{}
+	}
+	ratesJSON, err := json.Marshal(input.RewardRates)
+	if err != nil {
+		return domain.WalletCard{}, fmt.Errorf("encode custom rates: %w", err)
+	}
+	benefitsJSON, err := json.Marshal(input.Benefits)
+	if err != nil {
+		return domain.WalletCard{}, fmt.Errorf("encode custom benefits: %w", err)
+	}
+	_, err = tx.Exec(ctx, `
+INSERT INTO revocred.card_catalog_versions (
+    catalog_card_id, source_id, dataset_version, summary, best_use, annual_fee_cents,
+    reward_rates, benefits, transferable_points, travel_scope, minimum_credit_tier,
+    rewards_type
+) VALUES ($1, '10000000-0000-4000-8000-000000000002', 'user-supplied', $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		cardID, "User-supplied card terms.", input.BestUse, input.AnnualFeeCents,
+		ratesJSON, benefitsJSON, input.TransferablePoints, input.TravelScope,
+		input.MinimumCreditTier, input.RewardsType)
+	if err != nil {
+		return domain.WalletCard{}, fmt.Errorf("insert custom catalog version: %w", err)
+	}
+	var item domain.WalletCard
+	err = tx.QueryRow(ctx, `
+INSERT INTO revocred.wallet_cards (user_id, catalog_card_id, nickname, status)
+VALUES ($1, $2, $3, 'active')
+RETURNING id::text, user_id::text, catalog_card_id::text, nickname, status, opened_on, created_at`,
+		userID, cardID, input.Nickname,
+	).Scan(&item.ID, &item.UserID, &item.CatalogCardID, &item.Nickname, &item.Status, &item.OpenedOn, &item.CreatedAt)
+	if err != nil {
+		return domain.WalletCard{}, fmt.Errorf("insert custom wallet card: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.WalletCard{}, fmt.Errorf("commit custom card: %w", err)
+	}
+	item.Card = &domain.CatalogCard{
+		ID: cardID, Slug: slug, Issuer: input.Issuer, Network: input.Network, Name: input.Name,
+		Summary: "User-supplied card terms.", BestUse: input.BestUse, AnnualFeeCents: input.AnnualFeeCents,
+		RewardRates: input.RewardRates, Benefits: input.Benefits, TransferablePoints: input.TransferablePoints,
+		TravelScope: input.TravelScope, MinimumCreditTier: input.MinimumCreditTier, RewardsType: input.RewardsType,
+		DatasetVersion: "user-supplied", SourceName: "User-supplied card terms",
+		SourceDisclaimer: "Entered by the user. Not verified against issuer documents. Educational use only.",
+	}
+	return item, nil
+}
+
+func customSlug(name string) string {
+	var b strings.Builder
+	b.WriteString("custom-")
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		} else if (r == ' ' || r == '-') && !strings.HasSuffix(b.String(), "-") {
+			b.WriteByte('-')
+		}
+	}
+	slug := strings.Trim(b.String(), "-")
+	if len(slug) < 8 {
+		slug = slug + "card"
+	}
+	if len(slug) > 40 {
+		slug = slug[:40]
+	}
+	return strings.Trim(slug, "-")
+}
+
+func (p *Postgres) DeleteWalletCard(ctx context.Context, userID, walletCardID string) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var cardID string
+	err = tx.QueryRow(ctx, `DELETE FROM revocred.wallet_cards WHERE id = $1 AND user_id = $2 RETURNING catalog_card_id::text`, walletCardID, userID).Scan(&cardID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "22P02" {
 			return ErrNotFound
 		}
 		return fmt.Errorf("delete wallet card: %w", err)
 	}
-	if command.RowsAffected() == 0 {
-		return ErrNotFound
+	if _, err = tx.Exec(ctx, `DELETE FROM revocred.catalog_cards WHERE id = $1 AND owner_user_id = $2`, cardID, userID); err != nil {
+		return err
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 func (p *Postgres) SaveRecommendation(ctx context.Context, userID string, input domain.RecommendationInput, result domain.RecommendationResult) (domain.RecommendationResult, error) {
+	if input.ExistingCardIDs == nil {
+		input.ExistingCardIDs = []string{}
+	}
+	if result.Exclusions == nil {
+		result.Exclusions = []domain.RecommendationExclusion{}
+	}
+	if result.CatalogSnapshot == nil {
+		result.CatalogSnapshot = []domain.CatalogCard{}
+	}
 	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return domain.RecommendationResult{}, fmt.Errorf("begin recommendation transaction: %w", err)
@@ -277,10 +433,10 @@ func (p *Postgres) SaveRecommendation(ctx context.Context, userID string, input 
 	err = tx.QueryRow(ctx, `
 INSERT INTO revocred.questionnaire_responses (
     user_id, monthly_category_spend, fee_tolerance_cents, travel_scope,
-    rewards_goal, credit_tier, existing_card_ids
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    rewards_goal, credit_tier, existing_card_ids, life_stage
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id::text`, userID, spendJSON, input.FeeToleranceCents, input.TravelScope,
-		input.RewardsGoal, input.CreditTier, input.ExistingCardIDs).Scan(&questionnaireID)
+		input.RewardsGoal, input.CreditTier, input.ExistingCardIDs, input.LifeStage).Scan(&questionnaireID)
 	if err != nil {
 		return domain.RecommendationResult{}, fmt.Errorf("save questionnaire: %w", err)
 	}
@@ -288,15 +444,16 @@ RETURNING id::text`, userID, spendJSON, input.FeeToleranceCents, input.TravelSco
 	categories, goal, target := questionnaireProfile(input, result)
 	_, err = tx.Exec(ctx, `
 INSERT INTO revocred.profiles (
-    user_id, goal, top_spend_categories, next_application_target, rewards_goal, travel_scope
-) VALUES ($1, $2, $3, $4, $5, $6)
+	user_id, credit_card_strategy, goal, top_spend_categories, next_application_target, rewards_goal, travel_scope
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (user_id) DO UPDATE SET
-    goal = EXCLUDED.goal,
+	credit_card_strategy = EXCLUDED.credit_card_strategy,
+	goal = EXCLUDED.goal,
     top_spend_categories = EXCLUDED.top_spend_categories,
     next_application_target = EXCLUDED.next_application_target,
     rewards_goal = EXCLUDED.rewards_goal,
     travel_scope = EXCLUDED.travel_scope,
-    updated_at = now()`, userID, goal, categories, target, input.RewardsGoal, input.TravelScope)
+    updated_at = now()`, userID, result.StrategyCode, goal, categories, target, input.RewardsGoal, input.TravelScope)
 	if err != nil {
 		return domain.RecommendationResult{}, fmt.Errorf("update profile from questionnaire: %w", err)
 	}
@@ -305,12 +462,16 @@ ON CONFLICT (user_id) DO UPDATE SET
 	if err != nil {
 		return domain.RecommendationResult{}, fmt.Errorf("encode recommendation exclusions: %w", err)
 	}
+	snapshotJSON, err := json.Marshal(result.CatalogSnapshot)
+	if err != nil {
+		return domain.RecommendationResult{}, err
+	}
 	err = tx.QueryRow(ctx, `
 INSERT INTO revocred.recommendation_runs (
-    user_id, questionnaire_response_id, engine_version, dataset_version, exclusions
-) VALUES ($1, $2, $3, $4, $5)
+    user_id, questionnaire_response_id, engine_version, dataset_version, exclusions, catalog_snapshot
+) VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id::text, created_at`, userID, questionnaireID, result.EngineVersion,
-		result.DatasetVersion, exclusionsJSON).Scan(&result.RunID, &result.CreatedAt)
+		result.DatasetVersion, exclusionsJSON, snapshotJSON).Scan(&result.RunID, &result.CreatedAt)
 	if err != nil {
 		return domain.RecommendationResult{}, fmt.Errorf("save recommendation run: %w", err)
 	}
@@ -368,16 +529,74 @@ func questionnaireProfile(input domain.RecommendationInput, result domain.Recomm
 	return categories, goal, target
 }
 
+// The same ranked server result supplies profile, playbook and chat guidance.
+func applyRecommendation(playbook *strategy.Playbook, result *domain.RecommendationResult) {
+	playbook.NextCard = ""
+	// A card outside a thematic playbook may still be best for some spending.
+	playbook.Unused = []strategy.UnusedCard{}
+	eligible := map[string]bool{}
+	if result != nil {
+		for _, item := range result.Items {
+			eligible[item.CardName] = true
+		}
+		if len(result.Items) > 0 {
+			playbook.NextCard = result.Items[0].CardName
+		}
+	}
+	found := false
+	for i := range playbook.Steps {
+		step := &playbook.Steps[i]
+		if step.Status == "have" {
+			continue
+		}
+		step.Status = "later"
+		if !eligible[step.Name] {
+			step.Status = "unavailable"
+			step.Note = "Not currently eligible or no positive modeled wallet improvement."
+		}
+		if step.Name == playbook.NextCard {
+			step.Status = "next"
+			found = true
+		}
+	}
+	if playbook.NextCard != "" && !found {
+		playbook.Steps = append(playbook.Steps, strategy.PlaybookStep{Name: playbook.NextCard, Status: "next", Use: "Highest-ranked eligible improvement for your current wallet."})
+	}
+}
+
+func walletNames(wallet []domain.WalletCard) []string {
+	names := make([]string, 0, len(wallet))
+	for _, item := range wallet {
+		if item.Status != "active" || item.Card == nil {
+			continue
+		}
+		names = append(names, item.Card.Name)
+	}
+	return names
+}
+
+func playbookPrefs(input *domain.RecommendationInput) *strategy.Preferences {
+	if input == nil {
+		return nil
+	}
+	return &strategy.Preferences{
+		CreditTier:        input.CreditTier,
+		Goal:              strategy.Goal(input.RewardsGoal),
+		FeeToleranceCents: input.FeeToleranceCents,
+		Travel:            strategy.Travel(input.TravelScope),
+	}
+}
+
 func (p *Postgres) latestQuestionnaire(ctx context.Context, userID string) (*domain.RecommendationInput, error) {
 	var input domain.RecommendationInput
 	var spendJSON []byte
 	err := p.pool.QueryRow(ctx, `
 SELECT monthly_category_spend, fee_tolerance_cents, travel_scope, rewards_goal,
-       credit_tier, existing_card_ids
+       credit_tier, existing_card_ids, life_stage
 FROM revocred.questionnaire_responses
 WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1`, userID).Scan(
 		&spendJSON, &input.FeeToleranceCents, &input.TravelScope, &input.RewardsGoal,
-		&input.CreditTier, &input.ExistingCardIDs,
+		&input.CreditTier, &input.ExistingCardIDs, &input.LifeStage,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -440,10 +659,10 @@ WHERE ri.recommendation_run_id = $1 ORDER BY ri.rank`, result.RunID)
 func (p *Postgres) ListMessages(ctx context.Context, userID string, limit int) ([]domain.ChatMessage, error) {
 	rows, err := p.pool.Query(ctx, `
 SELECT id::text, role, content, created_at FROM (
-    SELECT id, role, content, created_at
+    SELECT id, role, content, created_at, sequence
     FROM revocred.chat_messages WHERE user_id = $1
-    ORDER BY created_at DESC, id DESC LIMIT $2
-) recent ORDER BY created_at, id`, userID, limit)
+    ORDER BY sequence DESC LIMIT $2
+) recent ORDER BY sequence`, userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list chat messages: %w", err)
 	}

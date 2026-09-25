@@ -33,8 +33,8 @@ class ProfileScreen extends ConsumerWidget {
         Text(profile.name, style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 8),
         Text(
-          config.useMocks
-              ? 'Demo session | Local fixture data'
+          !state.isAuthenticated || config.useMocks
+              ? 'Demo profile | Sign in to use your live account'
               : 'Authenticated with Supabase',
           style: TextStyle(color: product.success, fontWeight: FontWeight.w700),
         ),
@@ -68,6 +68,84 @@ class ProfileScreen extends ConsumerWidget {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        const SectionLabel('Switch strategy'),
+        const SizedBox(height: 10),
+        AppPanel(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final code in const [
+                'S01',
+                'S02',
+                'S03',
+                'S04',
+                'S05',
+                'S06',
+                'S07',
+                'S08',
+                'S09',
+              ])
+                ChoiceChip(
+                  key: ValueKey('switch-strategy-$code'),
+                  label: Text(code),
+                  selected:
+                      (data.playbook?.code ?? data.profile.strategy) == code,
+                  onSelected: (_) => ref
+                      .read(appControllerProvider.notifier)
+                      .switchStrategy(code),
+                ),
+            ],
+          ),
+        ),
+        if (data.strategyPlan != null) ...[
+          const SizedBox(height: 14),
+          InkWell(
+            key: const ValueKey('view-strategy-report'),
+            onTap: () => context.go('/strategy-report'),
+            borderRadius: BorderRadius.circular(product.radius),
+            child: AppPanel(
+              child: Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: product.success.withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(product.radius * .6),
+                    ),
+                    child: Icon(
+                      Icons.description_outlined,
+                      color: product.success,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${data.strategyPlan!.code} strategy report',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'View, download, or share your saved personalized plan.',
+                          style: TextStyle(color: product.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 14),
         InkWell(
           key: const ValueKey('questionnaire-launcher'),
@@ -110,33 +188,17 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
         ),
-        if (state.recommendation != null) ...[
-          const SizedBox(height: 14),
-          AppPanel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SectionLabel('Latest local v1 result'),
-                const SizedBox(height: 8),
-                Text(
-                  state.recommendation!.cardName,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                Text(
-                  'Demo annual value: \$${state.recommendation!.estimatedYearlyValue}',
-                  style: TextStyle(color: product.success),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  state.recommendation!.formula,
-                  style: TextStyle(color: product.muted),
-                ),
-              ],
-            ),
-          ),
-        ],
         SizedBox(height: product.sectionGap),
         const SectionLabel('Legal and support'),
+        if (!config.useMocks)
+          TextButton(
+            onPressed: () => context.push('/account'),
+            child: const Text('Account settings, export and deletion'),
+          ),
+        TextButton(
+          onPressed: () => context.push('/legal'),
+          child: const Text('Privacy and terms'),
+        ),
         const SizedBox(height: 10),
         AppPanel(
           child: Column(

@@ -5,6 +5,7 @@ import 'package:revocred_flutter/app.dart';
 import 'package:revocred_flutter/core/config/app_config.dart';
 import 'package:revocred_flutter/core/data/app_repository.dart';
 import 'package:revocred_flutter/core/data/demo_seed.dart';
+import 'package:revocred_flutter/core/data/mock_app_repository.dart';
 import 'package:revocred_flutter/core/models/app_models.dart';
 import 'package:revocred_flutter/core/router/app_router.dart';
 import 'package:revocred_flutter/core/state/app_controller.dart';
@@ -97,9 +98,36 @@ void main() {
     expect(find.text('Make the next swipe count.'), findsOneWidget);
     expect(appRouter.routeInformationProvider.value.uri.path, '/home');
   });
+
+  testWidgets('logged-out real mode still shows the demo home', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    appRouter.go('/home');
+
+    await tester.pumpWidget(
+      RevoCredBootstrap(
+        config: const AppConfig(useMocks: false),
+        repository: _GuestRepository(),
+        preferences: preferences,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Make the next swipe count.'), findsOneWidget);
+    expect(appRouter.routeInformationProvider.value.uri.path, '/home');
+  });
 }
 
-class _AuthenticatingRepository implements AppRepository {
+class _GuestRepository extends MockAppRepository {
+  @override
+  bool get isAuthenticated => false;
+}
+
+class _AuthenticatingRepository extends MockAppRepository {
   bool authenticated = false;
 
   @override
@@ -125,6 +153,9 @@ class _AuthenticatingRepository implements AppRepository {
   Future<void> addCard(String cardId) async {}
 
   @override
+  Future<void> addCustomCard(CustomCardDraft card) async {}
+
+  @override
   Future<void> removeCard(String walletCardId) async {}
 
   @override
@@ -139,4 +170,7 @@ class _AuthenticatingRepository implements AppRepository {
   Future<DemoRecommendation?> saveQuestionnaire(
     QuestionnaireAnswers answers,
   ) async => null;
+
+  @override
+  Future<void> switchStrategy(String code) async {}
 }

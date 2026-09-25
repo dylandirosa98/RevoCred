@@ -55,7 +55,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-ask-revo-idle')));
     await tester.pumpAndSettle();
     expect(
-      find.text('Your local demo card-strategy assistant.'),
+      find.textContaining('does not pick cards'),
       findsOneWidget,
     );
 

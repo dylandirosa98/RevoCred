@@ -18,7 +18,8 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(appControllerProvider).data!;
+    final appState = ref.watch(appControllerProvider);
+    final data = appState.data!;
     final product = context.product;
     final config = ref.watch(appConfigProvider);
     final capabilities = walletCapabilities(data.wallet);
@@ -27,8 +28,12 @@ class HomeScreen extends ConsumerWidget {
       MonthlySpending.fromQuestionnaire(data.monthlySpend),
       bestRates(capabilities),
     );
-    final score = config.useMocks ? localWalletScore.score : data.pointsValue;
-    final estimatedValue = config.useMocks
+    final score = displayWalletScore(
+      useLocal: config.useMocks || !appState.isAuthenticated,
+      storedScore: data.pointsValue,
+      localScore: localWalletScore,
+    );
+    final estimatedValue = config.useMocks || !appState.isAuthenticated
         ? localEstimatedValue
         : data.projectedYearlyValue;
     if (product.heroTreatment == HeroTreatment.wallet) {

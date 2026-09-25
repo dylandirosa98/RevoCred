@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -11,27 +12,35 @@ import (
 )
 
 type Config struct {
-	Environment      string
-	Port             string
-	DatabaseURL      string
-	SupabaseURL      string
-	SupabaseAnonKey  string
-	AllowedOrigins   []string
-	RequestTimeout   time.Duration
-	ShutdownTimeout  time.Duration
-	DatabaseMaxConns int32
+	Environment       string
+	Port              string
+	DatabaseURL       string
+	SupabaseURL       string
+	SupabaseAnonKey   string
+	AllowedOrigins    []string
+	RequestTimeout    time.Duration
+	ShutdownTimeout   time.Duration
+	DatabaseMaxConns  int32
+	MetricsToken      string
+	OpenCodeGoAPIKey  string
+	OpenCodeGoModel   string
+	OpenCodeGoBaseURL string
 }
 
 func Load() (Config, error) {
 	cfg := Config{
-		Environment:     valueOrDefault("APP_ENV", "development"),
-		Port:            valueOrDefault("PORT", "8080"),
-		DatabaseURL:     strings.TrimSpace(os.Getenv("DATABASE_URL")),
-		SupabaseURL:     strings.TrimRight(strings.TrimSpace(os.Getenv("SUPABASE_URL")), "/"),
-		SupabaseAnonKey: strings.TrimSpace(os.Getenv("SUPABASE_ANON_KEY")),
+		Environment:       valueOrDefault("APP_ENV", "development"),
+		Port:              valueOrDefault("PORT", "8080"),
+		DatabaseURL:       strings.TrimSpace(os.Getenv("DATABASE_URL")),
+		SupabaseURL:       strings.TrimRight(strings.TrimSpace(os.Getenv("SUPABASE_URL")), "/"),
+		SupabaseAnonKey:   strings.TrimSpace(os.Getenv("SUPABASE_ANON_KEY")),
+		MetricsToken:      strings.TrimSpace(os.Getenv("METRICS_TOKEN")),
+		OpenCodeGoAPIKey:  strings.TrimSpace(os.Getenv("OPENCODE_GO_API_KEY")),
+		OpenCodeGoModel:   valueOrDefault("OPENCODE_GO_MODEL", "deepseek-v4.1-flash"),
+		OpenCodeGoBaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("OPENCODE_GO_BASE_URL")), "/"),
 	}
 	var err error
-	if cfg.RequestTimeout, err = durationOrDefault("REQUEST_TIMEOUT", 10*time.Second); err != nil {
+	if cfg.RequestTimeout, err = durationOrDefault("REQUEST_TIMEOUT", 30*time.Second); err != nil {
 		return Config{}, err
 	}
 	if cfg.ShutdownTimeout, err = durationOrDefault("SHUTDOWN_TIMEOUT", 10*time.Second); err != nil {
@@ -68,6 +77,30 @@ func Load() (Config, error) {
 	if len(missing) > 0 {
 		sort.Strings(missing)
 		return Config{}, fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
+	}
+	if cfg.Environment == "production" {
+		if len(cfg.MetricsToken) < 32 {
+			return Config{}, errors.New("production requires METRICS_TOKEN of at least 32 characters")
+		}
+		if !strings.HasPrefix(cfg.SupabaseURL, "https://") {
+			return Config{}, errors.New("production requires HTTPS Supabase")
+		}
+		db, err := url.Parse(cfg.DatabaseURL)
+		if err != nil || db.Query().Get("sslmode") != "verify-full" {
+			return Config{}, errors.New("production DATABASE_URL must use sslmode=verify-full")
+		}
+		if db.User == nil || db.User.Username() == "postgres" || strings.HasPrefix(db.User.Username(), "postgres.") {
+			return Config{}, errors.New("production requires a dedicated database runtime role")
+		}
+		for _, origin := range cfg.AllowedOrigins {
+			u, err := url.Parse(origin)
+			if err != nil || u.Scheme != "https" || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+				return Config{}, errors.New("production CORS origins must be HTTPS origins without paths")
+			}
+		}
+	}
+	if cfg.RequestTimeout > 45*time.Second {
+		return Config{}, errors.New("REQUEST_TIMEOUT must not exceed 45s")
 	}
 	return cfg, nil
 }

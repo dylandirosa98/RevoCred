@@ -37,6 +37,7 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
   @override
   Widget build(BuildContext context) {
     final data = ref.watch(appControllerProvider).data!;
+    final config = ref.watch(appConfigProvider);
     final product = context.product;
     final visibleItemCount = data.messages.length + (sending ? 1 : 0);
     if (visibleItemCount != lastVisibleItemCount) {
@@ -69,7 +70,9 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      'Your local demo card-strategy assistant.',
+                      !config.useMocks
+                          ? 'Explains your wallet, spend, and server ranking with DeepSeek V4.1 Flash. It does not pick cards.'
+                          : 'Explains your wallet and server ranking. It does not pick cards.',
                       style: TextStyle(color: product.muted),
                     ),
                     const SizedBox(height: 14),
@@ -125,7 +128,12 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
                     if (index == data.messages.length) {
                       return const _ThinkingAnswer();
                     }
-                    return _MessageDocument(message: data.messages[index]);
+                    return _MessageDocument(
+                      message: data.messages[index],
+                      contextLabel: !config.useMocks
+                          ? 'Grounded in your wallet and server ranking via DeepSeek V4.1 Flash'
+                          : 'Grounded in the demo wallet on screen',
+                    );
                   },
                 ),
               ),
@@ -250,8 +258,9 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
 }
 
 class _MessageDocument extends StatelessWidget {
-  const _MessageDocument({required this.message});
+  const _MessageDocument({required this.message, required this.contextLabel});
   final ChatMessage message;
+  final String contextLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -396,7 +405,7 @@ class _MessageDocument extends StatelessWidget {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  'Context: demo wallet and deterministic recommendation',
+                  contextLabel,
                   style: TextStyle(color: product.muted, fontSize: 11),
                 ),
               ),

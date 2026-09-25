@@ -33,7 +33,19 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
     final data = ref.watch(appControllerProvider).data!;
     final product = context.product;
     final results = searchCards(data.catalog, query).take(8).toList();
-    final firstStep = data.roadmap.firstOrNull;
+    final playbook = data.playbook;
+    final nextStep = playbook?.steps
+        .where((step) => step.status == 'next')
+        .firstOrNull;
+    final firstStep = nextStep == null
+        ? (playbook == null ? data.roadmap.firstOrNull : null)
+        : RoadmapStep(
+            id: 'next',
+            cardId: nextStep.name,
+            stage: 'Consider next',
+            note: nextStep.use,
+            estimatedValue: 0,
+          );
     final firstCard = firstStep == null ? null : _cardFor(data, firstStep);
     final popular = data.catalog
         .where((card) => !card.isActive)
@@ -56,7 +68,9 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
         Text('Your roadmap', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 7),
         Text(
-          'A prioritized path built by the deterministic recommendation model.',
+          playbook == null
+              ? 'A prioritized path built by the deterministic recommendation model.'
+              : '${playbook.code}: ${playbook.title}. Current eligibility and wallet value determine the next step.',
           style: TextStyle(color: product.muted, fontSize: 15),
         ),
         SizedBox(height: product.sectionGap),
@@ -90,10 +104,62 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
         ] else
           const AppPanel(
             child: Text(
-              'Complete the questionnaire to generate a strategy roadmap.',
+              'No eligible improvement is currently available. Update your questionnaire or keep your current wallet.',
             ),
           ),
-        if (data.roadmap.length > 1) ...[
+        if ((playbook?.steps.where((step) => step.status != 'next').length ??
+                0) >
+            0) ...[
+          SizedBox(height: product.sectionGap),
+          const SectionLabel('Playbook sequence'),
+          const SizedBox(height: 12),
+          Column(
+            key: const ValueKey('strategy-timeline'),
+            children: [
+              for (final step in playbook!.steps.where(
+                (step) => step.status != 'next',
+              ))
+                _TimelineStep(
+                  position: playbook.steps.indexOf(step) + 1,
+                  last: step == playbook.steps.last,
+                  step: RoadmapStep(
+                    id: step.name,
+                    cardId: step.name,
+                    stage: switch (step.status) {
+                      'have' => 'Already in wallet',
+                      'unavailable' => 'Not currently recommended',
+                      _ => 'Later',
+                    },
+                    note: step.note.isEmpty ? step.use : step.note,
+                    estimatedValue: 0,
+                  ),
+                  card: _cardFor(
+                    data,
+                    RoadmapStep(
+                      id: step.name,
+                      cardId: step.name,
+                      stage: '',
+                      note: '',
+                      estimatedValue: 0,
+                    ),
+                  ),
+                  onDetails: () {
+                    final card = _cardFor(
+                      data,
+                      RoadmapStep(
+                        id: step.name,
+                        cardId: step.name,
+                        stage: '',
+                        note: '',
+                        estimatedValue: 0,
+                      ),
+                    );
+                    if (card != null) _showDetails(card);
+                  },
+                ),
+            ],
+          ),
+        ] else if (data.roadmap.length > 1) ...[
           SizedBox(height: product.sectionGap),
           const SectionLabel('Application timeline'),
           const SizedBox(height: 12),
@@ -117,7 +183,53 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
         SizedBox(height: product.sectionGap),
         _ModelNotice(goal: data.profile.goal),
         SizedBox(height: product.sectionGap),
-        const SectionLabel('Explore alternatives'),
+        if (playbook != null && playbook.unused.isNotEmpty) ...[
+          SizedBox(height: product.sectionGap),
+          const SectionLabel('Cards to de-emphasize'),
+          const SizedBox(height: 10),
+          AppPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final card in playbook.unused)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text('${card.name}: ${card.note}'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+        SizedBox(height: product.sectionGap),
+        const SectionLabel('Nearby strategies'),
+        const SizedBox(height: 10),
+        if (playbook != null && playbook.alternatives.isNotEmpty)
+          Column(
+            children: [
+              for (final alt in playbook.alternatives)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: AppPanel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${alt.code}  ${alt.title}',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          alt.reason,
+                          style: TextStyle(color: product.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        SizedBox(height: product.sectionGap),
+        const SectionLabel('Explore the catalog'),
         const SizedBox(height: 10),
         TextField(
           key: const ValueKey('card-search-field'),
@@ -187,7 +299,22 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
   }
 
   CreditCard? _cardFor(AppData data, RoadmapStep step) =>
-      data.catalog.where((card) => card.id == step.cardId).firstOrNull;
+      data.catalog
+          .where((card) => card.id == step.cardId || card.name == step.cardId)
+          .firstOrNull ??
+      data.wallet
+          .where((card) => card.id == step.cardId || card.name == step.cardId)
+          .firstOrNull ??
+      CreditCard(
+        id: step.cardId,
+        issuer: data.playbook?.ecosystem ?? '',
+        brand: data.playbook?.ecosystem ?? '',
+        name: step.cardId,
+        annualFee: 'See issuer',
+        bestUse: step.note,
+        multiplier: '',
+        benefits: const ['Playbook card. Verify current issuer terms.'],
+      );
 
   Future<void> _showDetails(CreditCard card) => showModalBottomSheet<void>(
     context: context,
@@ -884,7 +1011,9 @@ class _CardDetailSheet extends StatelessWidget {
                     borderRadius: BorderRadius.circular(product.radius),
                   ),
                   child: Text(
-                    'Demo data is unverified. Confirm current rewards, fees, eligibility, and terms with the issuer.',
+                    card.sourceDisclaimer.isEmpty
+                        ? 'Confirm current rewards, fees, eligibility, and terms with the issuer. Educational use only.'
+                        : card.sourceDisclaimer,
                     style: TextStyle(
                       color: product.muted,
                       fontSize: 11,

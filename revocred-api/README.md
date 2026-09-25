@@ -8,7 +8,7 @@ Production-oriented Go HTTP foundation for RevoCred. Supabase owns authenticatio
 - `internal/httpapi`: routes, strict JSON decoding, validation, CORS, auth middleware, request IDs, and structured errors/logs.
 - `internal/auth`: testable Supabase `/auth/v1/user` token verifier using only the public anon key.
 - `internal/recommendation`: deterministic pure-Go v1 scoring and transparent estimates. No LLM participates in selection.
-- `internal/chat`: provider interface with a grounded deterministic demo provider. No external AI call is made.
+- `internal/chat`: grounded explainer. Optional OpenCode Go / DeepSeek V4.1 Flash; otherwise deterministic. AI does not select cards.
 - `internal/store`: repository contract and PostgreSQL implementation.
 - `internal/database`: generated sqlc package; do not edit these files manually.
 - `queries`: source SQL used to generate the database package.
@@ -85,7 +85,7 @@ The tool versions are pinned in `Makefile` and installed under the ignored `bin/
 | `GET`, `PUT` | `/v1/profile` | Read or upsert the authenticated user's profile. |
 | `GET`, `POST`, `DELETE` | `/v1/wallet` | `DELETE` accepts `{"wallet_card_id":"<uuid>"}`. |
 | `POST` | `/v1/recommendations` | Runs and persists deterministic scoring plus questionnaire input. |
-| `GET`, `POST` | `/v1/chat/messages` | Lists history or stores a grounded deterministic exchange. |
+| `GET`, `POST` | `/v1/chat/messages` | Lists history or stores a grounded REVO exchange. |
 
 Money inputs and outputs are integer cents. A recommendation request looks like:
 

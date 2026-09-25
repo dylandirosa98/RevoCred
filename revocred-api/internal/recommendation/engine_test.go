@@ -24,8 +24,8 @@ func TestRecommendRanksDeterministicallyAndExplainsValue(t *testing.T) {
 	if len(got.Items) != 2 || got.Items[0].CardSlug != "dining" || got.Items[0].Rank != 1 {
 		t.Fatalf("unexpected ranking: %#v", got.Items)
 	}
-	if got.Items[0].FirstYearEstimate-got.Items[0].OngoingEstimate != 30000 {
-		t.Fatalf("first year bonus not reflected: %#v", got.Items[0])
+	if got.Items[0].FirstYearEstimate != got.Items[0].OngoingEstimate {
+		t.Fatalf("conditional bonus must not be counted: %#v", got.Items[0])
 	}
 	if len(got.Items[0].Reasons) < 2 {
 		t.Fatalf("expected transparent reasons: %#v", got.Items[0].Reasons)
@@ -50,9 +50,9 @@ func TestQuestionnaireBucketsUseCatalogCategoryRates(t *testing.T) {
 	if len(got.Items) != 1 {
 		t.Fatalf("items = %#v", got.Items)
 	}
-	// $100/month food at 4%% plus $100/month everyday at 2%% = $72/year.
-	if got.Items[0].OngoingEstimate != 7200 {
-		t.Fatalf("ongoing estimate = %d, want 7200", got.Items[0].OngoingEstimate)
+	// Unknown food split uses the lower 3% rate; other spending earns 2%.
+	if got.Items[0].OngoingEstimate != 6000 {
+		t.Fatalf("ongoing estimate = %d, want 6000", got.Items[0].OngoingEstimate)
 	}
 }
 
@@ -70,5 +70,31 @@ func TestRecommendReportsExclusions(t *testing.T) {
 	got := New().Recommend(input, cards)
 	if len(got.Items) != 0 || len(got.Exclusions) != 3 {
 		t.Fatalf("unexpected result: %#v", got)
+	}
+}
+
+func TestStudentEligibilityMustBeExplicit(t *testing.T) {
+	input := domain.RecommendationInput{MonthlyCategorySpend: map[string]int64{"other": 10000}, CreditTier: "good"}
+	cards := []domain.CatalogCard{{Slug: "savor-for-students", MinimumCreditTier: "building", RewardRates: map[string]float64{"other": 1}}}
+	if got := New().Recommend(input, cards); len(got.Items) != 0 {
+		t.Fatal("recommended student product without student status")
+	}
+	input.LifeStage = "student"
+	if got := New().Recommend(input, cards); len(got.Items) != 1 {
+		t.Fatal("student selection was ignored")
+	}
+}
+
+func TestRecommendMeasuresIncrementalValueAndRejectsNoImprovement(t *testing.T) {
+	input := domain.RecommendationInput{MonthlyCategorySpend: map[string]int64{"other": 100000}, CreditTier: "good", TravelScope: "none", RewardsGoal: "cash_back", FeeToleranceCents: 10000,
+		OwnedCards: []domain.CatalogCard{{RewardRates: map[string]float64{"other": 2}}}}
+	cards := []domain.CatalogCard{
+		{ID: "worse", Slug: "worse", MinimumCreditTier: "good", RewardRates: map[string]float64{"other": 1.5}},
+		{ID: "better", Slug: "better", MinimumCreditTier: "good", AnnualFeeCents: 9500, RewardRates: map[string]float64{"other": 3}},
+	}
+	got := New().Recommend(input, cards)
+	// $12,000 annual spend * 1% incremental rewards - $95 fee = $25.
+	if len(got.Items) != 1 || got.Items[0].CardID != "better" || got.Items[0].OngoingEstimate != 2500 {
+		t.Fatalf("got %+v", got)
 	}
 }

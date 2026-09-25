@@ -3,16 +3,32 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/cards/presentation/cards_screen.dart';
 import '../../features/auth/presentation/auth_screen.dart';
+import '../../features/auth/presentation/account_screen.dart';
+import '../../features/profile/presentation/legal_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/onboarding/presentation/questionnaire_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/revo/presentation/revo_screen.dart';
 import '../../features/strategy/presentation/strategy_screen.dart';
+import '../../features/strategy/presentation/strategy_report_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/welcome',
   routes: [
+    GoRoute(
+      path: '/reset-password',
+      builder: (context, state) => const AccountScreen(recovery: true),
+    ),
+    GoRoute(
+      path: '/account',
+      builder: (context, state) => const AccountScreen(),
+    ),
+    GoRoute(
+      path: '/account-recovery',
+      builder: (context, state) => const AccountScreen(help: true),
+    ),
+    GoRoute(path: '/legal', builder: (context, state) => const LegalScreen()),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
           AppShell(navigationShell: navigationShell),
@@ -53,6 +69,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/questionnaire',
       pageBuilder: _detailPage(const QuestionnaireScreen()),
+    ),
+    GoRoute(
+      path: '/strategy-report',
+      pageBuilder: _detailPage(const StrategyReportScreen()),
     ),
     GoRoute(path: '/welcome', pageBuilder: _detailPage(const AuthScreen())),
   ],

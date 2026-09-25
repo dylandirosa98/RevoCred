@@ -17,7 +17,7 @@ void main() {
             'data': {
               'profile': {
                 'display_name': 'Test Member',
-                'credit_card_strategy': 'Simple rewards',
+                'credit_card_strategy': 'S04',
                 'goal': 'Earn without overspending',
                 'top_spend_categories': ['groceries'],
                 'next_application_target': 'Demo Card',
@@ -33,6 +33,7 @@ void main() {
               ],
               'latest_recommendations': {
                 'run_id': '00000000-0000-0000-0000-000000000020',
+                'strategy_code': 'S04',
                 'engine_version': 'v1.0.0',
                 'dataset_version': 'demo-v1',
                 'items': [
@@ -54,6 +55,10 @@ void main() {
               },
               'latest_questionnaire': {
                 'monthly_category_spend': {'food': 50000},
+                'fee_tolerance_cents': 10000,
+                'travel_scope': 'both',
+                'rewards_goal': 'travel',
+                'credit_tier': 'fair',
               },
               'quick_prompts': ['What should I use for groceries?'],
             },
@@ -134,10 +139,15 @@ void main() {
       '00000000-0000-0000-0000-000000000010',
     );
     expect(data.catalog.single.annualFee, r'$95');
-    expect(data.roadmap.single.estimatedValue, 420);
+    // Real mode must not fabricate a playbook when the server omits it.
+    expect(data.playbook, isNull);
+    expect(data.roadmap, hasLength(1));
     expect(data.pointsValue, 77);
     expect(data.projectedYearlyValue, 333);
     expect(data.monthlySpend, {'food': 500});
+    expect(data.strategyPlan?.code, 'S04');
+    expect(data.strategyPlan?.cards.last, 'Sapphire Preferred');
+    expect(data.strategyPreferences?.creditTier, 'fair');
     expect(data.messages.single.content, 'Grounded demo answer.');
 
     await repository.addCard(data.catalog.single.id);

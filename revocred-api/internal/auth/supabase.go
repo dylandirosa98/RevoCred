@@ -9,13 +9,15 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 var ErrUnauthorized = errors.New("unauthorized")
 
 type User struct {
-	ID    string `json:"id"`
-	Email string `json:"email,omitempty"`
+	LastSignInAt *time.Time `json:"last_sign_in_at,omitempty"`
+	ID           string     `json:"id"`
+	Email        string     `json:"email,omitempty"`
 }
 
 type Authenticator interface {

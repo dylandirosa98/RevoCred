@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/revocred/revocred-api/internal/strategy"
+)
 
 type Profile struct {
 	UserID                string    `json:"user_id,omitempty"`
@@ -58,7 +62,24 @@ type CreateWalletCard struct {
 	OpenedOn      *time.Time `json:"opened_on,omitempty"`
 }
 
+type CreateCustomCard struct {
+	Name               string             `json:"name"`
+	Issuer             string             `json:"issuer"`
+	Network            string             `json:"network"`
+	AnnualFeeCents     int                `json:"annual_fee_cents"`
+	RewardRates        map[string]float64 `json:"reward_rates"`
+	TransferablePoints bool               `json:"transferable_points"`
+	BestUse            string             `json:"best_use"`
+	Benefits           []string           `json:"benefits"`
+	TravelScope        string             `json:"travel_scope"`
+	RewardsType        string             `json:"rewards_type"`
+	MinimumCreditTier  string             `json:"minimum_credit_tier"`
+	Nickname           string             `json:"nickname"`
+}
+
 type RecommendationInput struct {
+	LifeStage            string           `json:"life_stage,omitempty"`
+	OwnedCards           []CatalogCard    `json:"-"`
 	MonthlyCategorySpend map[string]int64 `json:"monthly_category_spend"`
 	FeeToleranceCents    int              `json:"fee_tolerance_cents"`
 	TravelScope          string           `json:"travel_scope"`
@@ -85,12 +106,14 @@ type RecommendationExclusion struct {
 }
 
 type RecommendationResult struct {
-	RunID          string                    `json:"run_id,omitempty"`
-	EngineVersion  string                    `json:"engine_version"`
-	DatasetVersion string                    `json:"dataset_version"`
-	Items          []RecommendationItem      `json:"items"`
-	Exclusions     []RecommendationExclusion `json:"exclusions"`
-	CreatedAt      time.Time                 `json:"created_at,omitempty"`
+	CatalogSnapshot []CatalogCard             `json:"catalog_snapshot"`
+	RunID           string                    `json:"run_id,omitempty"`
+	StrategyCode    string                    `json:"strategy_code"`
+	EngineVersion   string                    `json:"engine_version"`
+	DatasetVersion  string                    `json:"dataset_version"`
+	Items           []RecommendationItem      `json:"items"`
+	Exclusions      []RecommendationExclusion `json:"exclusions"`
+	CreatedAt       time.Time                 `json:"created_at,omitempty"`
 }
 
 type ChatMessage struct {
@@ -115,5 +138,7 @@ type Bootstrap struct {
 	LatestRecommendations *RecommendationResult `json:"latest_recommendations,omitempty"`
 	LatestQuestionnaire   *RecommendationInput  `json:"latest_questionnaire,omitempty"`
 	WalletMetrics         WalletMetrics         `json:"wallet_metrics"`
+	Playbook              *strategy.Playbook    `json:"playbook,omitempty"`
 	QuickPrompts          []string              `json:"quick_prompts"`
+	ChatMode              string                `json:"chat_mode,omitempty"`
 }

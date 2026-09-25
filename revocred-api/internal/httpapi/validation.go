@@ -43,8 +43,55 @@ func validateWalletCard(input domain.CreateWalletCard) map[string]string {
 	return errors
 }
 
+func validateCustomCard(input domain.CreateCustomCard) map[string]string {
+	errors := make(map[string]string)
+	if strings.TrimSpace(input.Name) == "" || utf8.RuneCountInString(input.Name) > 100 {
+		errors["name"] = "must contain 1 to 100 characters"
+	}
+	if strings.TrimSpace(input.Issuer) == "" || utf8.RuneCountInString(input.Issuer) > 80 {
+		errors["issuer"] = "must contain 1 to 80 characters"
+	}
+	if !oneOf(input.Network, "Visa", "Mastercard", "Amex", "Discover", "Other") {
+		errors["network"] = "must be Visa, Mastercard, Amex, Discover, or Other"
+	}
+	if input.AnnualFeeCents < 0 || input.AnnualFeeCents > 1_000_000 {
+		errors["annual_fee_cents"] = "must be between 0 and 1000000"
+	}
+	if len(input.RewardRates) == 0 {
+		errors["reward_rates"] = "must include at least one category"
+	}
+	for category, rate := range input.RewardRates {
+		if !oneOf(category, "other", "dining", "groceries", "gas", "travel", "flights", "hotels", "rent", "entertainment") {
+			errors["reward_rates"] = "contains an unsupported category"
+			break
+		}
+		if rate < 0 || rate > 20 {
+			errors["reward_rates"] = "rates must be between 0 and 20"
+			break
+		}
+	}
+	validateOptionalLength(errors, "best_use", input.BestUse, 120)
+	validateOptionalLength(errors, "nickname", input.Nickname, 100)
+	if len(input.Benefits) > 20 {
+		errors["benefits"] = "must contain at most 20 items"
+	}
+	if !oneOf(input.TravelScope, "none", "domestic", "international", "both") {
+		errors["travel_scope"] = "must be none, domestic, international, or both"
+	}
+	if !oneOf(input.RewardsType, "cash_back", "travel", "hybrid") {
+		errors["rewards_type"] = "must be cash_back, travel, or hybrid"
+	}
+	if !oneOf(input.MinimumCreditTier, "building", "fair", "good", "excellent") {
+		errors["minimum_credit_tier"] = "must be building, fair, good, or excellent"
+	}
+	return errors
+}
+
 func validateRecommendation(input domain.RecommendationInput) map[string]string {
 	errors := make(map[string]string)
+	if !oneOf(input.LifeStage, "", "student", "adult", "adult-learning", "adult-building", "adult-established", "adult-optimizing") {
+		errors["life_stage"] = "unsupported life stage"
+	}
 	if len(input.MonthlyCategorySpend) == 0 || len(input.MonthlyCategorySpend) > 20 {
 		errors["monthly_category_spend"] = "must contain between 1 and 20 categories"
 	}

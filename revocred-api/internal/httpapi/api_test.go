@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -28,12 +29,17 @@ func (a *fakeAuthenticator) Authenticate(_ context.Context, token string) (auth.
 }
 
 type fakeRepository struct {
-	cards      []domain.CatalogCard
-	wallet     []domain.WalletCard
-	savedInput domain.RecommendationInput
+	cards       []domain.CatalogCard
+	wallet      []domain.WalletCard
+	savedInput  domain.RecommendationInput
+	savedResult domain.RecommendationResult
 }
 
 func (f *fakeRepository) Ping(context.Context) error { return nil }
+func (f *fakeRepository) ExportAccount(context.Context, string) (map[string]json.RawMessage, error) {
+	return map[string]json.RawMessage{}, nil
+}
+func (f *fakeRepository) DeleteAccount(context.Context, string) error { return nil }
 func (f *fakeRepository) Bootstrap(context.Context, string) (domain.Bootstrap, error) {
 	return domain.Bootstrap{Wallet: []domain.WalletCard{}, Catalog: []domain.CatalogCard{}, QuickPrompts: []string{}}, nil
 }
@@ -56,9 +62,13 @@ func (f *fakeRepository) ListWallet(context.Context, string) ([]domain.WalletCar
 func (f *fakeRepository) CreateWalletCard(context.Context, string, domain.CreateWalletCard) (domain.WalletCard, error) {
 	return domain.WalletCard{}, nil
 }
+func (f *fakeRepository) CreateCustomCard(_ context.Context, _ string, input domain.CreateCustomCard) (domain.WalletCard, error) {
+	return domain.WalletCard{ID: "custom-wallet", CatalogCardID: "custom-card", Nickname: input.Nickname, Status: "active", Card: &domain.CatalogCard{Name: input.Name, Issuer: input.Issuer}}, nil
+}
 func (f *fakeRepository) DeleteWalletCard(context.Context, string, string) error { return nil }
 func (f *fakeRepository) SaveRecommendation(_ context.Context, _ string, input domain.RecommendationInput, result domain.RecommendationResult) (domain.RecommendationResult, error) {
 	f.savedInput = input
+	f.savedResult = result
 	return result, nil
 }
 func (f *fakeRepository) ListMessages(context.Context, string, int) ([]domain.ChatMessage, error) {
@@ -76,6 +86,7 @@ func (fakeRecommender) Recommend(domain.RecommendationInput, []domain.CatalogCar
 
 type fakeChatProvider struct{}
 
+func (fakeChatProvider) Mode() string { return "deterministic" }
 func (fakeChatProvider) Reply(context.Context, string, chat.Context) (string, error) {
 	return "reply", nil
 }
@@ -184,6 +195,12 @@ func TestRecommendationUsesPersistedActiveWalletForExclusions(t *testing.T) {
 	if len(repository.savedInput.ExistingCardIDs) != 1 || repository.savedInput.ExistingCardIDs[0] != "active-card" {
 		t.Fatalf("saved exclusions = %#v", repository.savedInput.ExistingCardIDs)
 	}
+	if repository.savedResult.StrategyCode != "S03" {
+		t.Fatalf("saved strategy = %q, want S03", repository.savedResult.StrategyCode)
+	}
+	if !strings.Contains(response.Body.String(), `"strategy_code":"S03"`) {
+		t.Fatalf("response missing strategy code: %s", response.Body.String())
+	}
 }
 
 func TestRecommendationHandlerRejectsUnknownFields(t *testing.T) {
@@ -194,6 +211,43 @@ func TestRecommendationHandlerRejectsUnknownFields(t *testing.T) {
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), `"code":"invalid_json"`) {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestPutStrategyAssignsPlaybook(t *testing.T) {
+	handler := testHandler(&fakeAuthenticator{user: auth.User{ID: "11111111-1111-4111-8111-111111111111"}})
+	request := httptest.NewRequest(http.MethodPut, "/v1/strategy", strings.NewReader(`{"strategy_code":"S04"}`))
+	request.Header.Set("Authorization", "Bearer token")
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"code":"S04"`) {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestPublicExplainDoesNotRequireAuth(t *testing.T) {
+	handler := testHandler(&fakeAuthenticator{})
+	request := httptest.NewRequest(http.MethodPost, "/v1/public/explain", strings.NewReader(`{"content":"What should I use for groceries?"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "https://app.example.test")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || !strings.Contains(response.Body.String(), `"role":"assistant"`) {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestPostCustomWalletCreatesUserCard(t *testing.T) {
+	handler := testHandler(&fakeAuthenticator{user: auth.User{ID: "11111111-1111-4111-8111-111111111111"}})
+	body := `{"name":"Custom Cash","issuer":"Citi","network":"Mastercard","annual_fee_cents":0,"reward_rates":{"groceries":5,"other":1},"best_use":"Groceries"}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/wallet/custom", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer token")
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || !strings.Contains(response.Body.String(), `"name":"Custom Cash"`) {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 }

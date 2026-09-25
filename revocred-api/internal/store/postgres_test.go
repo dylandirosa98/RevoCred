@@ -15,7 +15,10 @@ func TestQuestionnaireProfileUsesTopSpendAndTopRecommendation(t *testing.T) {
 			},
 			RewardsGoal: "cash_back",
 		},
-		domain.RecommendationResult{Items: []domain.RecommendationItem{{CardName: "Top Card"}}},
+		domain.RecommendationResult{
+			StrategyCode: "S03",
+			Items:        []domain.RecommendationItem{{CardName: "Top Card"}},
+		},
 	)
 	if !reflect.DeepEqual(categories, []string{"rent", "food", "everyday"}) {
 		t.Fatalf("categories = %#v", categories)

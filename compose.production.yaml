@@ -1,0 +1,55 @@
+# Separate from the local mock preview. Validate configuration and run migrations
+# with the owner login before deployment; DATABASE_URL is the runtime login.
+services:
+  gateway:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN}
+      TLS_EMAIL: ${TLS_EMAIL:?Set TLS_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+  frontend:
+    build:
+      context: ./revocred_flutter
+      args:
+        REVOCRED_PRODUCTION: 'true'
+        REVOCRED_USE_MOCKS: 'false'
+        REVOCRED_API_URL: https://${API_DOMAIN:?Set API_DOMAIN}
+        REVOCRED_AUTH_REDIRECT_URL: https://${APP_DOMAIN:?Set APP_DOMAIN}/
+        SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL}
+        SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set public Supabase key}
+    restart: unless-stopped
+    mem_limit: 256m
+    pids_limit: 128
+  api:
+    build: ./revocred-api
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    pids_limit: 128
+    environment:
+      APP_ENV: production
+      PORT: '8080'
+      DATABASE_URL: ${DATABASE_URL:?Set runtime database URL with sslmode=verify-full}
+      SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set public Supabase key}
+      CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:?Set APP_DOMAIN}
+      METRICS_TOKEN: ${METRICS_TOKEN:?Set private random metrics token}
+      OPENCODE_GO_API_KEY: ${OPENCODE_GO_API_KEY:-}
+      OPENCODE_GO_MODEL: ${OPENCODE_GO_MODEL:-deepseek-v4.1-flash}
+      OPENCODE_GO_BASE_URL: ${OPENCODE_GO_BASE_URL:-https://opencode.ai/zen/go/v1}
+volumes:
+  caddy_data:
+  caddy_config:

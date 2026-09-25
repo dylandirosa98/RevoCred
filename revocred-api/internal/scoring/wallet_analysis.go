@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/revocred/revocred-api/internal/domain"
+	"github.com/revocred/revocred-api/internal/valuation"
 )
 
 // AnalyzeWallet converts persisted active cards into the stable wallet scoring
@@ -37,12 +38,18 @@ func AnalyzeWallet(cards []domain.WalletCard) Wallet {
 func Metrics(cards []domain.WalletCard, categorySpendCents map[string]int64) domain.WalletMetrics {
 	wallet := AnalyzeWallet(cards)
 	score := Score(wallet)
+	active := []domain.CatalogCard{}
+	for _, item := range cards {
+		if item.Status == "active" && item.Card != nil {
+			active = append(active, *item.Card)
+		}
+	}
 	return domain.WalletMetrics{
 		Score:       score.Score,
 		Rating:      score.Rating,
 		Additions:   score.Additions,
 		Penalties:   score.Penalties,
-		YearlyValue: YearlyValue(MonthlySpendingFromCategoryCents(categorySpendCents), BestRates(wallet)),
+		YearlyValue: int(math.Round(float64(valuation.Net(categorySpendCents, active)) / 100)),
 	}
 }
 

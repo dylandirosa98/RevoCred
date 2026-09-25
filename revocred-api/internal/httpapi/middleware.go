@@ -39,6 +39,14 @@ func (a *API) requireAuthentication(next http.Handler) http.Handler {
 			return
 		}
 		ctx := context.WithValue(r.Context(), userKey, user)
+		key, limit := "read:"+user.ID, 120
+		if r.Method != http.MethodGet {
+			key, limit = "write:"+user.ID, 30
+		}
+		if !a.limits.allow(key, limit, time.Now()) {
+			a.tooMany(w, r)
+			return
+		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -127,6 +135,10 @@ func (a *API) logging(next http.Handler) http.Handler {
 		status := recorder.status
 		if status == 0 {
 			status = http.StatusOK
+		}
+		a.stats.requests.Add(1)
+		if status >= 500 {
+			a.stats.failures.Add(1)
 		}
 		a.logger.InfoContext(r.Context(), "http request",
 			"request_id", requestIDFromContext(r.Context()), "method", r.Method,

@@ -20,6 +20,22 @@ import (
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--healthcheck" {
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "8080"
+		}
+		client := &http.Client{Timeout: 3 * time.Second}
+		response, err := client.Get("http://127.0.0.1:" + port + "/readyz")
+		if err != nil {
+			os.Exit(1)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			os.Exit(1)
+		}
+		return
+	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	if err := run(logger); err != nil {
 		logger.Error("server stopped", "error", err)
@@ -55,22 +71,31 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	repository := store.NewPostgres(pool)
+	chatProvider, err := chat.New(chat.Options{
+		APIKey:  cfg.OpenCodeGoAPIKey,
+		Model:   cfg.OpenCodeGoModel,
+		BaseURL: cfg.OpenCodeGoBaseURL,
+	})
+	if err != nil {
+		return err
+	}
 	handler := httpapi.New(
 		repository,
 		authenticator,
 		recommendation.New(),
-		chat.NewDeterministicProvider(),
+		chatProvider,
 		logger,
 		cfg.AllowedOrigins,
 		cfg.RequestTimeout,
+		httpapi.Options{MetricsToken: cfg.MetricsToken},
 	)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		ReadTimeout:       20 * time.Second,
+		WriteTimeout:      45 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 
@@ -78,7 +103,7 @@ func run(logger *slog.Logger) error {
 	defer stop()
 	serverErrors := make(chan error, 1)
 	go func() {
-		logger.Info("server listening", "address", server.Addr, "environment", cfg.Environment)
+		logger.Info("server listening", "address", server.Addr, "environment", cfg.Environment, "chat", chatProvider.Mode())
 		serverErrors <- server.ListenAndServe()
 	}()
 

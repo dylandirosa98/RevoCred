@@ -36,6 +36,7 @@ void main() {
       '/revo',
       '/profile',
       '/questionnaire',
+      '/strategy-report',
     ];
     for (final width in [320.0, 360.0, 390.0, 430.0]) {
       tester.view.physicalSize = Size(width, 844);
@@ -71,43 +72,50 @@ void main() {
     }
   });
 
-  testWidgets('welcome questionnaire flow completes and reaches profile', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    SharedPreferences.setMockInitialValues({});
-    final preferences = await SharedPreferences.getInstance();
-    appRouter.go('/welcome');
+  testWidgets(
+    'welcome questionnaire flow completes and opens strategy report',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      appRouter.go('/welcome');
 
-    await tester.pumpWidget(
-      RevoCredBootstrap(
-        config: const AppConfig(useMocks: true),
-        repository: MockAppRepository(),
-        preferences: preferences,
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final start = find.byKey(const ValueKey('build-strategy-action'));
-    await tester.ensureVisible(start);
-    await tester.tap(start);
-    await tester.pumpAndSettle();
-    expect(appRouter.routeInformationProvider.value.uri.path, '/questionnaire');
-
-    for (var step = 0; step < 7; step++) {
-      await tester.tap(find.byKey(const ValueKey('questionnaire-next')));
+      await tester.pumpWidget(
+        RevoCredBootstrap(
+          config: const AppConfig(useMocks: true),
+          repository: MockAppRepository(),
+          preferences: preferences,
+        ),
+      );
       await tester.pumpAndSettle();
-    }
-    expect(find.byKey(const ValueKey('questionnaire-result')), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('questionnaire-next')));
-    await tester.pumpAndSettle();
-    expect(appRouter.routeInformationProvider.value.uri.path, '/profile');
-    expect(find.text('Alex Morgan'), findsWidgets);
-  });
+      final start = find.byKey(const ValueKey('build-strategy-action'));
+      await tester.ensureVisible(start);
+      await tester.tap(start);
+      await tester.pumpAndSettle();
+      expect(
+        appRouter.routeInformationProvider.value.uri.path,
+        '/questionnaire',
+      );
+
+      for (var step = 0; step < 7; step++) {
+        await tester.tap(find.byKey(const ValueKey('questionnaire-next')));
+        await tester.pumpAndSettle();
+      }
+      expect(
+        appRouter.routeInformationProvider.value.uri.path,
+        '/strategy-report',
+      );
+      expect(find.byKey(const ValueKey('strategy-report')), findsOneWidget);
+      expect(
+        find.text('Your Personalized Credit Card Strategy'),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('REVO remains usable when the mobile keyboard opens', (
     tester,
@@ -166,6 +174,7 @@ void main() {
       '/revo',
       '/profile',
       '/questionnaire',
+      '/strategy-report',
     ]) {
       appRouter.go(route);
       await tester.pumpAndSettle();

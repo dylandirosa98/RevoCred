@@ -1,3 +1,4 @@
+import '../logic/playbook.dart';
 import '../models/app_models.dart';
 import 'app_repository.dart';
 import 'demo_seed.dart';
@@ -7,6 +8,26 @@ class MockAppRepository implements AppRepository {
     : _data = initialData ?? createDemoAppData();
 
   AppData _data;
+
+  @override
+  Stream<AccountSession> get sessionChanges => const Stream.empty();
+  @override
+  bool get isPasswordRecovery => false;
+  @override
+  Future<void> requestPasswordReset(String email) async =>
+      throw StateError('Email recovery is available in real mode.');
+  @override
+  Future<void> resendVerification(String email) => requestPasswordReset(email);
+  @override
+  Future<void> updatePassword(String password) async =>
+      throw StateError('Account changes are available in real mode.');
+  @override
+  Future<void> updateEmail(String email) => updatePassword(email);
+  @override
+  Future<String> exportAccount() async =>
+      '{"mode":"demo","personal_data":false}';
+  @override
+  Future<void> deleteAccount(String password) => signOut();
 
   @override
   bool get isAuthenticated => true;
@@ -39,6 +60,40 @@ class MockAppRepository implements AppRepository {
         wallet: [..._data.wallet, card.copyWith(isActive: true)],
       );
     }
+  }
+
+  @override
+  Future<void> addCustomCard(CustomCardDraft card) async {
+    final id = 'custom-${card.name.toLowerCase().replaceAll(' ', '-')}';
+    if (_data.wallet.any((item) => item.id == id)) return;
+    final multipliers = card.rates.entries
+        .where((entry) => entry.value > 0)
+        .map((entry) => '${entry.value}x ${entry.key}')
+        .toList();
+    final created = CreditCard(
+      id: id,
+      issuer: card.issuer,
+      brand: card.network,
+      name: card.name,
+      annualFee: '\$${card.annualFeeDollars}',
+      bestUse: card.bestUse.isEmpty ? 'User-supplied card' : card.bestUse,
+      multiplier: '${card.rates['other'] ?? 1}x',
+      benefits: const ['User-supplied terms'],
+      pointMultipliers: multipliers,
+      transferablePoints: card.transferablePoints,
+      isActive: true,
+      walletCardId: id,
+    );
+    _data = _data.copyWith(
+      wallet: [..._data.wallet, created],
+      playbook: buildPlaybook(
+        code: _data.playbook?.code ?? _data.strategyPlan?.code,
+        walletNames: [
+          ..._data.wallet,
+          created,
+        ].map((item) => item.name).toList(),
+      ),
+    );
   }
 
   @override
@@ -75,4 +130,24 @@ class MockAppRepository implements AppRepository {
   Future<DemoRecommendation?> saveQuestionnaire(
     QuestionnaireAnswers answers,
   ) async => null;
+
+  @override
+  Future<void> switchStrategy(String code) async {
+    final playbook = buildPlaybook(
+      code: code,
+      walletNames: _data.wallet.map((card) => card.name).toList(),
+    );
+    _data = _data.copyWith(
+      strategyPlan: StrategyPlan.maybeForCode(code),
+      playbook: playbook,
+      profile: UserProfile(
+        name: _data.profile.name,
+        strategy: code,
+        goal: _data.profile.goal,
+        topSpendCategories: _data.profile.topSpendCategories,
+        nextTarget: playbook?.nextCard ?? _data.profile.nextTarget,
+        email: _data.profile.email,
+      ),
+    );
+  }
 }

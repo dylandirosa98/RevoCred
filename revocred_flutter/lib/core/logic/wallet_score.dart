@@ -44,6 +44,17 @@ class WalletScore {
   final int penalties;
 }
 
+int displayWalletScore({
+  required bool useLocal,
+  required int storedScore,
+  required WalletScore localScore,
+}) {
+  if (useLocal || storedScore < 22 || storedScore > 95) {
+    return localScore.score;
+  }
+  return storedScore;
+}
+
 WalletScore scoreWallet(WalletCapabilities wallet) {
   final additions = _additionsFor(wallet);
   final penalties = _penaltiesFor(wallet);

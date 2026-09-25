@@ -1,0 +1,19 @@
+{
+    email {$TLS_EMAIL}
+}
+
+{$APP_DOMAIN} {
+    header Strict-Transport-Security "max-age=31536000"
+    reverse_proxy frontend:80
+}
+
+{$API_DOMAIN} {
+    header Strict-Transport-Security "max-age=31536000"
+    @private path /metrics
+    respond @private 404
+    reverse_proxy api:8080 {
+        health_uri /readyz
+        health_interval 10s
+        health_timeout 3s
+    }
+}

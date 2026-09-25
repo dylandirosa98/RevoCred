@@ -1,3 +1,4 @@
+import '../logic/playbook.dart';
 import '../models/app_models.dart';
 
 const demoCatalog = <CreditCard>[
@@ -177,7 +178,7 @@ AppData createDemoAppData() => AppData(
     strategy: 'Flexible travel plus everyday value',
     goal: 'Earn useful rewards without unused perks',
     topSpendCategories: 'Dining, groceries, travel',
-    nextTarget: 'Sapphire Preferred',
+    nextTarget: 'Freedom Flex',
     email: 'demo@revocred.local',
   ),
   wallet: demoCatalog.where((card) => card.isActive).toList(),
@@ -219,7 +220,21 @@ AppData createDemoAppData() => AppData(
     'What should I apply for next?',
     'How do I maximize travel?',
   ],
-  pointsValue: 359,
-  projectedYearlyValue: 300,
+  pointsValue: 88,
+  projectedYearlyValue: 468,
   monthlySpend: const {'rent': 0, 'food': 450, 'travel': 150, 'everyday': 300},
+  strategyPlan: StrategyPlan.maybeForCode('S04'),
+  strategyPreferences: const StrategyPreferences(
+    creditTier: 'fair',
+    rewardsGoal: 'travel',
+    feeToleranceCents: 10000,
+    travelScope: 'both',
+  ),
+  playbook: buildPlaybook(
+    code: 'S04',
+    walletNames: demoCatalog
+        .where((card) => card.isActive)
+        .map((card) => card.name)
+        .toList(),
+  ),
 );

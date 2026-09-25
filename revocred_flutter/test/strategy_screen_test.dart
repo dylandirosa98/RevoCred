@@ -32,7 +32,7 @@ void main() {
     expect(find.byKey(const ValueKey('strategy-summary')), findsOneWidget);
     expect(find.byKey(const ValueKey('strategy-next-action')), findsOneWidget);
     expect(find.byKey(const ValueKey('strategy-timeline')), findsOneWidget);
-    expect(find.text('Sapphire Preferred'), findsWidgets);
+    expect(find.text('Freedom Flex'), findsWidgets);
     expect(tester.takeException(), isNull);
 
     final details = find.byKey(const ValueKey('strategy-next-details'));

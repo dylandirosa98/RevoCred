@@ -169,6 +169,10 @@ void main() {
       expect(score.score, 88);
       expect(score.rating, 'Great');
       expect(yearly, 468);
+      expect(
+        displayWalletScore(useLocal: true, storedScore: 359, localScore: score),
+        88,
+      );
     });
   });
 }

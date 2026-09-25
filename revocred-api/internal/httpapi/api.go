@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/revocred/revocred-api/internal/chat"
 	"github.com/revocred/revocred-api/internal/domain"
 	"github.com/revocred/revocred-api/internal/store"
+	"github.com/revocred/revocred-api/internal/strategy"
 )
 
 const maxRequestBodyBytes = 1 << 20
@@ -31,6 +33,9 @@ type API struct {
 	logger         *slog.Logger
 	allowedOrigins map[string]struct{}
 	requestTimeout time.Duration
+	limits         limiter
+	stats          counters
+	metricsToken   string
 }
 
 func New(
@@ -41,11 +46,15 @@ func New(
 	logger *slog.Logger,
 	allowedOrigins []string,
 	requestTimeout time.Duration,
+	options ...Options,
 ) http.Handler {
 	api := &API{
 		repository: repository, authenticator: authenticator, recommender: recommender,
 		chatProvider: chatProvider, logger: logger, requestTimeout: requestTimeout,
 		allowedOrigins: make(map[string]struct{}, len(allowedOrigins)),
+	}
+	if len(options) > 0 {
+		api.metricsToken = options[0].MetricsToken
 	}
 	for _, origin := range allowedOrigins {
 		api.allowedOrigins[strings.TrimRight(origin, "/")] = struct{}{}
@@ -53,19 +62,27 @@ func New(
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", api.health)
+	mux.HandleFunc("GET /readyz", api.ready)
+	mux.HandleFunc("GET /metrics", api.metrics)
 	mux.HandleFunc("OPTIONS /", api.options)
+	mux.HandleFunc("POST /v1/public/explain", api.publicExplain)
 	api.protected(mux, "GET /v1/bootstrap", api.bootstrap)
+	api.protected(mux, "POST /v1/client-errors", api.clientError)
+	api.protected(mux, "GET /v1/account/export", api.exportAccount)
+	api.protected(mux, "DELETE /v1/account", api.deleteAccount)
 	api.protected(mux, "GET /v1/cards", api.cards)
 	api.protected(mux, "GET /v1/profile", api.getProfile)
 	api.protected(mux, "PUT /v1/profile", api.putProfile)
 	api.protected(mux, "GET /v1/wallet", api.getWallet)
 	api.protected(mux, "POST /v1/wallet", api.postWallet)
+	api.protected(mux, "POST /v1/wallet/custom", api.postCustomWallet)
 	api.protected(mux, "DELETE /v1/wallet", api.deleteWallet)
 	api.protected(mux, "POST /v1/recommendations", api.postRecommendations)
+	api.protected(mux, "PUT /v1/strategy", api.putStrategy)
 	api.protected(mux, "GET /v1/chat/messages", api.getMessages)
 	api.protected(mux, "POST /v1/chat/messages", api.postMessage)
 
-	return api.requestID(api.logging(api.recoverPanic(api.cors(api.deadline(mux)))))
+	return api.requestID(api.logging(api.recoverPanic(api.cors(api.rateLimit(api.deadline(mux))))))
 }
 
 func (a *API) protected(mux *http.ServeMux, pattern string, handler http.HandlerFunc) {
@@ -78,12 +95,42 @@ func (a *API) health(w http.ResponseWriter, _ *http.Request) {
 
 func (a *API) options(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }
 
+func (a *API) exportAccount(w http.ResponseWriter, r *http.Request) {
+	user := authenticatedUser(r.Context())
+	data, err := a.repository.ExportAccount(r.Context(), user.ID)
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	writeData(w, http.StatusOK, map[string]any{"user": user, "records": data, "exported_at": time.Now().UTC()})
+}
+
+func (a *API) deleteAccount(w http.ResponseWriter, r *http.Request) {
+	user := authenticatedUser(r.Context())
+	if user.LastSignInAt == nil || time.Since(*user.LastSignInAt) > 5*time.Minute || user.LastSignInAt.After(time.Now().Add(time.Minute)) {
+		writeError(w, r, http.StatusForbidden, "reauthentication_required", "Sign in again before deleting your account.", nil)
+		return
+	}
+	if err := a.repository.DeleteAccount(r.Context(), user.ID); err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *API) bootstrap(w http.ResponseWriter, r *http.Request) {
 	value, err := a.repository.Bootstrap(r.Context(), authenticatedUser(r.Context()).ID)
 	if err != nil {
 		a.internalError(w, r, err)
 		return
 	}
+	if value.LatestQuestionnaire != nil && value.LatestRecommendations != nil {
+		value.LatestRecommendations.StrategyCode = strategyCode(*value.LatestQuestionnaire)
+		if value.Profile != nil {
+			value.LatestRecommendations.StrategyCode = value.Profile.CreditCardStrategy
+		}
+	}
+	value.ChatMode = a.chatProvider.Mode()
 	writeData(w, http.StatusOK, value)
 }
 
@@ -97,12 +144,12 @@ func (a *API) cards(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) getProfile(w http.ResponseWriter, r *http.Request) {
-	profile, err := a.repository.GetProfile(r.Context(), authenticatedUser(r.Context()).ID)
+	current, err := a.repository.Bootstrap(r.Context(), authenticatedUser(r.Context()).ID)
 	if err != nil {
 		a.internalError(w, r, err)
 		return
 	}
-	writeData(w, http.StatusOK, profile)
+	writeData(w, http.StatusOK, current.Profile)
 }
 
 func (a *API) putProfile(w http.ResponseWriter, r *http.Request) {
@@ -156,6 +203,39 @@ func (a *API) postWallet(w http.ResponseWriter, r *http.Request) {
 	writeData(w, http.StatusCreated, item)
 }
 
+func (a *API) postCustomWallet(w http.ResponseWriter, r *http.Request) {
+	var input domain.CreateCustomCard
+	if !a.decodeJSON(w, r, &input) {
+		return
+	}
+	if input.Network == "" {
+		input.Network = "Other"
+	}
+	if input.TravelScope == "" {
+		input.TravelScope = "none"
+	}
+	if input.RewardsType == "" {
+		input.RewardsType = "cash_back"
+	}
+	if input.MinimumCreditTier == "" {
+		input.MinimumCreditTier = "good"
+	}
+	if fields := validateCustomCard(input); len(fields) > 0 {
+		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "request validation failed", fields)
+		return
+	}
+	item, err := a.repository.CreateCustomCard(r.Context(), authenticatedUser(r.Context()).ID, input)
+	if errors.Is(err, store.ErrConflict) {
+		writeError(w, r, http.StatusConflict, "wallet_card_exists", "a custom card with this name already exists", nil)
+		return
+	}
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	writeData(w, http.StatusCreated, item)
+}
+
 func (a *API) deleteWallet(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		WalletCardID string `json:"wallet_card_id"`
@@ -198,6 +278,9 @@ func (a *API) postRecommendations(w http.ResponseWriter, r *http.Request) {
 	for _, item := range wallet {
 		if item.Status == "active" {
 			input.ExistingCardIDs = append(input.ExistingCardIDs, item.CatalogCardID)
+			if item.Card != nil {
+				input.OwnedCards = append(input.OwnedCards, *item.Card)
+			}
 		}
 	}
 	cards, err := a.repository.ListCatalog(r.Context())
@@ -206,12 +289,86 @@ func (a *API) postRecommendations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result := a.recommender.Recommend(input, cards)
+	result.StrategyCode = strategyCode(input)
 	result, err = a.repository.SaveRecommendation(r.Context(), userID, input, result)
 	if err != nil {
 		a.internalError(w, r, err)
 		return
 	}
 	writeData(w, http.StatusCreated, result)
+}
+
+func (a *API) putStrategy(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		StrategyCode string `json:"strategy_code"`
+	}
+	if !a.decodeJSON(w, r, &input) {
+		return
+	}
+	if _, ok := strategy.DefinitionFor(strategy.Code(input.StrategyCode)); !ok {
+		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "request validation failed", map[string]string{"strategy_code": "must be S01 through S09"})
+		return
+	}
+	userID := authenticatedUser(r.Context()).ID
+	profile, err := a.repository.GetProfile(r.Context(), userID)
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	if profile == nil {
+		profile = &domain.Profile{}
+	}
+	wallet, err := a.repository.ListWallet(r.Context(), userID)
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	names := make([]string, 0, len(wallet))
+	for _, item := range wallet {
+		if item.Status == "active" && item.Card != nil {
+			names = append(names, item.Card.Name)
+		}
+	}
+	playbook := strategy.Build(input.StrategyCode, names, nil)
+	profile.CreditCardStrategy = input.StrategyCode
+	profile.NextApplicationTarget = playbook.NextCard
+	saved, err := a.repository.UpsertProfile(r.Context(), userID, *profile)
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	current, err := a.repository.Bootstrap(r.Context(), userID)
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	if current.Playbook != nil {
+		playbook = *current.Playbook
+	}
+	if current.Profile != nil {
+		saved = *current.Profile
+	}
+	writeData(w, http.StatusOK, map[string]any{"profile": saved, "playbook": playbook})
+}
+
+func strategyCode(input domain.RecommendationInput) string {
+	goal := strategy.Goal(input.RewardsGoal)
+	if input.RewardsGoal == "hybrid" {
+		goal = strategy.GoalTravel
+		if input.TravelScope == "none" {
+			goal = strategy.GoalCashBack
+		}
+	}
+	code, err := strategy.SelectFromQuestionnaire(
+		input.CreditTier,
+		goal,
+		input.FeeToleranceCents,
+		strategy.Travel(input.TravelScope),
+	)
+	if err != nil {
+		return ""
+	}
+	return string(code)
 }
 
 func (a *API) getMessages(w http.ResponseWriter, r *http.Request) {
@@ -232,6 +389,38 @@ func (a *API) getMessages(w http.ResponseWriter, r *http.Request) {
 	writeData(w, http.StatusOK, messages)
 }
 
+func (a *API) publicExplain(w http.ResponseWriter, r *http.Request) {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	if !a.limits.allow("explain:"+host, 20, time.Now()) {
+		a.tooMany(w, r)
+		return
+	}
+	var input struct {
+		Content string `json:"content"`
+	}
+	if !a.decodeJSON(w, r, &input) {
+		return
+	}
+	input.Content = strings.TrimSpace(input.Content)
+	if input.Content == "" || len(input.Content) > 4000 {
+		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "request validation failed", map[string]string{"content": "must contain 1 to 4000 characters"})
+		return
+	}
+	reply, err := a.chatProvider.Reply(r.Context(), input.Content, chat.DemoBrowseContext())
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	writeData(w, http.StatusCreated, []domain.ChatMessage{{
+		ID: "demo-user", Role: "user", Content: input.Content,
+	}, {
+		ID: "demo-assistant", Role: "assistant", Content: reply,
+	}})
+}
+
 func (a *API) postMessage(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Content string `json:"content"`
@@ -250,7 +439,15 @@ func (a *API) postMessage(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, r, err)
 		return
 	}
-	reply, err := a.chatProvider.Reply(r.Context(), input.Content, chat.Context{Catalog: bootstrap.Catalog, Recommendations: bootstrap.LatestRecommendations})
+	reply, err := a.chatProvider.Reply(r.Context(), input.Content, chat.Context{
+		SessionID:       userID,
+		Wallet:          bootstrap.Wallet,
+		Recommendations: bootstrap.LatestRecommendations,
+		Profile:         bootstrap.Profile,
+		Questionnaire:   bootstrap.LatestQuestionnaire,
+		Metrics:         bootstrap.WalletMetrics,
+		Playbook:        bootstrap.Playbook,
+	})
 	if err != nil {
 		a.internalError(w, r, err)
 		return
@@ -284,6 +481,10 @@ func (a *API) decodeJSON(w http.ResponseWriter, r *http.Request, target any) boo
 }
 
 func (a *API) internalError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, store.ErrQuota) {
+		writeError(w, r, http.StatusConflict, "account_limit", "Your account has reached the 100-card limit. Remove a card first.", nil)
+		return
+	}
 	a.logger.ErrorContext(r.Context(), "request failed", "request_id", requestIDFromContext(r.Context()), "error", err)
 	if errors.Is(err, context.DeadlineExceeded) {
 		writeError(w, r, http.StatusGatewayTimeout, "request_timeout", "request processing timed out", nil)
@@ -297,6 +498,8 @@ func writeData(w http.ResponseWriter, status int, data any) {
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)

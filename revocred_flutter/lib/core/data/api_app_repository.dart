@@ -13,7 +13,10 @@ class ApiAppRepository implements AppRepository {
     http.Client? httpClient,
     String? Function()? accessTokenProvider,
     String? Function()? emailProvider,
-  }) : _supabase = supabaseClient,
+    this.authRedirectUrl,
+    bool initialPasswordRecovery = false,
+  }) : _passwordRecovery = initialPasswordRecovery,
+       _supabase = supabaseClient,
        _http = httpClient ?? http.Client(),
        _accessTokenProvider =
            accessTokenProvider ??
@@ -22,10 +25,92 @@ class ApiAppRepository implements AppRepository {
            emailProvider ?? (() => supabaseClient?.auth.currentUser?.email);
 
   final String baseUrl;
+  final String? authRedirectUrl;
   final SupabaseClient? _supabase;
   final http.Client _http;
   final String? Function() _accessTokenProvider;
   final String? Function() _emailProvider;
+  DateTime? _lastErrorReport;
+  Future<void> reportClientError(String kind) async {
+    if (!isAuthenticated) return;
+    final now = DateTime.now();
+    if (_lastErrorReport != null &&
+        now.difference(_lastErrorReport!) < const Duration(minutes: 1)) {
+      return;
+    }
+    _lastErrorReport = now;
+    try {
+      await _request('POST', '/v1/client-errors', body: {'kind': kind});
+    } catch (_) {
+      /* Reporting must never break the app. */
+    }
+  }
+
+  bool _passwordRecovery;
+
+  @override
+  bool get isPasswordRecovery => _passwordRecovery;
+  @override
+  Stream<AccountSession> get sessionChanges =>
+      _supabase?.auth.onAuthStateChange.map((state) {
+        if (state.event == AuthChangeEvent.passwordRecovery) {
+          _passwordRecovery = true;
+        }
+        if (state.event == AuthChangeEvent.signedOut) _passwordRecovery = false;
+        return AccountSession(
+          authenticated: state.session != null,
+          passwordRecovery: _passwordRecovery,
+        );
+      }) ??
+      const Stream.empty();
+
+  SupabaseClient get _authClient =>
+      _supabase ?? (throw StateError('Authentication is not configured.'));
+  @override
+  Future<void> requestPasswordReset(String email) =>
+      _authClient.auth.resetPasswordForEmail(
+        email,
+        redirectTo: authRedirectUrl == null
+            ? null
+            : Uri.parse(authRedirectUrl!)
+                  .replace(
+                    queryParameters: {
+                      ...Uri.parse(authRedirectUrl!).queryParameters,
+                      'recovery': 'true',
+                    },
+                  )
+                  .toString(),
+      );
+  @override
+  Future<void> resendVerification(String email) async =>
+      _authClient.auth.resend(
+        type: OtpType.signup,
+        email: email,
+        emailRedirectTo: authRedirectUrl,
+      );
+  @override
+  Future<void> updatePassword(String password) async {
+    await _authClient.auth.updateUser(UserAttributes(password: password));
+    _passwordRecovery = false;
+  }
+
+  @override
+  Future<void> updateEmail(String email) async => _authClient.auth.updateUser(
+    UserAttributes(email: email),
+    emailRedirectTo: authRedirectUrl,
+  );
+  @override
+  Future<String> exportAccount() async => const JsonEncoder.withIndent(
+    '  ',
+  ).convert(await _request('GET', '/v1/account/export'));
+  @override
+  Future<void> deleteAccount(String password) async {
+    final email = _emailProvider();
+    if (email == null) throw const SessionExpiredException();
+    await _authClient.auth.signInWithPassword(email: email, password: password);
+    await _request('DELETE', '/v1/account');
+    await _authClient.auth.signOut(scope: SignOutScope.local);
+  }
 
   @override
   bool get isAuthenticated => _supabase?.auth.currentSession != null;
@@ -48,6 +133,7 @@ class ApiAppRepository implements AppRepository {
       final result = await _supabase.auth.signUp(
         email: email,
         password: password,
+        emailRedirectTo: authRedirectUrl,
       );
       return AuthResult(
         success: true,
@@ -89,6 +175,24 @@ class ApiAppRepository implements AppRepository {
   }
 
   @override
+  Future<void> addCustomCard(CustomCardDraft card) async {
+    await _request(
+      'POST',
+      '/v1/wallet/custom',
+      body: {
+        'name': card.name,
+        'issuer': card.issuer,
+        'network': card.network,
+        'annual_fee_cents': card.annualFeeDollars * 100,
+        'reward_rates': card.rates,
+        'transferable_points': card.transferablePoints,
+        'best_use': card.bestUse,
+        'benefits': ['User-supplied terms'],
+      },
+    );
+  }
+
+  @override
   Future<void> removeCard(String walletCardId) async {
     await _request(
       'DELETE',
@@ -101,8 +205,11 @@ class ApiAppRepository implements AppRepository {
   Future<ChatMessage> sendMessage(String prompt) async {
     final json = await _request(
       'POST',
-      '/v1/chat/messages',
+      _accessTokenProvider() == null
+          ? '/v1/public/explain'
+          : '/v1/chat/messages',
       body: {'content': prompt},
+      anonymous: _accessTokenProvider() == null,
     );
     final payload = json['data'];
     if (payload is! List || payload.isEmpty) {
@@ -122,10 +229,15 @@ class ApiAppRepository implements AppRepository {
       body: answers.toRecommendationJson(),
     );
     final data = json['data'];
-    if (data is! Map) return null;
+    if (data is! Map) {
+      throw const FormatException('Invalid recommendation response.');
+    }
     final result = data.cast<String, dynamic>();
     final items = result['items'];
-    if (items is! List || items.isEmpty) return null;
+    if (items is! List) {
+      throw const FormatException('Invalid recommendation items.');
+    }
+    if (items.isEmpty) return null;
     final top = (items.first as Map).cast<String, dynamic>();
     return DemoRecommendation(
       cardId: top['card_id'].toString(),
@@ -140,6 +252,11 @@ class ApiAppRepository implements AppRepository {
     );
   }
 
+  @override
+  Future<void> switchStrategy(String code) async {
+    await _request('PUT', '/v1/strategy', body: {'strategy_code': code});
+  }
+
   AuthResult _configurationError() => const AuthResult(
     success: false,
     message: 'Real mode requires SUPABASE_URL and SUPABASE_ANON_KEY.',
@@ -149,33 +266,45 @@ class ApiAppRepository implements AppRepository {
     String method,
     String path, {
     Map<String, dynamic>? body,
+    bool anonymous = false,
   }) async {
     if (baseUrl.trim().isEmpty) {
       throw StateError('Real mode requires REVOCRED_API_URL.');
     }
     final token = _accessTokenProvider();
-    if (token == null) throw StateError('Sign in before calling the API.');
+    if (!anonymous && token == null) {
+      throw StateError('Sign in before calling the API.');
+    }
     final uri = Uri.parse('${baseUrl.replaceFirst(RegExp(r'/$'), '')}$path');
     final headers = {
-      'Authorization': 'Bearer $token',
+      if (!anonymous && token != null) 'Authorization': 'Bearer $token',
       'Accept': 'application/json',
       if (body != null) 'Content-Type': 'application/json',
     };
-    final response = switch (method) {
-      'GET' => await _http.get(uri, headers: headers),
-      'POST' => await _http.post(uri, headers: headers, body: jsonEncode(body)),
-      'PUT' => await _http.put(uri, headers: headers, body: jsonEncode(body)),
-      'DELETE' => await _http.delete(
+    final response = await switch (method) {
+      'GET' => _http.get(uri, headers: headers),
+      'POST' => _http.post(uri, headers: headers, body: jsonEncode(body)),
+      'PUT' => _http.put(uri, headers: headers, body: jsonEncode(body)),
+      'DELETE' => _http.delete(
         uri,
         headers: headers,
         body: body == null ? null : jsonEncode(body),
       ),
       _ => throw ArgumentError.value(method, 'method'),
-    };
+    }.timeout(const Duration(seconds: 35));
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw StateError(
-        'API request failed (${response.statusCode}): ${response.body}',
-      );
+      if (response.statusCode == 401) {
+        await _supabase?.auth.signOut(scope: SignOutScope.local);
+        throw const SessionExpiredException();
+      }
+      String message = 'The request could not be completed. Please try again.';
+      try {
+        final error = (jsonDecode(response.body) as Map)['error'] as Map?;
+        message = error?['message']?.toString() ?? message;
+      } on FormatException {
+        /* Proxy errors need not be JSON. */
+      }
+      throw StateError(message);
     }
     if (response.body.isEmpty) return const {};
     return (jsonDecode(response.body) as Map).cast<String, dynamic>();

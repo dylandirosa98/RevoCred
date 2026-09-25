@@ -59,23 +59,39 @@ class _RevoCredAppState extends ConsumerState<RevoCredApp> {
       themeAnimationDuration: Duration.zero,
       routerConfig: appRouter,
       builder: (context, child) {
+        final page = child ?? const SizedBox.shrink();
+        final path = appRouter.routeInformationProvider.value.uri.path;
+        if (state.passwordRecovery && path != '/reset-password') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) appRouter.go('/reset-password');
+          });
+        }
         if (!state.isAuthenticated) {
-          final path = appRouter.routeInformationProvider.value.uri.path;
-          if (path != '/welcome') {
+          if (const ['/account', '/reset-password'].contains(path) &&
+              !state.passwordRecovery) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) appRouter.go('/welcome');
             });
-            return const BrandedLoadingScreen();
           }
-          return child ?? const SizedBox.shrink();
+          if (state.data != null) return page;
         }
-        if (state.data == null) {
-          return BrandedLoadingScreen(
-            error: state.error,
-            onRetry: () => ref.read(appControllerProvider.notifier).refresh(),
+        if (state.isAuthenticated && state.data == null) {
+          // Overlay instead of replacing the Navigator: unmounting routes would
+          // drop in-progress screens (such as a sign-in form awaiting its
+          // server refresh) and lose their navigation continuations.
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              page,
+              BrandedLoadingScreen(
+                error: state.error,
+                onRetry: () =>
+                    ref.read(appControllerProvider.notifier).refresh(),
+              ),
+            ],
           );
         }
-        return child ?? const SizedBox.shrink();
+        return page;
       },
     );
   }

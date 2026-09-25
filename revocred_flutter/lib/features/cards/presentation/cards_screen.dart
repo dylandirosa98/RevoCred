@@ -8,6 +8,7 @@ import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/content_layout.dart';
 import '../../../shared/widgets/credit_card_view.dart';
+import '../../../shared/widgets/custom_card_form.dart';
 
 class CardsScreen extends ConsumerStatefulWidget {
   const CardsScreen({super.key});
@@ -75,13 +76,9 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
         SizedBox(height: product.sectionGap),
         OutlinedButton.icon(
           key: const ValueKey('add-card-button'),
-          onPressed: available.isEmpty
-              ? null
-              : () => setState(() => showPicker = !showPicker),
+          onPressed: () => setState(() => showPicker = !showPicker),
           icon: Icon(showPicker ? Icons.close : Icons.add),
-          label: Text(
-            available.isEmpty ? 'All demo cards added' : 'Add a card to wallet',
-          ),
+          label: const Text('Add a card to wallet'),
         ),
         if (showPicker) ...[
           const SizedBox(height: 14),
@@ -89,44 +86,64 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SectionLabel('Demo catalog'),
+                FilledButton.tonalIcon(
+                  key: const ValueKey('add-custom-card-button'),
+                  onPressed: () async {
+                    final draft = await showCustomCardSheet(context);
+                    if (draft == null || !context.mounted) return;
+                    final added = await ref
+                        .read(appControllerProvider.notifier)
+                        .addCustomCard(draft);
+                    if (!context.mounted) return;
+                    if (added) setState(() => showPicker = false);
+                  },
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Add a card I already have'),
+                ),
+                const SizedBox(height: 16),
+                const SectionLabel('Catalog'),
                 const SizedBox(height: 8),
-                for (final card in available)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    minVerticalPadding: 10,
-                    leading: CreditCardArt(card: card, width: 72, height: 45),
-                    title: Text(
-                      card.name,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: Text(
-                      '${card.issuer} | ${card.annualFee} | ${card.bestUse}',
-                    ),
-                    trailing: FilledButton(
-                      onPressed: state.isLoading
-                          ? null
-                          : () async {
-                              final added = await ref
-                                  .read(appControllerProvider.notifier)
-                                  .addCard(card.id);
-                              if (!context.mounted) return;
-                              if (added) {
-                                setState(() => showPicker = false);
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      ref.read(appControllerProvider).error ??
-                                          'Could not add this card.',
+                if (available.isEmpty)
+                  const Text(
+                    'All listed catalog cards are already in this wallet.',
+                  )
+                else
+                  for (final card in available)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      minVerticalPadding: 10,
+                      leading: CreditCardArt(card: card, width: 72, height: 45),
+                      title: Text(
+                        card.name,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Text(
+                        '${card.issuer} | ${card.annualFee} | ${card.bestUse}',
+                      ),
+                      trailing: FilledButton(
+                        onPressed: state.isLoading
+                            ? null
+                            : () async {
+                                final added = await ref
+                                    .read(appControllerProvider.notifier)
+                                    .addCard(card.id);
+                                if (!context.mounted) return;
+                                if (added) {
+                                  setState(() => showPicker = false);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        ref.read(appControllerProvider).error ??
+                                            'Could not add this card.',
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }
-                            },
-                      child: const Text('Add'),
+                                  );
+                                }
+                              },
+                        child: const Text('Add'),
+                      ),
                     ),
-                  ),
               ],
             ),
           ),

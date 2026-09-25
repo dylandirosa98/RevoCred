@@ -6,14 +6,23 @@ import (
 	"strings"
 
 	"github.com/revocred/revocred-api/internal/domain"
+	"github.com/revocred/revocred-api/internal/strategy"
+	"github.com/revocred/revocred-api/internal/valuation"
 )
 
 type Context struct {
+	SessionID       string
 	Catalog         []domain.CatalogCard
+	Wallet          []domain.WalletCard
 	Recommendations *domain.RecommendationResult
+	Profile         *domain.Profile
+	Questionnaire   *domain.RecommendationInput
+	Metrics         domain.WalletMetrics
+	Playbook        *strategy.Playbook
 }
 
 type Provider interface {
+	Mode() string
 	Reply(ctx context.Context, prompt string, groundedContext Context) (string, error)
 }
 
@@ -21,13 +30,15 @@ type DeterministicProvider struct{}
 
 func NewDeterministicProvider() DeterministicProvider { return DeterministicProvider{} }
 
+func (DeterministicProvider) Mode() string { return "deterministic" }
+
 func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedContext Context) (string, error) {
 	normalized := strings.ToLower(prompt)
 	if groundedContext.Recommendations != nil && len(groundedContext.Recommendations.Items) > 0 &&
 		(strings.Contains(normalized, "recommend") || strings.Contains(normalized, "next") || strings.Contains(normalized, "apply")) {
 		item := groundedContext.Recommendations.Items[0]
-		return fmt.Sprintf("Your latest deterministic recommendation ranks %s first, with an estimated $%.2f in first-year value and $%.2f ongoing annual value. %s. Estimates use dataset %s and are not current-offer guarantees.",
-			item.CardName, float64(item.FirstYearEstimate)/100, float64(item.OngoingEstimate)/100, item.Reasons[0], groundedContext.Recommendations.DatasetVersion), nil
+		return fmt.Sprintf("Your current server recommendation ranks %s first, with an estimated $%.2f additional annual wallet value after its fee. Bonuses and conditional credits are excluded. Verify eligibility and current issuer terms. Dataset: %s.",
+			item.CardName, float64(item.OngoingEstimate)/100, groundedContext.Recommendations.DatasetVersion), nil
 	}
 
 	category := ""
@@ -43,17 +54,20 @@ func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedCon
 	if category != "" {
 		var best *domain.CatalogCard
 		var rate float64
-		for i := range groundedContext.Catalog {
-			candidateRate := groundedContext.Catalog[i].RewardRates[category]
+		for _, item := range groundedContext.Wallet {
+			if item.Status != "active" || item.Card == nil {
+				continue
+			}
+			candidateRate := valuation.Rate(item.Card.RewardRates, category)
 			if candidateRate > rate {
-				best = &groundedContext.Catalog[i]
+				best = item.Card
 				rate = candidateRate
 			}
 		}
 		if best != nil {
-			return fmt.Sprintf("In the demo catalog, %s has the highest modeled %s rate at %.1f%% value per dollar. Check the issuer's current terms before acting; this catalog is demonstrative, not financial advice.", best.Name, category, rate), nil
+			return fmt.Sprintf("In your active wallet, %s has the highest conservative modeled %s rate at %.1f%% value per dollar (one cent per point). Verify current terms; caps and merchant eligibility can reduce rewards.", best.Name, category, rate), nil
 		}
 	}
 
-	return "I can explain the demo catalog or your latest deterministic recommendation. Ask about a spend category or what to consider next. Catalog estimates are illustrative and should be checked against current issuer terms.", nil
+	return "I do not have an eligible card recommendation for that question. Complete or update your questionnaire and wallet. I explain server-calculated estimates, which exclude bonuses, conditional credits and housing rewards; they are not financial advice or approval guarantees.", nil
 }

@@ -35,20 +35,28 @@ def main() -> None:
             "",
         )
     )
-    api = "\n".join(
-        (
-            "APP_ENV=development",
-            "PORT=8082",
-            f"DATABASE_URL={status['DB_URL']}",
-            f"SUPABASE_URL={status['API_URL']}",
-            f"SUPABASE_ANON_KEY={status['ANON_KEY']}",
-            "CORS_ALLOWED_ORIGINS=http://localhost:8081,http://127.0.0.1:8081,http://localhost:8083,http://127.0.0.1:8083",
-            "REQUEST_TIMEOUT=10s",
-            "SHUTDOWN_TIMEOUT=10s",
-            "DB_MAX_CONNS=10",
-            "",
-        )
-    )
+    preserved = {}
+    api_path = ROOT / "revocred-api" / ".env.local"
+    if api_path.exists():
+        for line in api_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("OPENCODE_GO_") and "=" in line:
+                key, value = line.split("=", 1)
+                preserved[key] = value
+    api_lines = [
+        "APP_ENV=development",
+        "PORT=8082",
+        f"DATABASE_URL={status['DB_URL']}",
+        f"SUPABASE_URL={status['API_URL']}",
+        f"SUPABASE_ANON_KEY={status['ANON_KEY']}",
+        "CORS_ALLOWED_ORIGINS=http://localhost:8081,http://127.0.0.1:8081,http://localhost:8083,http://127.0.0.1:8083",
+        "REQUEST_TIMEOUT=30s",
+        "SHUTDOWN_TIMEOUT=10s",
+        "DB_MAX_CONNS=10",
+    ]
+    for key in ("OPENCODE_GO_API_KEY", "OPENCODE_GO_MODEL", "OPENCODE_GO_BASE_URL"):
+        if key in preserved:
+            api_lines.append(f"{key}={preserved[key]}")
+    api = "\n".join(api_lines) + "\n"
     (ROOT / ".env.local").write_text(frontend, encoding="utf-8")
     (ROOT / "revocred-api" / ".env.local").write_text(api, encoding="utf-8")
     print("Created gitignored local frontend and API env files.")

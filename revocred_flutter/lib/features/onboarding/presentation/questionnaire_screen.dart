@@ -8,6 +8,7 @@ import '../../../core/models/app_models.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/content_layout.dart';
+import '../../../shared/widgets/custom_card_form.dart';
 
 class QuestionnaireScreen extends ConsumerStatefulWidget {
   const QuestionnaireScreen({super.key});
@@ -174,11 +175,12 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
         key: const ValueKey('question-life-stage'),
         title: 'What adult life stage fits best?',
         hint:
-            'All choices are for adults age 18 or older. This is used only to frame the demo strategy.',
+            'All choices are for adults age 18 or older. Student cards require confirmed student status; issuer approval is never guaranteed.',
         child: _choices(
           value: lifeStage,
           onChanged: (value) => setState(() => lifeStage = value),
           options: const {
+            'student': '18+ and currently a student',
             'adult-learning': '18+ and learning credit basics',
             'adult-building': 'Adult and building a foundation',
             'adult-established': 'Established and expanding rewards',
@@ -191,7 +193,14 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
         title: 'Which cards do you already have?',
         hint:
             'Search and select any existing cards. You can continue with none.',
-        child: _cardSelector(catalog),
+        child: _cardSelector([
+          ...catalog,
+          ...?ref
+              .read(appControllerProvider)
+              .data
+              ?.wallet
+              .where((card) => !catalog.any((item) => item.id == card.id)),
+        ]),
       ),
       2 => _Question(
         key: const ValueKey('question-fees'),
@@ -349,6 +358,27 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        OutlinedButton.icon(
+          key: const ValueKey('questionnaire-add-custom-card'),
+          onPressed: () async {
+            final draft = await showCustomCardSheet(context);
+            if (draft == null || !mounted) return;
+            final added = await ref
+                .read(appControllerProvider.notifier)
+                .addCustomCard(draft);
+            if (!added || !mounted) return;
+            final data = ref.read(appControllerProvider).data;
+            final created = data?.wallet
+                .where((card) => card.name == draft.name)
+                .firstOrNull;
+            if (created != null) {
+              setState(() => existingCardIds.add(created.id));
+            }
+          },
+          icon: const Icon(Icons.edit_outlined),
+          label: const Text('Add a card that is not listed'),
+        ),
+        const SizedBox(height: 14),
         if (existingCardIds.isNotEmpty)
           Container(
             decoration: BoxDecoration(
@@ -359,7 +389,18 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
             ),
             child: Column(
               children: existingCardIds.map((id) {
-                final card = catalog.where((item) => item.id == id).first;
+                final card = catalog.where((item) => item.id == id).firstOrNull;
+                if (card == null) {
+                  return ListTile(
+                    dense: true,
+                    title: Text(id),
+                    trailing: IconButton(
+                      onPressed: () =>
+                          setState(() => existingCardIds.remove(id)),
+                      icon: const Icon(Icons.close, size: 18),
+                    ),
+                  );
+                }
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
@@ -455,6 +496,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
           .completeQuestionnaire(answers);
       if (mounted) {
         setState(() => result = recommendation);
+        context.pushReplacement('/strategy-report');
       }
     } catch (error) {
       if (mounted) {

@@ -92,5 +92,19 @@ docker-compose build frontend
 ```
 
 See `revocred_flutter/README.md` and `revocred-api/README.md` for package-level
-setup. The database migrations intentionally use demo catalog records until
-real card terms have verified source metadata.
+setup. Catalog repair migrations exclude demo records from real-mode selection
+and publish conservative, source-linked issuer snapshots. These still need
+current issuer review before public launch.
+
+## Production Readiness
+
+See [the readiness checklist](docs/production-readiness.md) for implemented
+hardening and external launch requirements, and [operations](docs/operations.md)
+for deployment, database roles and recovery.
+
+```sh
+make database-test # disposable PostgreSQL isolation tests and restore drill
+make security-check # Go dependency/runtime vulnerability scan
+make verify-local # local Supabase/API journey with temporary-account cleanup
+make browser-smoke # Chromium journey incl. emailed password recovery (after local-preview)
+```

@@ -35,36 +35,55 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     backgroundColor: context.product.canvas,
     body: _AuthBackdrop(
       child: SafeArea(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: showForm
-              ? _AuthFormPage(
-                  key: ValueKey('auth-form-$signingUp'),
-                  email: email,
-                  password: password,
-                  signingUp: signingUp,
-                  submitting: submitting,
-                  obscurePassword: obscurePassword,
-                  message: message,
-                  onBack: () => setState(() {
-                    showForm = false;
-                    message = null;
-                  }),
-                  onTogglePassword: () =>
-                      setState(() => obscurePassword = !obscurePassword),
-                  onSubmit: () => _submit(signUp: signingUp),
-                  onSwitchMode: () => setState(() {
-                    signingUp = !signingUp;
-                    message = null;
-                  }),
-                )
-              : _WelcomePage(
-                  key: const ValueKey('auth-welcome'),
-                  onCreateAccount: () => _openForm(signUp: true),
-                  onSignIn: () => _openForm(signUp: false),
+        child: Column(
+          children: [
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: showForm
+                    ? _AuthFormPage(
+                        key: ValueKey('auth-form-$signingUp'),
+                        email: email,
+                        password: password,
+                        signingUp: signingUp,
+                        submitting: submitting,
+                        obscurePassword: obscurePassword,
+                        message: message,
+                        onBack: () => setState(() {
+                          showForm = false;
+                          message = null;
+                        }),
+                        onTogglePassword: () =>
+                            setState(() => obscurePassword = !obscurePassword),
+                        onSubmit: () => _submit(signUp: signingUp),
+                        onSwitchMode: () => setState(() {
+                          signingUp = !signingUp;
+                          message = null;
+                        }),
+                      )
+                    : _WelcomePage(
+                        key: const ValueKey('auth-welcome'),
+                        onCreateAccount: () => _openForm(signUp: true),
+                        onSignIn: () => _openForm(signUp: false),
+                      ),
+              ),
+            ),
+            Wrap(
+              alignment: WrapAlignment.center,
+              children: [
+                TextButton(
+                  onPressed: () => context.push('/account-recovery'),
+                  child: const Text('Forgot password / confirm email'),
                 ),
+                TextButton(
+                  onPressed: () => context.push('/legal'),
+                  child: const Text('Privacy and terms'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     ),
@@ -83,10 +102,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _submit({required bool signUp}) async {
-    if (email.text.trim().isEmpty || password.text.length < 6) {
+    if (email.text.trim().isEmpty || password.text.length < (signUp ? 12 : 6)) {
       setState(
-        () =>
-            message = 'Enter an email and a password of at least 6 characters.',
+        () => message = signUp
+            ? 'Enter an email and a password of at least 12 characters.'
+            : 'Enter your email and password.',
       );
       return;
     }

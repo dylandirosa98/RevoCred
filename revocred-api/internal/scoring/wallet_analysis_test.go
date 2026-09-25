@@ -41,7 +41,7 @@ func TestMetricsReturnsScoreAndYearlyValue(t *testing.T) {
 		RewardRates: map[string]float64{"other": 2, "dining": 4},
 	}}}
 	got := Metrics(wallet, map[string]int64{"food": 10000, "everyday": 10000})
-	if got.Score != 64 || got.Rating != "Fair" || got.YearlyValue != 72 {
+	if got.Score != 64 || got.Rating != "Fair" || got.YearlyValue != 48 {
 		t.Fatalf("got %+v", got)
 	}
 }
