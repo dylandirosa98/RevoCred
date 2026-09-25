@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/logic/wallet_score.dart';
 import '../../../core/logic/yearly_value.dart';
 import '../../../core/models/app_models.dart';
+import '../../../core/models/affiliate_offer.dart';
+import '../../../shared/widgets/apply_offer_button.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_logo.dart';
@@ -95,7 +97,15 @@ class HomeScreen extends ConsumerWidget {
               score: score,
               activeCards: data.wallet.length,
             );
-            final action = _NextAction(cardName: data.profile.nextTarget);
+            final action = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _NextAction(cardName: data.profile.nextTarget),
+                const ApplyOfferButton(
+                  placement: ApplyPlacement.recommendation,
+                ),
+              ],
+            );
             return wide
                 ? Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,6 +444,7 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                 target: widget.nextTarget,
                 onTap: () => context.go('/strategy'),
               ),
+              const ApplyOfferButton(placement: ApplyPlacement.recommendation),
               const SizedBox(height: 14),
               _DecisionUpcoming(onOpenCards: () => context.go('/cards')),
             ],
@@ -1135,6 +1146,7 @@ class _WalletStudioHome extends StatelessWidget {
                 nextTarget: nextTarget,
                 onRoadmap: () => context.go('/strategy'),
               ),
+              const ApplyOfferButton(placement: ApplyPlacement.recommendation),
             ],
           ),
         ),
@@ -1824,6 +1836,7 @@ class _WalletFlowHome extends StatelessWidget {
                 nextTarget: nextTarget,
                 onRoadmap: () => context.go('/strategy'),
               ),
+              const ApplyOfferButton(placement: ApplyPlacement.recommendation),
             ],
           ),
         ),

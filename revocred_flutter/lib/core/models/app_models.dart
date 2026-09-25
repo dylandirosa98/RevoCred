@@ -388,6 +388,7 @@ class AppData {
     this.strategyPreferences,
     this.playbook,
     this.chatMode = 'deterministic',
+    this.recommendedCardId,
   });
 
   factory AppData.fromJson(Map<String, dynamic> json) {
@@ -524,6 +525,7 @@ class AppData {
           : StrategyPreferences.fromApiJson(latestQuestionnaire),
       playbook: playbook,
       chatMode: (json['chat_mode'] ?? 'deterministic').toString(),
+      recommendedCardId: topItem?['card_id']?.toString(),
     );
   }
 
@@ -540,6 +542,8 @@ class AppData {
   final StrategyPreferences? strategyPreferences;
   final PlaybookAssignment? playbook;
   final String chatMode;
+  // Server-ranked identity, separate from display names and affiliate metadata.
+  final String? recommendedCardId;
 
   AppData copyWith({
     List<CreditCard>? wallet,
@@ -566,6 +570,7 @@ class AppData {
     strategyPreferences: strategyPreferences ?? this.strategyPreferences,
     playbook: playbook ?? this.playbook,
     chatMode: chatMode,
+    recommendedCardId: recommendedCardId,
   );
 }
 

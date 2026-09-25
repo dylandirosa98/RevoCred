@@ -4,8 +4,12 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../models/app_models.dart';
+import '../models/affiliate_offer.dart';
 
-Future<Uint8List> buildStrategyReportPdf(AppData data) async {
+Future<Uint8List> buildStrategyReportPdf(
+  AppData data, {
+  ApplicationLink? application,
+}) async {
   final plan = data.strategyPlan;
   if (plan == null) {
     throw StateError('Complete a questionnaire before exporting a report.');
@@ -101,6 +105,25 @@ Future<Uint8List> buildStrategyReportPdf(AppData data) async {
                     .map((card) => _bullet('${card.name} — ${card.bestUse}'))
                     .toList(),
         ),
+        if (application != null && application.isCurrent)
+          _section('Apply for your next recommended card', [
+            pw.UrlLink(
+              destination: application.uri.toString(),
+              child: pw.Text(
+                'Apply for ${application.cardName}',
+                style: pw.TextStyle(decoration: pw.TextDecoration.underline),
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Text(
+              affiliateDisclosure,
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+            pw.Text(
+              'External site. Offer availability is checked when you open the link. Approval is not guaranteed.',
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+          ]),
         _section('Recommended strategy', [
           pw.Text(
             'Build around the ${plan.ecosystem} ecosystem, keeping each card only when its rewards and benefits outweigh its cost.',
@@ -176,18 +199,24 @@ Future<Uint8List> buildStrategyReportPdf(AppData data) async {
   return document.save();
 }
 
-Future<void> downloadStrategyReport(AppData data) async {
+Future<void> downloadStrategyReport(
+  AppData data, {
+  ApplicationLink? application,
+}) async {
   final code = data.strategyPlan?.code.toLowerCase() ?? 'personal';
   await Printing.layoutPdf(
     name: 'revocred-$code-strategy-report.pdf',
-    onLayout: (_) => buildStrategyReportPdf(data),
+    onLayout: (_) => buildStrategyReportPdf(data, application: application),
   );
 }
 
-Future<void> shareStrategyReport(AppData data) async {
+Future<void> shareStrategyReport(
+  AppData data, {
+  ApplicationLink? application,
+}) async {
   final code = data.strategyPlan?.code.toLowerCase() ?? 'personal';
   await Printing.sharePdf(
-    bytes: await buildStrategyReportPdf(data),
+    bytes: await buildStrategyReportPdf(data, application: application),
     filename: 'revocred-$code-strategy-report.pdf',
   );
 }

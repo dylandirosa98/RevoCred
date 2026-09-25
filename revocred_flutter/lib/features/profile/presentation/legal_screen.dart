@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/affiliate_offer.dart';
 
 class LegalScreen extends StatelessWidget {
   const LegalScreen({super.key});
@@ -33,7 +34,7 @@ class LegalScreen extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             Text(
-               'Sessions and appearance preferences are stored on your device. Account settings let you request a JSON export or permanently delete your account from the live service. The live service retains up to 1,000 chat messages and 100 recommendation runs per account; older history is removed as new records arrive. Operational backups may retain deleted data until they expire. Backup periods must be confirmed by the deployment operator. Authenticated clients report error categories, without message text or stack traces, for reliability monitoring. REVO chat sends your current question plus a snapshot of your wallet, spend, strategy, and server ranking to OpenCode Go (DeepSeek V4.1 Flash) so it can explain those facts. The model cannot select cards. Do not enter card numbers, CVV, PINs, or bank credentials.',
+              'Sessions and appearance preferences are stored on your device. Account settings let you request a JSON export or permanently delete your account from the live service. The live service retains up to 1,000 chat messages and 100 recommendation runs per account; older history is removed as new records arrive. Operational backups may retain deleted data until they expire. Backup periods must be confirmed by the deployment operator. Authenticated clients report error categories, without message text or stack traces, for reliability monitoring. REVO chat sends your current question plus a snapshot of your wallet, spend, strategy, and server ranking to OpenCode Go (DeepSeek V4.1 Flash) so it can explain those facts. The model cannot select cards. Do not enter card numbers, CVV, PINs, or bank credentials.',
             ),
             SizedBox(height: 24),
             Text(
@@ -50,6 +51,16 @@ class LegalScreen extends StatelessWidget {
             ),
             Text(
               'Use only your own account and information you are authorized to provide. Do not attempt to access other accounts or disrupt the service. Keep your credentials secure. Public availability, support commitments, dispute terms and any commercial disclosures must be set by the operator before release.',
+            ),
+            SizedBox(height: 24),
+            Text(
+              'Affiliate links',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(affiliateDisclosure),
+            SizedBox(height: 8),
+            Text(
+              'An Apply button opens an issuer or affiliate partner website. RevoCred counts redirects by offer, day and screen, without storing a user ID, cookie, IP address or device identifier in affiliate analytics. Counts are not applications or approvals. External sites have their own privacy policies and may use cookies. We do not send your wallet, spending or chat data with the link. Cards without a partner offer remain eligible for the same recommendations.',
             ),
           ],
         ),

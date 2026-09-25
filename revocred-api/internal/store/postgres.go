@@ -25,7 +25,7 @@ func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
 
 func (p *Postgres) Ping(ctx context.Context) error {
 	var ready bool
-	if err := p.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM revocred.catalog_cards WHERE data_kind='issuer_snapshot' AND is_active) AND to_regprocedure('revocred.delete_account(uuid)') IS NOT NULL`).Scan(&ready); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM revocred.catalog_cards WHERE data_kind='issuer_snapshot' AND is_active) AND to_regprocedure('revocred.delete_account(uuid)') IS NOT NULL AND to_regclass('revocred.affiliate_offers') IS NOT NULL AND to_regclass('revocred.affiliate_click_days') IS NOT NULL`).Scan(&ready); err != nil {
 		return err
 	}
 	if !ready {

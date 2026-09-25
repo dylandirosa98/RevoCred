@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/revocred/revocred-api/internal/affiliate"
 
 	"github.com/revocred/revocred-api/internal/domain"
 )
@@ -15,6 +16,8 @@ var (
 )
 
 type Repository interface {
+	ListOffers(ctx context.Context) ([]affiliate.Offer, error)
+	RecordOfferClick(ctx context.Context, id, placement string) (string, error)
 	Ping(ctx context.Context) error
 	ExportAccount(ctx context.Context, userID string) (map[string]json.RawMessage, error)
 	DeleteAccount(ctx context.Context, userID string) error

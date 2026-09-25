@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/logic/wallet_score.dart';
 import '../../../core/models/app_models.dart';
+import '../../../core/models/affiliate_offer.dart';
+import '../../../core/state/affiliate_providers.dart';
+import '../../../shared/widgets/apply_offer_button.dart';
 import '../../../core/services/strategy_report_export.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
@@ -210,6 +213,7 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
               ],
             ),
           ),
+          const ApplyOfferButton(placement: ApplyPlacement.report),
           _ReportSection(
             title: 'Current wallet annual value',
             child: Row(
@@ -259,10 +263,19 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
   Future<void> _export(AppData data, {bool share = false}) async {
     setState(() => exporting = true);
     try {
+      if (data.recommendedCardId != null &&
+          !ref.read(appConfigProvider).useMocks &&
+          ref.read(appControllerProvider).isAuthenticated) {
+        await ref.read(affiliateOffersProvider.future);
+        if (!mounted) return;
+      }
+      final application = ref.read(
+        recommendedApplicationProvider(ApplyPlacement.report),
+      );
       if (share) {
-        await shareStrategyReport(data);
+        await shareStrategyReport(data, application: application);
       } else {
-        await downloadStrategyReport(data);
+        await downloadStrategyReport(data, application: application);
       }
     } catch (error) {
       if (mounted) {

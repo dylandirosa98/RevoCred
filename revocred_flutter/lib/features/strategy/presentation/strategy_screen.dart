@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/logic/card_search.dart';
 import '../../../core/models/app_models.dart';
+import '../../../core/models/affiliate_offer.dart';
+import '../../../shared/widgets/apply_offer_button.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/content_layout.dart';
@@ -107,6 +109,7 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
               'No eligible improvement is currently available. Update your questionnaire or keep your current wallet.',
             ),
           ),
+        const ApplyOfferButton(placement: ApplyPlacement.strategy),
         if ((playbook?.steps.where((step) => step.status != 'next').length ??
                 0) >
             0) ...[

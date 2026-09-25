@@ -66,6 +66,8 @@ func New(
 	mux.HandleFunc("GET /metrics", api.metrics)
 	mux.HandleFunc("OPTIONS /", api.options)
 	mux.HandleFunc("POST /v1/public/explain", api.publicExplain)
+	mux.HandleFunc("GET /v1/offers", api.offers)
+	mux.HandleFunc("GET /v1/offers/{id}/apply", api.applyOffer)
 	api.protected(mux, "GET /v1/bootstrap", api.bootstrap)
 	api.protected(mux, "POST /v1/client-errors", api.clientError)
 	api.protected(mux, "GET /v1/account/export", api.exportAccount)

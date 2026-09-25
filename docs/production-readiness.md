@@ -95,6 +95,13 @@ mobile-legal viewport, and fails on any browser runtime error.
 
 ## External launch requirements — still open
 
+Affiliate infrastructure (migration 10, reviewed offers, Apply buttons, anonymous
+click counts and an operator dashboard) is implemented. See
+[affiliate operations](affiliate-operations.md). Earning revenue still requires
+approved partner links; network application/approval/revenue reporting is not
+connected. The iOS manifest and encryption declaration are included; see
+[iOS privacy](ios-privacy.md) for the remaining Xcode/App Store validation.
+
 1. **Issuer review:** verify launch catalog entries and publish corrections.
    Approve point valuations and customer-facing model claims.
 2. **Legal/business:** replace the explicit pre-release notice with approved

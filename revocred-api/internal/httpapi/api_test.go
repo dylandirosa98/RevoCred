@@ -12,9 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/revocred/revocred-api/internal/affiliate"
 	"github.com/revocred/revocred-api/internal/auth"
 	"github.com/revocred/revocred-api/internal/chat"
 	"github.com/revocred/revocred-api/internal/domain"
+	"github.com/revocred/revocred-api/internal/store"
 )
 
 type fakeAuthenticator struct {
@@ -33,6 +35,13 @@ type fakeRepository struct {
 	wallet      []domain.WalletCard
 	savedInput  domain.RecommendationInput
 	savedResult domain.RecommendationResult
+}
+
+func (f *fakeRepository) ListOffers(context.Context) ([]affiliate.Offer, error) {
+	return []affiliate.Offer{}, nil
+}
+func (f *fakeRepository) RecordOfferClick(context.Context, string, string) (string, error) {
+	return "", store.ErrNotFound
 }
 
 func (f *fakeRepository) Ping(context.Context) error { return nil }

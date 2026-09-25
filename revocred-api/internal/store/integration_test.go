@@ -97,6 +97,7 @@ func TestPostgresIntegration(t *testing.T) {
 	}
 	input := domain.RecommendationInput{MonthlyCategorySpend: map[string]int64{"other": 100000}, FeeToleranceCents: 10000, CreditTier: "good", RewardsGoal: "cash_back", TravelScope: "none"}
 	result := recommendation.New().Recommend(input, cards)
+	t.Run("affiliate lifecycle and ranking independence", func(t *testing.T) { testAffiliateOffers(t, ctx, admin, repo, input, cards) })
 	result.StrategyCode = "S03"
 	if _, err = repo.SaveRecommendation(ctx, a, input, result); err != nil {
 		t.Fatal(err)
@@ -122,16 +123,38 @@ func TestPostgresIntegration(t *testing.T) {
 	if strings.Contains(string(other["chat_messages"]), "private prompt") {
 		t.Fatal("export leaked other account")
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO revocred.chat_messages(user_id,role,content) SELECT $1,'user','retention fixture' FROM generate_series(1,1002)`, a); err != nil { t.Fatal(err) }
+	if _, err = pool.Exec(ctx, `INSERT INTO revocred.chat_messages(user_id,role,content) SELECT $1,'user','retention fixture' FROM generate_series(1,1002)`, a); err != nil {
+		t.Fatal(err)
+	}
 	var retained int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM revocred.chat_messages WHERE user_id=$1`,a).Scan(&retained); err != nil || retained != 1000 { t.Fatalf("chat retention = %d, %v",retained,err) }
-	for i:=0;i<101;i++ { if _,err=repo.SaveRecommendation(ctx,a,input,result);err!=nil {t.Fatal(err)} }
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM revocred.recommendation_runs WHERE user_id=$1`,a).Scan(&retained); err != nil || retained != 100 { t.Fatalf("recommendation retention = %d, %v",retained,err) }
-	current,err:=repo.Bootstrap(ctx,a);if err!=nil {t.Fatal(err)}
-	if current.Profile.NextApplicationTarget != current.Playbook.NextCard {t.Fatal("profile and playbook disagree")}
-	for i:=0;i<99;i++ { draft.Name=fmt.Sprintf("Quota card %d",i);if _,err=repo.CreateCustomCard(ctx,a,draft);err!=nil {t.Fatal(err)} }
-	draft.Name="Over quota"
-	if _,err=repo.CreateCustomCard(ctx,a,draft);!errors.Is(err,ErrQuota) {t.Fatalf("expected card quota: %v",err)}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM revocred.chat_messages WHERE user_id=$1`, a).Scan(&retained); err != nil || retained != 1000 {
+		t.Fatalf("chat retention = %d, %v", retained, err)
+	}
+	for i := 0; i < 101; i++ {
+		if _, err = repo.SaveRecommendation(ctx, a, input, result); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM revocred.recommendation_runs WHERE user_id=$1`, a).Scan(&retained); err != nil || retained != 100 {
+		t.Fatalf("recommendation retention = %d, %v", retained, err)
+	}
+	current, err := repo.Bootstrap(ctx, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Profile.NextApplicationTarget != current.Playbook.NextCard {
+		t.Fatal("profile and playbook disagree")
+	}
+	for i := 0; i < 99; i++ {
+		draft.Name = fmt.Sprintf("Quota card %d", i)
+		if _, err = repo.CreateCustomCard(ctx, a, draft); err != nil {
+			t.Fatal(err)
+		}
+	}
+	draft.Name = "Over quota"
+	if _, err = repo.CreateCustomCard(ctx, a, draft); !errors.Is(err, ErrQuota) {
+		t.Fatalf("expected card quota: %v", err)
+	}
 	if err = repo.DeleteAccount(ctx, a); err != nil {
 		t.Fatal(err)
 	}

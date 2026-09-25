@@ -23,12 +23,12 @@ const answers = QuestionnaireAnswers(
 
 class _SessionRepository extends MockAppRepository {
   final events = StreamController<AccountSession>.broadcast();
+  AppData data = createDemoAppData();
   Completer<AppData>? pending;
   @override
   Stream<AccountSession> get sessionChanges => events.stream;
   @override
-  Future<AppData> loadAppData() =>
-      pending?.future ?? Future.value(createDemoAppData());
+  Future<AppData> loadAppData() => pending?.future ?? Future.value(data);
 }
 
 void main() {
@@ -49,9 +49,27 @@ void main() {
   });
 
   test(
-    'sign-out event clears data and late refresh cannot restore it',
+    'sign-out replaces private data with demo and ignores late refresh',
     () async {
       final repository = _SessionRepository();
+      repository.data = createDemoAppData().copyWith(
+        profile: const UserProfile(
+          name: 'Private member',
+          strategy: 'S03',
+          goal: 'Private goal',
+          topSpendCategories: 'Private spending',
+          nextTarget: 'Private target',
+          email: 'private@example.test',
+        ),
+        messages: [
+          ChatMessage(
+            id: 'private-chat',
+            role: MessageRole.user,
+            content: 'Private message',
+            createdAt: DateTime(2026),
+          ),
+        ],
+      );
       final container = ProviderContainer(
         overrides: [
           appConfigProvider.overrideWithValue(const AppConfig(useMocks: false)),
@@ -64,14 +82,25 @@ void main() {
       });
       final controller = container.read(appControllerProvider.notifier);
       await controller.refresh();
+      expect(
+        container.read(appControllerProvider).data!.profile.email,
+        'private@example.test',
+      );
       repository.pending = Completer<AppData>();
       final refresh = controller.refresh();
       repository.events.add(const AccountSession(authenticated: false));
       await Future<void>.delayed(Duration.zero);
-      repository.pending!.complete(createDemoAppData());
+      final guestData = container.read(appControllerProvider).data!;
+      expect(guestData.profile.email, isNot('private@example.test'));
+      expect(
+        guestData.messages.any((message) => message.id == 'private-chat'),
+        isFalse,
+      );
+      expect(guestData.recommendedCardId, isNull);
+      repository.pending!.complete(repository.data);
       await refresh;
       expect(container.read(appControllerProvider).isAuthenticated, isFalse);
-      expect(container.read(appControllerProvider).data, isNull);
+      expect(container.read(appControllerProvider).data, same(guestData));
     },
   );
 
