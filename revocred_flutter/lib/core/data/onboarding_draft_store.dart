@@ -46,6 +46,16 @@ class OnboardingDraftStore {
   }
 
   String? get email => _value?['email'] as String?;
+  String? get displayName => _value?['display_name'] as String?;
+
+  Future<void> saveName(String name) async {
+    final value = _value;
+    if (value == null) return;
+    value['display_name'] = name.trim();
+    _memory = jsonEncode(value);
+    await preferences?.setString(_key, _memory!);
+  }
+
   Future<void> save(QuestionnaireAnswers answers, {String? email}) async {
     _memory = jsonEncode({
       'saved_at': DateTime.now().toUtc().toIso8601String(),

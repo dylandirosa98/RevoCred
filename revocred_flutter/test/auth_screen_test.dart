@@ -160,8 +160,11 @@ class _AuthenticatingRepository extends MockAppRepository {
   }
 
   @override
-  Future<AuthResult> signUp(String email, String password) =>
-      signIn(email, password);
+  Future<AuthResult> signUp(
+    String email,
+    String password, {
+    String displayName = '',
+  }) => signIn(email, password);
 
   @override
   Future<AppData> loadAppData() async => createDemoAppData();

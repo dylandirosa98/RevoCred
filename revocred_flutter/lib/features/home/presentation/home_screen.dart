@@ -44,6 +44,8 @@ class HomeScreen extends ConsumerWidget {
         : data.projectedYearlyValue;
     if (product.heroTreatment == HeroTreatment.wallet) {
       return _WalletFlowHome(
+        name: data.profile.firstName,
+        initials: data.profile.initials,
         cards: data.wallet,
         estimatedValue: estimatedValue,
         projectedValue: estimatedValue,
@@ -52,6 +54,8 @@ class HomeScreen extends ConsumerWidget {
     }
     if (product.heroTreatment == HeroTreatment.walletStudio) {
       return _WalletStudioHome(
+        name: data.profile.firstName,
+        initials: data.profile.initials,
         cards: data.wallet,
         estimatedValue: estimatedValue,
         projectedValue: estimatedValue,
@@ -61,6 +65,8 @@ class HomeScreen extends ConsumerWidget {
     }
     if (product.heroTreatment == HeroTreatment.decision) {
       return _DecisionFlowHome(
+        name: data.profile.firstName,
+        initials: data.profile.initials,
         cards: data.wallet,
         estimatedValue: estimatedValue,
         projectedValue: estimatedValue,
@@ -172,6 +178,8 @@ class HomeScreen extends ConsumerWidget {
 class _DecisionFlowHome extends StatefulWidget {
   const _DecisionFlowHome({
     required this.cards,
+    this.name = '',
+    this.initials = '',
     required this.estimatedValue,
     required this.projectedValue,
     required this.score,
@@ -179,6 +187,8 @@ class _DecisionFlowHome extends StatefulWidget {
     required this.onAskRevo,
   });
 
+  final String name;
+  final String initials;
   final List<CreditCard> cards;
   final int estimatedValue;
   final int projectedValue;
@@ -275,6 +285,8 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _WalletGreeting(
+                name: widget.name,
+                initials: widget.initials,
                 onProfile: () => context.go('/profile'),
                 onSearch: () => context.go('/strategy'),
                 onAlerts: () => _showAlerts(context),
@@ -1016,12 +1028,16 @@ class _DecisionUpcoming extends StatelessWidget {
 class _WalletStudioHome extends StatelessWidget {
   const _WalletStudioHome({
     required this.cards,
+    this.name = '',
+    this.initials = '',
     required this.estimatedValue,
     required this.projectedValue,
     required this.score,
     required this.nextTarget,
   });
 
+  final String name;
+  final String initials;
   final List<CreditCard> cards;
   final int estimatedValue;
   final int projectedValue;
@@ -1730,11 +1746,15 @@ class _ScoreRingPainter extends CustomPainter {
 class _WalletFlowHome extends StatelessWidget {
   const _WalletFlowHome({
     required this.cards,
+    this.name = '',
+    this.initials = '',
     required this.estimatedValue,
     required this.projectedValue,
     required this.nextTarget,
   });
 
+  final String name;
+  final String initials;
   final List<CreditCard> cards;
   final int estimatedValue;
   final int projectedValue;
@@ -1754,6 +1774,8 @@ class _WalletFlowHome extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _WalletGreeting(
+                name: name,
+                initials: initials,
                 onProfile: () => context.go('/profile'),
                 onSearch: () => context.go('/strategy'),
                 onAlerts: () => ScaffoldMessenger.of(context).showSnackBar(
@@ -1864,8 +1886,12 @@ class _WalletGreeting extends StatelessWidget {
     required this.onProfile,
     required this.onSearch,
     required this.onAlerts,
+    this.name = '',
+    this.initials = '',
   });
 
+  final String name;
+  final String initials;
   final VoidCallback onProfile;
   final VoidCallback onSearch;
   final VoidCallback onAlerts;
@@ -1887,9 +1913,9 @@ class _WalletGreeting extends StatelessWidget {
               color: Color(0xFF8267E8),
               shape: BoxShape.circle,
             ),
-            child: const Text(
-              'AM',
-              style: TextStyle(
+            child: Text(
+              initials.isEmpty ? 'R' : initials,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -1901,7 +1927,8 @@ class _WalletGreeting extends StatelessWidget {
       const SizedBox(width: 10),
       Expanded(
         child: Text(
-          'Hello, Alex',
+          // Greet whoever is actually signed in rather than a fixed name.
+          name.isEmpty ? 'Hello' : 'Hello, $name',
           style: TextStyle(
             color: context.product.ink,
             fontSize: 16,

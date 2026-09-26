@@ -18,6 +18,7 @@ class AuthScreen extends ConsumerStatefulWidget {
 class _AuthScreenState extends ConsumerState<AuthScreen> {
   final email = TextEditingController();
   final password = TextEditingController();
+  final name = TextEditingController();
   bool submitting = false;
   bool showForm = false;
   bool signingUp = true;
@@ -34,6 +35,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   void dispose() {
     email.dispose();
     password.dispose();
+    name.dispose();
     super.dispose();
   }
 
@@ -55,6 +57,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         email: email,
                         password: password,
                         signingUp: signingUp,
+                        name: name,
                         submitting: submitting,
                         obscurePassword: obscurePassword,
                         message: message,
@@ -117,6 +120,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       );
       return;
     }
+    // Ask for a name up front so the greeting is never a placeholder, and so it
+    // survives the email-confirmation round trip with the saved plan.
+    final displayName = name.text.trim();
+    if (signUp && displayName.isEmpty) {
+      setState(() => message = 'Enter the name you want to see in RevoCred.');
+      return;
+    }
+    if (signUp && displayName.runes.length > 60) {
+      setState(() => message = 'That name is too long.');
+      return;
+    }
     setState(() {
       submitting = true;
       message = null;
@@ -124,7 +138,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     try {
       final controller = ref.read(appControllerProvider.notifier);
       final result = signUp
-          ? await controller.signUp(email.text.trim(), password.text)
+          ? await controller.signUp(
+              email.text.trim(),
+              password.text,
+              displayName: displayName,
+            )
           : await controller.signIn(email.text.trim(), password.text);
       if (mounted) {
         final authenticated = ref.read(appControllerProvider).isAuthenticated;
@@ -426,6 +444,7 @@ class _AuthFormPage extends StatelessWidget {
     required this.email,
     required this.password,
     required this.signingUp,
+    required this.name,
     required this.submitting,
     required this.obscurePassword,
     required this.onBack,
@@ -439,6 +458,7 @@ class _AuthFormPage extends StatelessWidget {
   final TextEditingController email;
   final TextEditingController password;
   final bool signingUp;
+  final TextEditingController name;
   final bool submitting;
   final bool obscurePassword;
   final String? message;
@@ -516,6 +536,21 @@ class _AuthFormPage extends StatelessWidget {
         style: TextStyle(color: context.product.muted, height: 1.5),
       ),
       const SizedBox(height: 26),
+      if (signingUp) ...[
+        TextField(
+          key: const ValueKey('auth-name'),
+          controller: name,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+          maxLength: 60,
+          decoration: const InputDecoration(
+            labelText: 'First name or full name',
+            helperText: 'Used for your greeting. Never shown publicly.',
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
       TextField(
         key: const ValueKey('auth-email'),
         controller: email,

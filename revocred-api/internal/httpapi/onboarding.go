@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/revocred/revocred-api/internal/domain"
 	"github.com/revocred/revocred-api/internal/store"
@@ -109,4 +110,36 @@ func (a *API) cardIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeData(w, http.StatusOK, cards)
+}
+
+// putDisplayName updates only the name, so a correction can never disturb the
+// saved strategy, goal or next application target.
+func (a *API) putDisplayName(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		DisplayName string `json:"display_name"`
+	}
+	if !a.decodeJSON(w, r, &input) {
+		return
+	}
+	name := strings.TrimSpace(input.DisplayName)
+	if name == "" || utf8.RuneCountInString(name) > 60 || !printableName(name) {
+		writeError(w, r, http.StatusUnprocessableEntity, "validation_error",
+			"Enter a name of 1 to 60 letters, spaces, apostrophes or hyphens.", nil)
+		return
+	}
+	profile, err := a.repository.GetProfile(r.Context(), authenticatedUser(r.Context()).ID)
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	if profile == nil {
+		profile = &domain.Profile{}
+	}
+	profile.DisplayName = name
+	saved, err := a.repository.UpsertProfile(r.Context(), authenticatedUser(r.Context()).ID, *profile)
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	writeData(w, http.StatusOK, saved)
 }

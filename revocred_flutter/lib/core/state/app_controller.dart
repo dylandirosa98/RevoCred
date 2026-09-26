@@ -180,10 +180,18 @@ class AppController extends Notifier<AppState> {
     return result;
   }
 
-  Future<AuthResult> signUp(String email, String password) async {
+  Future<AuthResult> signUp(
+    String email,
+    String password, {
+    String displayName = '',
+  }) async {
+    final trimmedName = displayName.trim();
     if (!state.isAuthenticated && state.data?.isPersonalPreview == true) {
       await draftStore.bind(email);
     }
+    // The name is saved with the plan, so it also has to survive a reload
+    // between signing up and confirming the email.
+    if (trimmedName.isNotEmpty) await draftStore.saveName(trimmedName);
     final result = await _repository.signUp(email, password);
     if (result.success && _repository.isAuthenticated) {
       state = state.copyWith(isAuthenticated: true);
@@ -373,6 +381,26 @@ class AppController extends Notifier<AppState> {
           : 'Answers saved and recommendation calculated by the Go API.',
     );
     return recommendation;
+  }
+
+  Future<void> updateDisplayName(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) throw StateError('Enter a name.');
+    try {
+      await _repository.updateDisplayName(trimmed);
+      // Load directly instead of refresh(): refresh() joins an in-flight
+      // refresh, which would silently drop this change during startup.
+      final data = await _repository.loadAppData();
+      state = state.copyWith(
+        data: data,
+        isLoading: false,
+        clearError: true,
+        actionMessage: 'Name updated.',
+      );
+    } catch (error) {
+      state = state.copyWith(error: 'Could not update your name: $error');
+      rethrow;
+    }
   }
 
   Future<void> switchStrategy(String code) async {

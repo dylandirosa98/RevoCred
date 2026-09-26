@@ -21,7 +21,11 @@ abstract interface class AppRepository {
   Future<void> deleteAccount(String password);
   bool get isAuthenticated;
   Future<AuthResult> signIn(String email, String password);
-  Future<AuthResult> signUp(String email, String password);
+  Future<AuthResult> signUp(
+    String email,
+    String password, {
+    String displayName = '',
+  });
   Future<void> signOut();
   Future<AppData> loadAppData();
   Future<void> addCard(String cardId);
@@ -30,6 +34,7 @@ abstract interface class AppRepository {
   Future<ChatMessage> sendMessage(String prompt);
   Future<DemoRecommendation?> saveQuestionnaire(QuestionnaireAnswers answers);
   Future<void> switchStrategy(String code);
+  Future<void> updateDisplayName(String name);
 }
 
 class AccountSession {

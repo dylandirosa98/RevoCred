@@ -759,7 +759,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
           .read(appControllerProvider.notifier)
           .completeQuestionnaire(answers);
       if (mounted) {
-        context.pushReplacement('/strategy-report');
+        context.go('/strategy-report');
       }
     } catch (error) {
       if (mounted) {

@@ -214,6 +214,22 @@ class UserProfile {
   );
 
   final String name;
+  String get firstName => name.trim().split(RegExp(r'\s+')).first;
+  String get initials {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '';
+    // Runes keep the first letter correct for names outside the basic plane
+    // without pulling in another dependency.
+    String first(String word) =>
+        String.fromCharCodes([word.runes.first]).toUpperCase();
+    if (parts.length == 1) return first(parts.first);
+    return first(parts.first) + first(parts.last);
+  }
+
   final String strategy;
   final String goal;
   final String topSpendCategories;
@@ -702,6 +718,7 @@ class QuestionnaireAnswers {
   ) => QuestionnaireAnswers(
     lifeStage: (json['life_stage'] ?? '').toString(),
     existingCardIds: _stringList(json['existing_card_ids']),
+    displayName: (json['display_name'] ?? '').toString(),
     addedCards: ((json['added_cards'] as List?) ?? const [])
         .map((item) => (item as Map).cast<String, dynamic>())
         .map(
@@ -736,6 +753,7 @@ class QuestionnaireAnswers {
     required this.monthlySpend,
     required this.rewardsGoal,
     this.addedCards = const [],
+    this.displayName = '',
   });
 
   final String lifeStage;
@@ -746,6 +764,7 @@ class QuestionnaireAnswers {
   final Map<String, int> monthlySpend;
   final String rewardsGoal;
   final List<OnboardingCardDraft> addedCards;
+  final String displayName;
 
   Map<String, dynamic> toJson() => {
     'life_stage': lifeStage,
@@ -775,6 +794,7 @@ class QuestionnaireAnswers {
     'existing_card_ids': existingCardIds,
     if (addedCards.isNotEmpty)
       'added_cards': addedCards.map((card) => card.toJson()).toList(),
+    if (displayName.trim().isNotEmpty) 'display_name': displayName.trim(),
   };
 }
 

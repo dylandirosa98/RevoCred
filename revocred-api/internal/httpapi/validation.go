@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/revocred/revocred-api/internal/domain"
@@ -122,6 +123,11 @@ func validateRecommendation(input domain.RecommendationInput) map[string]string 
 		errors["credit_tier"] = "must be building, fair, good, or excellent"
 	}
 	validateAddedCards(input.AddedCards, errors)
+	if name := strings.TrimSpace(input.DisplayName); name != "" {
+		if utf8.RuneCountInString(name) > 60 || !printableName(name) {
+			errors["display_name"] = "must be 1 to 60 letters, spaces, apostrophes or hyphens"
+		}
+	}
 	if len(input.ExistingCardIDs) > 50 {
 		errors["existing_card_ids"] = "must contain at most 50 IDs"
 	}
@@ -231,4 +237,18 @@ func validateAddedCards(cards []domain.OnboardingCard, out map[string]string) {
 			return
 		}
 	}
+}
+
+// printableName allows the letters and marks of any script plus the punctuation
+// people actually put in names, and nothing else.
+func printableName(value string) bool {
+	for _, r := range value {
+		switch {
+		case unicode.IsLetter(r), unicode.IsMark(r):
+		case r == ' ', r == '\'', r == '-', r == '.':
+		default:
+			return false
+		}
+	}
+	return true
 }

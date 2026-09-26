@@ -116,9 +116,12 @@ def main():
             # Let the animated form swap finish so Flutter attaches its input
             # channel before values are injected.
             page.wait_for_timeout(600)
-            fill_field(page, 0, email)
-            fill_field(page, 1, password)
-            expect(page.get_by_role('textbox').nth(0)).to_have_value(email)
+            # Sign-up asks for a name before anything else.
+            # Sign-up asks for the display name first, then email and password.
+            fill_field(page, 0, 'Dana Okafor')
+            fill_field(page, 1, email)
+            fill_field(page, 2, password)
+            expect(page.get_by_role('textbox').nth(1)).to_have_value(email)
             page.get_by_role('button', name='Create account', exact=True).click()
 
             # 5. The plan is saved: same strategy, and the owned card is in the wallet.
@@ -141,6 +144,12 @@ def main():
             page.goto(WEB + '/#/cards')
             enable_accessibility(page)
             expect(page.get_by_text('Sapphire Preferred').first).to_be_visible(timeout=30000)
+
+            # 5b. The name asked for at sign-up is the name the app greets.
+            page.goto(WEB + '/#/home')
+            enable_accessibility(page)
+            expect(page.get_by_text('Hello, Dana', exact=False)).to_be_visible(timeout=30000)
+            assert 'Alex' not in page.inner_text('body'), 'a placeholder name is still shown'
 
             # 6. The plan does not leak back into the demo profile after sign-out.
             page.goto(WEB + '/#/profile')

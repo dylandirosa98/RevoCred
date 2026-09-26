@@ -30,7 +30,22 @@ class ProfileScreen extends ConsumerWidget {
       children: [
         const SectionLabel('Profile'),
         const SizedBox(height: 14),
-        Text(profile.name, style: Theme.of(context).textTheme.headlineMedium),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                profile.name.isEmpty ? 'No name yet' : profile.name,
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+            ),
+            TextButton.icon(
+              key: const ValueKey('edit-display-name'),
+              onPressed: () => _editName(context, ref, profile.name),
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('Edit'),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         Text(
           !state.isAuthenticated || config.useMocks
@@ -149,7 +164,10 @@ class ProfileScreen extends ConsumerWidget {
         const SizedBox(height: 14),
         InkWell(
           key: const ValueKey('questionnaire-launcher'),
-          onTap: () => context.push('/questionnaire'),
+          // go, not push: the questionnaire is a full-screen route outside the
+          // shell, so pushing it left the URL on /profile and stacked a screen
+          // the back button would return to.
+          onTap: () => context.go('/questionnaire'),
           borderRadius: BorderRadius.circular(product.radius),
           child: AppPanel(
             child: Row(
@@ -250,6 +268,49 @@ class ProfileScreen extends ConsumerWidget {
         ),
       ],
     );
+  }
+}
+
+Future<void> _editName(
+  BuildContext context,
+  WidgetRef ref,
+  String current,
+) async {
+  final controller = TextEditingController(text: current);
+  final name = await showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Your name'),
+      content: TextField(
+        key: const ValueKey('display-name-field'),
+        controller: controller,
+        autofocus: true,
+        maxLength: 60,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(labelText: 'Name'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('display-name-save'),
+          onPressed: () => Navigator.pop(context, controller.text),
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+  if (name == null || name.trim().isEmpty) return;
+  try {
+    await ref.read(appControllerProvider.notifier).updateDisplayName(name);
+  } catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$error')));
   }
 }
 

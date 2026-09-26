@@ -75,8 +75,25 @@ class MockAppRepository implements AppRepository {
       );
 
   @override
-  Future<AuthResult> signUp(String email, String password) =>
-      signIn(email, password);
+  Future<AuthResult> signUp(
+    String email,
+    String password, {
+    String displayName = '',
+  }) async {
+    if (displayName.trim().isNotEmpty) {
+      _data = _data.copyWith(
+        profile: UserProfile(
+          name: displayName.trim(),
+          strategy: _data.profile.strategy,
+          goal: _data.profile.goal,
+          topSpendCategories: _data.profile.topSpendCategories,
+          nextTarget: _data.profile.nextTarget,
+          email: _data.profile.email,
+        ),
+      );
+    }
+    return signIn(email, password);
+  }
 
   @override
   Future<void> signOut() async {
@@ -165,6 +182,20 @@ class MockAppRepository implements AppRepository {
   Future<DemoRecommendation?> saveQuestionnaire(
     QuestionnaireAnswers answers,
   ) async => null;
+
+  @override
+  Future<void> updateDisplayName(String name) async {
+    _data = _data.copyWith(
+      profile: UserProfile(
+        name: name.trim(),
+        strategy: _data.profile.strategy,
+        goal: _data.profile.goal,
+        topSpendCategories: _data.profile.topSpendCategories,
+        nextTarget: _data.profile.nextTarget,
+        email: _data.profile.email,
+      ),
+    );
+  }
 
   @override
   Future<void> switchStrategy(String code) async {

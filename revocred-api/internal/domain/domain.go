@@ -132,6 +132,9 @@ type RecommendationInput struct {
 	CreditTier           string           `json:"credit_tier"`
 	ExistingCardIDs      []string         `json:"existing_card_ids"`
 	AddedCards           []OnboardingCard `json:"added_cards,omitempty"`
+	// DisplayName is captured at sign-up and saved with the plan, so the
+	// greeting is never a hardcoded placeholder.
+	DisplayName string `json:"display_name,omitempty"`
 }
 
 type RecommendationItem struct {

@@ -78,6 +78,7 @@ func New(
 	api.protected(mux, "DELETE /v1/account", api.deleteAccount)
 	api.protected(mux, "GET /v1/cards", api.cards)
 	api.protected(mux, "GET /v1/profile", api.getProfile)
+	api.protected(mux, "PUT /v1/profile/display-name", api.putDisplayName)
 	api.protected(mux, "PUT /v1/profile", api.putProfile)
 	api.protected(mux, "GET /v1/wallet", api.getWallet)
 	api.protected(mux, "POST /v1/wallet", api.postWallet)

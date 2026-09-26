@@ -177,7 +177,11 @@ class ApiAppRepository implements AppRepository {
   }
 
   @override
-  Future<AuthResult> signUp(String email, String password) async {
+  Future<AuthResult> signUp(
+    String email,
+    String password, {
+    String displayName = '',
+  }) async {
     if (_supabase == null) return _configurationError();
     try {
       final result = await _supabase.auth.signUp(
@@ -299,6 +303,15 @@ class ApiAppRepository implements AppRepository {
           .toList(),
       formula:
           'Server engine ${result['engine_version'] ?? 'v1'} using dataset ${result['dataset_version'] ?? 'unknown'}.',
+    );
+  }
+
+  @override
+  Future<void> updateDisplayName(String name) async {
+    await _request(
+      'PUT',
+      '/v1/profile/display-name',
+      body: {'display_name': name.trim()},
     );
   }
 

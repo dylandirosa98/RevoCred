@@ -455,8 +455,8 @@ RETURNING id::text`, userID, spendJSON, input.FeeToleranceCents, input.TravelSco
 	categories, goal, target := questionnaireProfile(input, result)
 	_, err = tx.Exec(ctx, `
 INSERT INTO revocred.profiles (
-	user_id, credit_card_strategy, goal, top_spend_categories, next_application_target, rewards_goal, travel_scope
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
+	user_id, credit_card_strategy, goal, top_spend_categories, next_application_target, rewards_goal, travel_scope, display_name
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (user_id) DO UPDATE SET
 	credit_card_strategy = EXCLUDED.credit_card_strategy,
 	goal = EXCLUDED.goal,
@@ -464,7 +464,9 @@ ON CONFLICT (user_id) DO UPDATE SET
     next_application_target = EXCLUDED.next_application_target,
     rewards_goal = EXCLUDED.rewards_goal,
     travel_scope = EXCLUDED.travel_scope,
-    updated_at = now()`, userID, result.StrategyCode, goal, categories, target, input.RewardsGoal, input.TravelScope)
+    -- An empty submission must not erase a name already on file.
+    display_name = COALESCE(NULLIF(EXCLUDED.display_name, ''), revocred.profiles.display_name),
+    updated_at = now()`, userID, result.StrategyCode, goal, categories, target, input.RewardsGoal, input.TravelScope, strings.TrimSpace(input.DisplayName))
 	if err != nil {
 		return domain.RecommendationResult{}, fmt.Errorf("update profile from questionnaire: %w", err)
 	}

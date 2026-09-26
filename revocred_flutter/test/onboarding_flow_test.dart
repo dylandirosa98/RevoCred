@@ -71,7 +71,11 @@ class PreviewRepository extends MockAppRepository {
   @override
   String? get accountEmail => authenticated ? email : null;
   @override
-  Future<AuthResult> signUp(String email, String password) async {
+  Future<AuthResult> signUp(
+    String email,
+    String password, {
+    String displayName = '',
+  }) async {
     this.email = email;
     return const AuthResult(success: true, message: 'Confirm email.');
   }
