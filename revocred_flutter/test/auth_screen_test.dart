@@ -91,6 +91,34 @@ void main() {
     expect(appRouter.routeInformationProvider.value.uri.path, '/questionnaire');
   });
 
+  testWidgets('signing out returns to welcome and keeps the guest demo shell', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    appRouter.go('/profile');
+
+    await tester.pumpWidget(
+      RevoCredBootstrap(
+        config: const AppConfig(useMocks: false),
+        repository: _GuestRepository(),
+        preferences: preferences,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // A signed-out visitor keeps the demo shell on purpose, so the app must not
+    // trap them on an account page after sign-out.
+    expect(appRouter.routeInformationProvider.value.uri.path, '/profile');
+    appRouter.go('/welcome');
+    await tester.pumpAndSettle();
+    expect(appRouter.routeInformationProvider.value.uri.path, '/welcome');
+  });
+
   testWidgets('logged-out real mode still shows the demo home', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;

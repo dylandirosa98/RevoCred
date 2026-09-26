@@ -40,6 +40,11 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
 
   static const totalSteps = 7;
 
+  // A signed-out visitor's wallet is demo data, not cards they own. Only a real
+  // account or the visitor's own preview may prefill or extend the card list.
+  bool hasOwnWallet(AppState state) =>
+      state.isAuthenticated || state.data?.isPersonalPreview == true;
+
   @override
   void initState() {
     super.initState();
@@ -70,11 +75,12 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
           }
           cardsConfirmed = true;
         }
-        if ((state.isAuthenticated && !ref.read(appConfigProvider).useMocks) ||
-            state.data?.isPersonalPreview == true) {
-          existingCardIds.addAll(state.data!.wallet.map((card) => card.id));
-        } else if (saved != null) {
-          existingCardIds.addAll(saved.existingCardIds);
+        if (hasOwnWallet(state) || saved != null) {
+          existingCardIds.addAll(
+            hasOwnWallet(state)
+                ? state.data!.wallet.map((card) => card.id)
+                : saved!.existingCardIds,
+          );
         }
       });
     } catch (_) {
@@ -257,14 +263,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
         title: 'Which cards do you already have?',
         hint:
             'Select the cards you own, or confirm you have none. Saving your plan updates your wallet to this selection; we will not recommend applying for cards you already own.',
-        child: _cardSelector([
-          ...catalog,
-          ...?ref
-              .read(appControllerProvider)
-              .data
-              ?.wallet
-              .where((card) => !catalog.any((item) => item.id == card.id)),
-        ]),
+        child: _cardSelector(_ownedCardOptions(catalog)),
       ),
       2 => _Question(
         key: const ValueKey('question-fees'),
@@ -417,8 +416,29 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
     );
   }
 
+  // The catalog always wins a name collision so a selectable row always carries
+  // a real catalog ID. A wallet adds only cards the catalog does not list (a
+  // user's own custom card), and only for an account or preview that owns them.
+  List<CreditCard> _ownedCardOptions(List<CreditCard> catalog) {
+    final options = <CreditCard>[...catalog];
+    final seen = <String>{
+      for (final card in catalog) '${card.name}|${card.issuer}'.toLowerCase(),
+    };
+    if (!hasOwnWallet(ref.read(appControllerProvider))) return options;
+    for (final card in ref.read(appControllerProvider).data!.wallet) {
+      final key = '${card.name}|${card.issuer}'.toLowerCase();
+      if (seen.add(key)) options.add(card);
+    }
+    return options;
+  }
+
   Widget _cardSelector(List<CreditCard> catalog) {
-    final results = searchCards(catalog, cardQuery).take(8);
+    // searchCards returns nothing for an empty query, so an unsearched list
+    // must be built from the catalog itself or the step looks empty.
+    final results = cardQuery.trim().isEmpty
+        ? (catalog.toList()..sort((a, b) => a.name.compareTo(b.name)))
+        : searchCards(catalog, cardQuery).take(8).toList();
+    final searching = cardQuery.trim().isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -502,8 +522,17 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
           ),
         ),
         const SizedBox(height: 12),
+        if (!searching)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Showing every card. Search to narrow the list.',
+              style: TextStyle(color: context.product.muted, fontSize: 12),
+            ),
+          ),
         for (final card in results)
           CheckboxListTile(
+            key: ValueKey('existing-card-${card.id}'),
             value: existingCardIds.contains(card.id),
             onChanged: (_) => setState(
               () => existingCardIds.contains(card.id)

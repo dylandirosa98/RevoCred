@@ -230,10 +230,15 @@ class ProfileScreen extends ConsumerWidget {
         OutlinedButton.icon(
           onPressed: () async {
             await ref.read(appControllerProvider.notifier).signOut();
-            if (context.mounted && config.useMocks) {
+            if (!context.mounted) return;
+            // Leaving a signed-in screen for a signed-out one must not strand
+            // the visitor on an account page.
+            if (config.useMocks) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Demo session reset locally.')),
               );
+            } else {
+              context.go('/welcome');
             }
           },
           style: OutlinedButton.styleFrom(

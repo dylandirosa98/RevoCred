@@ -89,6 +89,9 @@ class _RevoCredAppState extends ConsumerState<RevoCredApp> {
           });
         }
         if (!state.isAuthenticated) {
+          // Signed-out visitors keep the demo shell on purpose: they explore with
+          // demo data and may hold a guest preview. Account pages still require
+          // a session, so send only those back to the welcome screen.
           if (const ['/account', '/reset-password'].contains(path) &&
               !state.passwordRecovery) {
             WidgetsBinding.instance.addPostFrameCallback((_) {

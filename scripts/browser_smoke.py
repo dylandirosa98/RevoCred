@@ -70,7 +70,9 @@ def main():
             fill_field(page, 0, email)
             fill_field(page, 1, password)
             page.get_by_role('button', name='Sign in', exact=True).click()
-            expect(page).to_have_url(re.compile(r'.*#/home$'), timeout=30000)
+            # A confirmed account with no saved questionnaire is sent to
+            # onboarding rather than an empty home screen.
+            expect(page).to_have_url(re.compile(r'.*#/questionnaire$'), timeout=30000)
             page.goto('http://127.0.0.1:8083/#/account')
             enable_accessibility(page)
             page.get_by_role('button', name='Export my data').click()

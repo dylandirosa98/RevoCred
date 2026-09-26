@@ -138,6 +138,51 @@ void main() {
     },
   );
 
+  testWidgets('onboarding lists catalog cards before any search is typed', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    appRouter.go('/questionnaire');
+
+    await tester.pumpWidget(
+      RevoCredBootstrap(
+        config: const AppConfig(useMocks: true),
+        repository: MockAppRepository(),
+        preferences: preferences,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // A user must be able to say which cards they own without typing a search.
+    await tester.tap(find.text('Adult and building a foundation'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('questionnaire-next')));
+    await tester.pumpAndSettle();
+    final search = find.byKey(const ValueKey('questionnaire-card-search'));
+    expect(search, findsOneWidget);
+    expect(
+      tester.widget<TextField>(search).controller?.text ?? '',
+      isEmpty,
+      reason: 'the search box must start empty for this test to be meaningful',
+    );
+    final cards = tester
+        .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
+        .where((tile) => tile.title is Text)
+        .map((tile) => (tile.title! as Text).data)
+        .toList();
+    expect(
+      cards.length,
+      greaterThan(3),
+      reason: 'the owned-card step must show the catalog, not an empty list',
+    );
+    expect(find.text('I do not have any credit cards'), findsOneWidget);
+  });
+
   testWidgets('REVO remains usable when the mobile keyboard opens', (
     tester,
   ) async {
