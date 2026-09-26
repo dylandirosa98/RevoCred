@@ -129,6 +129,28 @@ class ApiAppRepository implements AppRepository {
   }
 
   @override
+  Future<List<ReferenceCard>> searchCardIndex(String query) async {
+    final uri =
+        Uri.parse(
+          '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/v1/public/card-index',
+        ).replace(
+          queryParameters: {if (query.trim().isNotEmpty) 'q': query.trim()},
+        );
+    final json = await _request(
+      'GET',
+      uri.toString(),
+      absolute: true,
+      anonymous: true,
+    );
+    return (json['data'] as List)
+        .map(
+          (item) =>
+              ReferenceCard.fromJson((item as Map).cast<String, dynamic>()),
+        )
+        .toList();
+  }
+
+  @override
   Future<AppData> previewQuestionnaire(QuestionnaireAnswers answers) async {
     final json = await _request(
       'POST',
@@ -295,6 +317,7 @@ class ApiAppRepository implements AppRepository {
     String path, {
     Map<String, dynamic>? body,
     bool anonymous = false,
+    bool absolute = false,
   }) async {
     if (baseUrl.trim().isEmpty) {
       throw StateError('Real mode requires REVOCRED_API_URL.');
@@ -303,7 +326,9 @@ class ApiAppRepository implements AppRepository {
     if (!anonymous && token == null) {
       throw StateError('Sign in before calling the API.');
     }
-    final uri = Uri.parse('${baseUrl.replaceFirst(RegExp(r'/$'), '')}$path');
+    final uri = absolute
+        ? Uri.parse(path)
+        : Uri.parse('${baseUrl.replaceFirst(RegExp(r'/$'), '')}$path');
     final headers = {
       if (!anonymous && token != null) 'Authorization': 'Bearer $token',
       'Accept': 'application/json',

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import '../../../core/logic/card_search.dart';
 import '../../../core/models/app_models.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/card_terms_sheet.dart';
 import '../../../shared/widgets/custom_card_form.dart';
 
 class QuestionnaireScreen extends ConsumerStatefulWidget {
@@ -20,6 +22,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   int step = 0;
   String lifeStage = '';
   final existingCardIds = <String>[];
+  Timer? _searchDebounce;
   String feeTolerance = '';
   String travelScope = '';
   String creditTier = '';
@@ -28,6 +31,10 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   bool catalogReady = false;
   String? loadError;
   String cardQuery = '';
+  final addedFromIndex = <OnboardingCardDraft>[];
+  List<ReferenceCard> indexResults = const [];
+  bool indexSearching = false;
+  String? indexError;
   final spendControllers = {
     'dining': TextEditingController(),
     'groceries': TextEditingController(),
@@ -95,7 +102,9 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
 
   bool get canContinue => switch (step) {
     0 => lifeStage.isNotEmpty,
-    1 => existingCardIds.isNotEmpty || cardsConfirmed,
+    // A card added from search is an answer too, so it must satisfy this step.
+    1 =>
+      existingCardIds.isNotEmpty || addedFromIndex.isNotEmpty || cardsConfirmed,
     2 => feeTolerance.isNotEmpty,
     3 => travelScope.isNotEmpty,
     4 => creditTier.isNotEmpty,
@@ -105,6 +114,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     for (final controller in spendControllers.values) {
       controller.dispose();
     }
@@ -262,7 +272,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
         key: const ValueKey('question-existing-cards'),
         title: 'Which cards do you already have?',
         hint:
-            'Select the cards you own, or confirm you have none. Saving your plan updates your wallet to this selection; we will not recommend applying for cards you already own.',
+            'Search any card you already have, or confirm you have none. Cards you add from search can carry your own terms; we never recommend applying for a card you already hold.',
         child: _cardSelector(_ownedCardOptions(catalog)),
       ),
       2 => _Question(
@@ -514,13 +524,96 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
         if (existingCardIds.isNotEmpty) const SizedBox(height: 14),
         TextField(
           key: const ValueKey('questionnaire-card-search'),
-          onChanged: (value) => setState(() => cardQuery = value),
+          onChanged: (value) {
+            setState(() => cardQuery = value);
+            _searchDebounce?.cancel();
+            _searchDebounce = Timer(
+              const Duration(milliseconds: 350),
+              _searchIndex,
+            );
+          },
           textInputAction: TextInputAction.search,
           decoration: const InputDecoration(
             prefixIcon: Icon(Icons.search),
             hintText: 'Search cards or issuers',
           ),
         ),
+        if (addedFromIndex.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Cards you added from search',
+            style: TextStyle(
+              color: context.product.action,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          for (final card in addedFromIndex)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                card.cardName,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                card.includeTerms
+                    ? 'Using the terms you entered'
+                    : 'No terms - not used in your score',
+              ),
+              trailing: IconButton(
+                tooltip: 'Remove ${card.cardName}',
+                onPressed: () => setState(() => addedFromIndex.remove(card)),
+                icon: const Icon(Icons.close, size: 18),
+              ),
+            ),
+          const Text(
+            'Cards added without terms are not used in your score, so your score may be less accurate than it could be.',
+            style: TextStyle(fontSize: 12),
+          ),
+        ],
+        if (cardQuery.trim().length >= 2) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Search all cards',
+            style: TextStyle(
+              color: context.product.action,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (indexSearching)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: LinearProgressIndicator(minHeight: 2),
+            )
+          else if (indexError != null)
+            Text(indexError!, style: const TextStyle(fontSize: 12))
+          else if (indexResults.isEmpty)
+            const Text(
+              'No match in the card list. Use the search above to pick it, or add it with your own terms.',
+              style: TextStyle(fontSize: 12),
+            ),
+          for (final card in indexResults)
+            ListTile(
+              key: ValueKey('index-result-${card.id}'),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(card.label),
+              subtitle: Text(
+                card.hasTerms
+                    ? 'Earn rates on file (checked ${card.sourceCapturedOn})'
+                    : 'Identity only - you will enter the terms',
+              ),
+              trailing: TextButton(
+                onPressed:
+                    addedFromIndex.any((item) => item.referenceId == card.id)
+                    ? null
+                    : () => _addFromIndex(card),
+                child: const Text('Add'),
+              ),
+            ),
+        ],
         const SizedBox(height: 12),
         if (!searching)
           Padding(
@@ -577,6 +670,54 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
     );
   }
 
+  Future<void> _searchIndex() async {
+    final query = cardQuery.trim();
+    if (query.length < 2) {
+      setState(() {
+        indexResults = const [];
+        indexError = null;
+        indexSearching = false;
+      });
+      return;
+    }
+    setState(() {
+      indexSearching = true;
+      indexError = null;
+    });
+    try {
+      final results = await ref
+          .read(appRepositoryProvider)
+          .searchCardIndex(query);
+      if (!mounted || cardQuery.trim() != query) return;
+      setState(() {
+        indexResults = results;
+        indexSearching = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        indexSearching = false;
+        indexError =
+            'Card search is unavailable. You can still add a card with your own terms.';
+      });
+    }
+  }
+
+  Future<void> _addFromIndex(ReferenceCard card) async {
+    final choice = await showCardTermsSheet(context, card);
+    if (choice == null || !mounted) return;
+    setState(() {
+      addedFromIndex.add(
+        OnboardingCardDraft.fromReference(
+          card,
+          includeTerms: !choice.skipped,
+          annualFeeCents: choice.annualFeeCents,
+          rewardRates: choice.rewardRates,
+        ),
+      );
+    });
+  }
+
   Future<void> _next() async {
     if (!canContinue) return;
     if (step == 5 &&
@@ -605,6 +746,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
         (key, value) => MapEntry(key, int.tryParse(value.text) ?? 0),
       ),
       rewardsGoal: rewardsGoal,
+      addedCards: addedFromIndex,
     );
     try {
       await ref

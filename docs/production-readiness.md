@@ -95,7 +95,10 @@ mobile-legal viewport, and fails on any browser runtime error.
 
 ## External launch requirements — still open
 
-Affiliate infrastructure (migration 10, reviewed offers, Apply buttons, anonymous
+Onboarding card search (migrations 12-14) is implemented over a search-only index:
+14 verified rows plus 25 identity-only rows, with cardholder-supplied terms and an
+explicit skip path. Coverage is far from a full US database; see
+[card reference index](card-reference-index.md). Affiliate infrastructure (migration 10, reviewed offers, Apply buttons, anonymous
 click counts and an operator dashboard) is implemented. See
 [affiliate operations](affiliate-operations.md). Earning revenue still requires
 approved partner links; network application/approval/revenue reporting is not

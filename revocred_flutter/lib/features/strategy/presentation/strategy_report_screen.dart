@@ -186,7 +186,9 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
                         _ListRow(
                           icon: Icons.credit_card,
                           title: card.name,
-                          subtitle: card.bestUse,
+                          subtitle: card.termsUnknown
+                              ? 'No terms added, so this card is left out of your score'
+                              : card.bestUse,
                         ),
                     ],
                   ),

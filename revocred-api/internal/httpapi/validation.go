@@ -121,6 +121,7 @@ func validateRecommendation(input domain.RecommendationInput) map[string]string 
 	if !oneOf(input.CreditTier, "building", "fair", "good", "excellent") {
 		errors["credit_tier"] = "must be building, fair, good, or excellent"
 	}
+	validateAddedCards(input.AddedCards, errors)
 	if len(input.ExistingCardIDs) > 50 {
 		errors["existing_card_ids"] = "must contain at most 50 IDs"
 	}
@@ -179,4 +180,55 @@ func intString(value int) string {
 		value /= 10
 	}
 	return string(buffer[position:])
+}
+
+// validateAddedCards keeps a search-index pick from smuggling invented terms
+// into a scored wallet. Rates must be real numbers on known categories.
+func validateAddedCards(cards []domain.OnboardingCard, out map[string]string) {
+	if len(cards) > 40 {
+		out["added_cards"] = "must contain at most 40 cards"
+		return
+	}
+	seen := map[string]bool{}
+	for _, card := range cards {
+		key := "added_cards"
+		if !validUUID(card.ReferenceID) {
+			out[key] = "each reference_id must be a UUID"
+			return
+		}
+		if seen[card.ReferenceID] {
+			out[key] = "must not repeat a card"
+			return
+		}
+		seen[card.ReferenceID] = true
+		if !card.IncludeTerms {
+			continue
+		}
+		if card.AnnualFeeCents < 0 || card.AnnualFeeCents > 1_000_000 {
+			out[key] = "annual_fee_cents must be between 0 and 1000000"
+			return
+		}
+		if len(card.RewardRates) == 0 || len(card.RewardRates) > 20 {
+			out[key] = "reward_rates must contain between 1 and 20 categories"
+			return
+		}
+		for category, rate := range card.RewardRates {
+			if !oneOf(category, "other", "dining", "groceries", "gas", "travel", "flights", "hotels", "streaming", "drugstores", "transit", "entertainment") {
+				out[key] = "reward_rates contains an unsupported category"
+				return
+			}
+			if rate <= 0 || rate > 100 {
+				out[key] = "reward_rates must be greater than 0 and at most 100"
+				return
+			}
+		}
+		if card.RewardRates["other"] < 1 {
+			out[key] = "reward_rates must include an other rate of at least 1"
+			return
+		}
+		if card.MinimumTier != "" && !oneOf(card.MinimumTier, "building", "fair", "good", "excellent") {
+			out[key] = "minimum_credit_tier must be building, fair, good, or excellent"
+			return
+		}
+	}
 }

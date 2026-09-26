@@ -14,7 +14,9 @@ func AnalyzeWallet(cards []domain.WalletCard) Wallet {
 	var wallet Wallet
 	issuers := make(map[string]struct{})
 	for _, item := range cards {
-		if item.Status != "active" || item.Card == nil {
+		// A card whose terms the user skipped is shown as owned but must not be
+		// scored: no known rate is not the same as a low rate.
+		if item.Status != "active" || item.Card == nil || item.Card.TermsUnknown {
 			continue
 		}
 		card := item.Card
@@ -40,7 +42,7 @@ func Metrics(cards []domain.WalletCard, categorySpendCents map[string]int64) dom
 	score := Score(wallet)
 	active := []domain.CatalogCard{}
 	for _, item := range cards {
-		if item.Status == "active" && item.Card != nil {
+		if item.Status == "active" && item.Card != nil && !item.Card.TermsUnknown {
 			active = append(active, *item.Card)
 		}
 	}

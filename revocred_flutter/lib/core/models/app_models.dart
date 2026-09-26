@@ -19,6 +19,7 @@ class CreditCard {
     this.walletCardId,
     this.sourceDisclaimer =
         'Verify current terms with the issuer. Educational use only.',
+    this.termsUnknown = false,
   });
 
   factory CreditCard.fromJson(Map<String, dynamic> json) => CreditCard(
@@ -39,6 +40,7 @@ class CreditCard {
     isActive: (json['isActive'] ?? json['is_active'] ?? false) as bool,
     feeTier: (json['feeTier'] ?? json['annual_fee_tier'] ?? '0') as String,
     walletCardId: (json['walletCardId'] ?? json['wallet_card_id']) as String?,
+    termsUnknown: json['termsUnknown'] == true || json['terms_unknown'] == true,
   );
 
   factory CreditCard.fromApiJson(
@@ -79,6 +81,7 @@ class CreditCard {
           : annualFeeCents <= 30000
           ? 'mid'
           : 'high',
+      termsUnknown: json['terms_unknown'] == true,
       sourceDisclaimer: () {
         final text = [json['source_disclaimer'], json['summary']]
             .where((item) => item != null && item.toString().trim().isNotEmpty)
@@ -105,8 +108,16 @@ class CreditCard {
   final String feeTier;
   final String? walletCardId;
   final String sourceDisclaimer;
+  // True when the cardholder chose not to supply terms. Such a card is listed
+  // as owned but is left out of the score, because no known rate is not a
+  // low rate.
+  final bool termsUnknown;
 
-  CreditCard copyWith({bool? isActive, String? walletCardId}) => CreditCard(
+  CreditCard copyWith({
+    bool? isActive,
+    String? walletCardId,
+    bool? termsUnknown,
+  }) => CreditCard(
     id: id,
     issuer: issuer,
     brand: brand,
@@ -121,6 +132,7 @@ class CreditCard {
     feeTier: feeTier,
     walletCardId: walletCardId ?? this.walletCardId,
     sourceDisclaimer: sourceDisclaimer,
+    termsUnknown: termsUnknown ?? this.termsUnknown,
   );
 }
 
@@ -590,12 +602,120 @@ class AppData {
   );
 }
 
+/// A card chosen from the search-only index during onboarding.
+class OnboardingCardDraft {
+  const OnboardingCardDraft({
+    required this.referenceId,
+    required this.cardName,
+    this.includeTerms = false,
+    this.annualFeeCents = 0,
+    this.rewardRates = const {},
+    this.transferable = false,
+    this.bestUse = '',
+  });
+
+  factory OnboardingCardDraft.fromReference(
+    ReferenceCard card, {
+    bool includeTerms = false,
+    int? annualFeeCents,
+    Map<String, double>? rewardRates,
+  }) => OnboardingCardDraft(
+    referenceId: card.id,
+    cardName: '${card.issuer} ${card.name}',
+    includeTerms: includeTerms,
+    annualFeeCents: annualFeeCents ?? card.annualFeeCents,
+    rewardRates: rewardRates ?? card.rewardRates,
+    bestUse: card.rewardsType,
+  );
+
+  final String referenceId;
+  final String cardName;
+  final bool includeTerms;
+  final int annualFeeCents;
+  final Map<String, double> rewardRates;
+  final bool transferable;
+  final String bestUse;
+
+  Map<String, dynamic> toJson() => {
+    'reference_id': referenceId,
+    'include_terms': includeTerms,
+    'annual_fee_cents': annualFeeCents,
+    'reward_rates': rewardRates,
+    'transferable_points': transferable,
+    'best_use': bestUse,
+    'minimum_credit_tier': 'good',
+  };
+}
+
+/// One search result from the card index. Identity is always present; terms are
+/// only present when a source published them on the captured date.
+class ReferenceCard {
+  const ReferenceCard({
+    required this.id,
+    required this.issuer,
+    required this.name,
+    required this.network,
+    required this.rewardsType,
+    required this.annualFeeCents,
+    required this.rewardRates,
+    required this.termsStatus,
+    required this.sourceUrl,
+    required this.sourceCapturedOn,
+    this.catalogCardId,
+  });
+
+  factory ReferenceCard.fromJson(Map<String, dynamic> json) => ReferenceCard(
+    id: json['id'] as String,
+    issuer: (json['issuer'] ?? '') as String,
+    name: (json['name'] ?? '') as String,
+    network: (json['network'] ?? 'Unknown') as String,
+    rewardsType: (json['rewards_type'] ?? 'unknown') as String,
+    annualFeeCents: (json['annual_fee_cents'] as num?)?.round() ?? 0,
+    rewardRates: ((json['reward_rates'] as Map?) ?? const {}).map(
+      (key, value) => MapEntry('$key', (value as num).toDouble()),
+    ),
+    termsStatus: (json['terms_status'] ?? 'partial') as String,
+    sourceUrl: (json['source_url'] ?? '') as String,
+    sourceCapturedOn: (json['source_captured_on'] ?? '') as String,
+    catalogCardId: json['catalog_card_id'] as String?,
+  );
+
+  final String id;
+  final String issuer;
+  final String name;
+  final String network;
+  final String rewardsType;
+  final int annualFeeCents;
+  final Map<String, double> rewardRates;
+  final String termsStatus;
+  final String sourceUrl;
+  final String sourceCapturedOn;
+  final String? catalogCardId;
+
+  bool get hasTerms => termsStatus == 'verified' && rewardRates.isNotEmpty;
+  String get label => '$issuer $name';
+}
+
 class QuestionnaireAnswers {
   factory QuestionnaireAnswers.fromRecommendationJson(
     Map<String, dynamic> json,
   ) => QuestionnaireAnswers(
     lifeStage: (json['life_stage'] ?? '').toString(),
     existingCardIds: _stringList(json['existing_card_ids']),
+    addedCards: ((json['added_cards'] as List?) ?? const [])
+        .map((item) => (item as Map).cast<String, dynamic>())
+        .map(
+          (item) => OnboardingCardDraft(
+            referenceId: item['reference_id'].toString(),
+            cardName: '${item['reference_id']}',
+            includeTerms: item['include_terms'] == true,
+            annualFeeCents: (item['annual_fee_cents'] as num?)?.round() ?? 0,
+            rewardRates: ((item['reward_rates'] as Map?) ?? const {}).map(
+              (key, value) => MapEntry('$key', (value as num).toDouble()),
+            ),
+          ),
+        )
+        .toList(),
     feeTolerance: switch ((json['fee_tolerance_cents'] as num?)?.toInt() ?? 0) {
       0 => 'none',
       <= 10000 => 'low',
@@ -615,6 +735,7 @@ class QuestionnaireAnswers {
     required this.creditTier,
     required this.monthlySpend,
     required this.rewardsGoal,
+    this.addedCards = const [],
   });
 
   final String lifeStage;
@@ -624,6 +745,7 @@ class QuestionnaireAnswers {
   final String creditTier;
   final Map<String, int> monthlySpend;
   final String rewardsGoal;
+  final List<OnboardingCardDraft> addedCards;
 
   Map<String, dynamic> toJson() => {
     'life_stage': lifeStage,
@@ -651,6 +773,8 @@ class QuestionnaireAnswers {
     'rewards_goal': rewardsGoal,
     'credit_tier': creditTier,
     'existing_card_ids': existingCardIds,
+    if (addedCards.isNotEmpty)
+      'added_cards': addedCards.map((card) => card.toJson()).toList(),
   };
 }
 

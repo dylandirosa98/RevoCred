@@ -20,28 +20,32 @@ type Profile struct {
 }
 
 type CatalogCard struct {
-	ID                    string             `json:"id"`
-	Slug                  string             `json:"slug"`
-	Issuer                string             `json:"issuer"`
-	Network               string             `json:"network"`
-	Name                  string             `json:"name"`
-	Summary               string             `json:"summary"`
-	BestUse               string             `json:"best_use"`
-	AnnualFeeCents        int                `json:"annual_fee_cents"`
-	RewardRates           map[string]float64 `json:"reward_rates"`
-	Benefits              []string           `json:"benefits"`
-	TransferablePoints    bool               `json:"transferable_points"`
-	TravelScope           string             `json:"travel_scope"`
-	MinimumCreditTier     string             `json:"minimum_credit_tier"`
-	RewardsType           string             `json:"rewards_type"`
-	FirstYearBonusCents   int                `json:"first_year_bonus_estimate_cents"`
-	AnnualBenefitValue    int                `json:"annual_benefit_estimate_cents"`
-	DatasetVersion        string             `json:"dataset_version"`
-	SourceName            string             `json:"source_name"`
-	SourceURL             string             `json:"source_url,omitempty"`
-	SourceDisclaimer      string             `json:"source_disclaimer"`
-	SourcePublishedAt     *time.Time         `json:"source_published_at,omitempty"`
-	CatalogVersionCreated time.Time          `json:"catalog_version_created_at,omitempty"`
+	ID                  string             `json:"id"`
+	Slug                string             `json:"slug"`
+	Issuer              string             `json:"issuer"`
+	Network             string             `json:"network"`
+	Name                string             `json:"name"`
+	Summary             string             `json:"summary"`
+	BestUse             string             `json:"best_use"`
+	AnnualFeeCents      int                `json:"annual_fee_cents"`
+	RewardRates         map[string]float64 `json:"reward_rates"`
+	Benefits            []string           `json:"benefits"`
+	TransferablePoints  bool               `json:"transferable_points"`
+	TravelScope         string             `json:"travel_scope"`
+	MinimumCreditTier   string             `json:"minimum_credit_tier"`
+	RewardsType         string             `json:"rewards_type"`
+	FirstYearBonusCents int                `json:"first_year_bonus_estimate_cents"`
+	AnnualBenefitValue  int                `json:"annual_benefit_estimate_cents"`
+	DatasetVersion      string             `json:"dataset_version"`
+	// True only when a user explicitly declined to supply terms. Such a card is
+	// shown as owned but must not be scored, because an absent rate is not a
+	// low rate. Inverted so an unset value keeps the card in the math.
+	TermsUnknown          bool       `json:"terms_unknown"`
+	SourceName            string     `json:"source_name"`
+	SourceURL             string     `json:"source_url,omitempty"`
+	SourceDisclaimer      string     `json:"source_disclaimer"`
+	SourcePublishedAt     *time.Time `json:"source_published_at,omitempty"`
+	CatalogVersionCreated time.Time  `json:"catalog_version_created_at,omitempty"`
 }
 
 type WalletCard struct {
@@ -75,6 +79,47 @@ type CreateCustomCard struct {
 	RewardsType        string             `json:"rewards_type"`
 	MinimumCreditTier  string             `json:"minimum_credit_tier"`
 	Nickname           string             `json:"nickname"`
+	// TermsUnknown is true only when the user explicitly skipped terms.
+	TermsUnknown bool `json:"-"`
+}
+
+// OnboardingCard is a card chosen from the search-only reference index during
+// onboarding. Supplying terms is optional; skipping keeps the card out of
+// scoring and out of the recommendation inputs.
+type OnboardingCard struct {
+	ReferenceID    string             `json:"reference_id"`
+	IncludeTerms   bool               `json:"include_terms"`
+	AnnualFeeCents int                `json:"annual_fee_cents"`
+	RewardRates    map[string]float64 `json:"reward_rates"`
+	Transferable   bool               `json:"transferable_points"`
+	BestUse        string             `json:"best_use"`
+	MinimumTier    string             `json:"minimum_credit_tier"`
+}
+
+// Substitution names an approved stand-in for a strategy card the person owns.
+type Substitution struct {
+	CardID string `json:"card_id"`
+	Name   string `json:"name"`
+}
+
+// ReferenceCard is one search result. It carries dated public terms so a user
+// can accept them in one tap, and it is never a recommendation candidate.
+type ReferenceCard struct {
+	ID               string             `json:"id"`
+	Slug             string             `json:"slug"`
+	Issuer           string             `json:"issuer"`
+	Name             string             `json:"name"`
+	Network          string             `json:"network"`
+	RewardsType      string             `json:"rewards_type"`
+	AnnualFeeCents   int                `json:"annual_fee_cents"`
+	RewardRates      map[string]float64 `json:"reward_rates"`
+	TermsStatus      string             `json:"terms_status"`
+	SourceURL        string             `json:"source_url"`
+	SourceCapturedOn string             `json:"source_captured_on"`
+	Disclaimer       string             `json:"disclaimer"`
+	// CatalogCardID is set when this product is already in the vetted catalog,
+	// so choosing it keeps the sourced terms instead of a user copy.
+	CatalogCardID string `json:"catalog_card_id,omitempty"`
 }
 
 type RecommendationInput struct {
@@ -86,6 +131,7 @@ type RecommendationInput struct {
 	RewardsGoal          string           `json:"rewards_goal"`
 	CreditTier           string           `json:"credit_tier"`
 	ExistingCardIDs      []string         `json:"existing_card_ids"`
+	AddedCards           []OnboardingCard `json:"added_cards,omitempty"`
 }
 
 type RecommendationItem struct {

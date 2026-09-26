@@ -39,6 +39,14 @@ func (p *Postgres) PreviewPlan(ctx context.Context, input domain.RecommendationI
 			return domain.Bootstrap{}, ErrNotFound
 		}
 	}
+	// A preview persists nothing, so index picks are synthesized in memory. They
+	// are shown as owned and, when the cardholder supplied terms, fed to the same
+	// engine with the same numbers a saved plan will produce.
+	previewWallet, err := previewReferenceCards(ctx, p, input.AddedCards, &input, wallet)
+	if err != nil {
+		return domain.Bootstrap{}, err
+	}
+	wallet = append(wallet, previewWallet...)
 	result := recommendation.New().Recommend(input, catalog)
 	result.StrategyCode = onboardingStrategy(input)
 	categories, goal, target := questionnaireProfile(input, result)
@@ -61,9 +69,11 @@ func (p *Postgres) SaveOnboarding(ctx context.Context, userID string, input doma
 		return domain.RecommendationResult{}, err
 	}
 	repo := &Postgres{pool: transactionDB{tx}}
-	ids := input.ExistingCardIDs
-	if ids == nil {
-		ids = []string{}
+	// Create the picked cards on the same transaction, so a later failure cannot
+	// leave owned catalog cards behind without a wallet entry.
+	ids, err := repo.resolveOnboardingCards(ctx, userID, input.AddedCards, input.ExistingCardIDs)
+	if err != nil {
+		return domain.RecommendationResult{}, err
 	}
 	// Validate the full selection before altering the wallet.
 	for _, id := range ids {
@@ -92,7 +102,8 @@ func (p *Postgres) SaveOnboarding(ctx context.Context, userID string, input doma
 	input.OwnedCards = nil
 	input.ExistingCardIDs = []string{}
 	for _, item := range wallet {
-		if item.Status == "active" && item.Card != nil {
+		// A card without terms is owned but must not shape the ranking.
+		if item.Status == "active" && item.Card != nil && !item.Card.TermsUnknown {
 			input.ExistingCardIDs = append(input.ExistingCardIDs, item.CatalogCardID)
 			input.OwnedCards = append(input.OwnedCards, *item.Card)
 		}
@@ -111,6 +122,59 @@ func (p *Postgres) SaveOnboarding(ctx context.Context, userID string, input doma
 		return domain.RecommendationResult{}, err
 	}
 	return result, nil
+}
+
+// previewReferenceCards turns index picks into display-only wallet entries and
+// feeds the engine the vetted cards plus any terms the cardholder supplied.
+func previewReferenceCards(ctx context.Context, repo *Postgres, picks []domain.OnboardingCard, input *domain.RecommendationInput, wallet []domain.WalletCard) ([]domain.WalletCard, error) {
+	if len(picks) == 0 {
+		return nil, nil
+	}
+	wanted := make([]string, 0, len(picks))
+	for _, pick := range picks {
+		wanted = append(wanted, pick.ReferenceID)
+	}
+	references, err := repo.referenceCardsByID(ctx, wanted)
+	if err != nil {
+		return nil, err
+	}
+	shown := make([]domain.WalletCard, 0, len(picks))
+	for _, pick := range picks {
+		reference, ok := references[pick.ReferenceID]
+		if !ok {
+			continue
+		}
+		if reference.CatalogCardID != "" {
+			input.ExistingCardIDs = append(input.ExistingCardIDs, reference.CatalogCardID)
+			continue
+		}
+		card := domain.CatalogCard{
+			ID:                reference.ID,
+			Slug:              reference.Slug,
+			Issuer:            reference.Issuer,
+			Network:           reference.Network,
+			Name:              reference.Name,
+			BestUse:           pick.BestUse,
+			Summary:           "Card added from search. Terms are supplied by the cardholder or left out of the score.",
+			TermsUnknown:      true,
+			SourceName:        "Search index",
+			SourceDisclaimer:  reference.Disclaimer,
+			DatasetVersion:    "search-index",
+			MinimumCreditTier: "good",
+			TravelScope:       "none",
+			RewardsType:       reference.RewardsType,
+		}
+		if pick.IncludeTerms {
+			// Mirror the saved path: supplied terms count toward the score.
+			card.TermsUnknown = false
+			card.AnnualFeeCents = pick.AnnualFeeCents
+			card.RewardRates = pick.RewardRates
+			card.TransferablePoints = pick.Transferable
+			input.OwnedCards = append(input.OwnedCards, card)
+		}
+		shown = append(shown, domain.WalletCard{CatalogCardID: card.ID, Status: "active", Card: &card})
+	}
+	return shown, nil
 }
 
 func onboardingStrategy(input domain.RecommendationInput) string {

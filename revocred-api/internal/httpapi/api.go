@@ -67,6 +67,7 @@ func New(
 	mux.HandleFunc("OPTIONS /", api.options)
 	mux.HandleFunc("POST /v1/public/explain", api.publicExplain)
 	mux.HandleFunc("GET /v1/public/cards", api.cards)
+	mux.HandleFunc("GET /v1/public/card-index", api.cardIndex)
 	mux.HandleFunc("POST /v1/public/plan", api.previewPlan)
 	api.protected(mux, "POST /v1/onboarding", api.saveOnboarding)
 	mux.HandleFunc("GET /v1/offers", api.offers)

@@ -45,6 +45,9 @@ func (f *fakeRepository) RecordOfferClick(context.Context, string, string) (stri
 }
 
 func (f *fakeRepository) Ping(context.Context) error { return nil }
+func (f *fakeRepository) SearchReferenceCards(context.Context, string, int) ([]domain.ReferenceCard, error) {
+	return []domain.ReferenceCard{}, nil
+}
 func (f *fakeRepository) PreviewPlan(context.Context, domain.RecommendationInput) (domain.Bootstrap, error) {
 	return domain.Bootstrap{}, nil
 }

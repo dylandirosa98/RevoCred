@@ -86,6 +86,11 @@ func (p *Postgres) Bootstrap(ctx context.Context, userID string) (domain.Bootstr
 	}
 	playbook := strategy.Build(code, walletNames(wallet), playbookPrefs(questionnaire))
 	applyRecommendation(&playbook, recommendations)
+	substitutions, err := p.Substitutions(ctx)
+	if err != nil {
+		return domain.Bootstrap{}, err
+	}
+	applySubstitutions(&playbook, recommendations, wallet, substitutions)
 	if profile != nil {
 		profile.NextApplicationTarget = playbook.NextCard
 	}
@@ -110,7 +115,7 @@ SELECT c.id::text, c.slug, c.issuer, c.network, c.name,
        v.summary, v.best_use, v.annual_fee_cents, v.reward_rates, v.benefits,
        v.transferable_points, v.travel_scope, v.minimum_credit_tier, v.rewards_type,
        v.first_year_bonus_estimate_cents, v.annual_benefit_estimate_cents,
-       v.dataset_version, s.name, COALESCE(s.url, ''), s.disclaimer, s.published_at, v.created_at
+       v.dataset_version, c.terms_unknown, s.name, COALESCE(s.url, ''), s.disclaimer, s.published_at, v.created_at
 FROM revocred.catalog_cards c
 JOIN LATERAL (
     SELECT cv.* FROM revocred.card_catalog_versions cv
@@ -153,7 +158,7 @@ func scanCatalogCard(row rowScanner) (domain.CatalogCard, error) {
 		&card.ID, &card.Slug, &card.Issuer, &card.Network, &card.Name,
 		&card.Summary, &card.BestUse, &card.AnnualFeeCents, &ratesJSON, &benefitsJSON,
 		&card.TransferablePoints, &card.TravelScope, &card.MinimumCreditTier, &card.RewardsType,
-		&card.FirstYearBonusCents, &card.AnnualBenefitValue, &card.DatasetVersion,
+		&card.FirstYearBonusCents, &card.AnnualBenefitValue, &card.DatasetVersion, &card.TermsUnknown,
 		&card.SourceName, &card.SourceURL, &card.SourceDisclaimer, &card.SourcePublishedAt, &card.CatalogVersionCreated,
 	)
 	if err != nil {
@@ -222,7 +227,7 @@ SELECT w.id::text, w.user_id::text, w.catalog_card_id::text, w.nickname, w.statu
        v.summary, v.best_use, v.annual_fee_cents, v.reward_rates, v.benefits,
        v.transferable_points, v.travel_scope, v.minimum_credit_tier, v.rewards_type,
        v.first_year_bonus_estimate_cents, v.annual_benefit_estimate_cents,
-       v.dataset_version, s.name, COALESCE(s.url, ''), s.disclaimer, s.published_at, v.created_at
+       v.dataset_version, c.terms_unknown, s.name, COALESCE(s.url, ''), s.disclaimer, s.published_at, v.created_at
 FROM revocred.wallet_cards w
 JOIN revocred.catalog_cards c ON c.id = w.catalog_card_id
 JOIN LATERAL (
@@ -248,7 +253,7 @@ ORDER BY w.created_at DESC`, userID)
 			&card.ID, &card.Slug, &card.Issuer, &card.Network, &card.Name,
 			&card.Summary, &card.BestUse, &card.AnnualFeeCents, &ratesJSON, &benefitsJSON,
 			&card.TransferablePoints, &card.TravelScope, &card.MinimumCreditTier, &card.RewardsType,
-			&card.FirstYearBonusCents, &card.AnnualBenefitValue, &card.DatasetVersion,
+			&card.FirstYearBonusCents, &card.AnnualBenefitValue, &card.DatasetVersion, &card.TermsUnknown,
 			&card.SourceName, &card.SourceURL, &card.SourceDisclaimer, &card.SourcePublishedAt, &card.CatalogVersionCreated,
 		)
 		if err != nil {
@@ -308,9 +313,9 @@ func (p *Postgres) CreateCustomCard(ctx context.Context, userID string, input do
 	slug := customSlug(input.Name)
 	var cardID string
 	err = tx.QueryRow(ctx, `
-INSERT INTO revocred.catalog_cards (slug, issuer, network, name, owner_user_id, data_kind)
-VALUES ($1, $2, $3, $4, $5, 'user_supplied')
-RETURNING id::text`, slug, input.Issuer, input.Network, input.Name, userID).Scan(&cardID)
+INSERT INTO revocred.catalog_cards (slug, issuer, network, name, owner_user_id, data_kind, terms_unknown)
+VALUES ($1, $2, $3, $4, $5, 'user_supplied', $6)
+RETURNING id::text`, slug, input.Issuer, input.Network, input.Name, userID, input.TermsUnknown).Scan(&cardID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -501,6 +506,50 @@ INSERT INTO revocred.recommendation_items (
 		return domain.RecommendationResult{}, fmt.Errorf("commit recommendation: %w", err)
 	}
 	return result, nil
+}
+
+// applySubstitutions replaces a strategy card the person already holds with an
+// approved alternative. A substitute is only used when the ranked result also
+// found it eligible, so the strategy never points at a weaker card. With no
+// approved or eligible substitute the strategy is left exactly as it was.
+func applySubstitutions(playbook *strategy.Playbook, result *domain.RecommendationResult, wallet []domain.WalletCard, substitutions map[string]domain.Substitution) {
+	if result == nil || len(substitutions) == 0 {
+		return
+	}
+	eligible := make(map[string]bool, len(result.Items))
+	for _, item := range result.Items {
+		eligible[item.CardName] = true
+	}
+	ownedIDByName := map[string]string{}
+	for _, item := range wallet {
+		if item.Status == "active" && item.Card != nil {
+			ownedIDByName[item.Card.Name] = item.CatalogCardID
+		}
+	}
+	// substituteFor returns a replacement only when one is approved and ranked.
+	substituteFor := func(name string) (string, bool) {
+		ownedID, owned := ownedIDByName[name]
+		if !owned || name == "" {
+			return "", false
+		}
+		substitute, ok := substitutions[ownedID]
+		if !ok || !eligible[substitute.Name] {
+			return "", false
+		}
+		return substitute.Name, true
+	}
+	for i := range playbook.Steps {
+		step := &playbook.Steps[i]
+		if substitute, ok := substituteFor(step.Name); ok {
+			step.Note = "Suggested instead of " + step.Name + ", which you already hold."
+			step.Name = substitute
+		}
+	}
+	if playbook.NextCard != "" {
+		if substitute, ok := substituteFor(playbook.NextCard); ok {
+			playbook.NextCard = substitute
+		}
+	}
 }
 
 func questionnaireProfile(input domain.RecommendationInput, result domain.RecommendationResult) ([]string, string, string) {

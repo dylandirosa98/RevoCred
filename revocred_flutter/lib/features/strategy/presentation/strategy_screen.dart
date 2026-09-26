@@ -1002,10 +1002,12 @@ class _CardDetailSheet extends ConsumerWidget {
                   style: TextStyle(color: product.muted),
                 ),
                 if (owned)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Text(
-                      'Already in your wallet — use this card in your strategy rather than applying again.',
+                      card.termsUnknown
+                          ? 'Already in your wallet. You did not add terms for this card, so RevoCred leaves it out of your score and your score may be less accurate than it could be.'
+                          : 'Already in your wallet — use this card in your strategy rather than applying again.',
                     ),
                   ),
                 ApplyOfferButton(

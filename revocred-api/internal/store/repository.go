@@ -16,6 +16,7 @@ var (
 )
 
 type Repository interface {
+	SearchReferenceCards(ctx context.Context, query string, limit int) ([]domain.ReferenceCard, error)
 	PreviewPlan(context.Context, domain.RecommendationInput) (domain.Bootstrap, error)
 	SaveOnboarding(context.Context, string, domain.RecommendationInput) (domain.RecommendationResult, error)
 	ListOffers(ctx context.Context) ([]affiliate.Offer, error)

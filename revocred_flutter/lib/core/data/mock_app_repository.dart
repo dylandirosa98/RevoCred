@@ -17,6 +17,34 @@ class MockAppRepository implements AppRepository {
       _data;
 
   @override
+  Future<List<ReferenceCard>> searchCardIndex(String query) async {
+    final needle = query.trim().toLowerCase();
+    return _data.catalog
+        .where(
+          (card) =>
+              needle.isEmpty ||
+              '${card.issuer} ${card.name}'.toLowerCase().contains(needle),
+        )
+        .take(20)
+        .map(
+          (card) => ReferenceCard(
+            id: card.id,
+            issuer: card.issuer,
+            name: card.name,
+            network: card.brand,
+            rewardsType: 'cash_back',
+            annualFeeCents: 0,
+            rewardRates: const {'other': 1.5},
+            termsStatus: 'verified',
+            sourceUrl: '',
+            sourceCapturedOn: '2026-01-01',
+            catalogCardId: card.id,
+          ),
+        )
+        .toList();
+  }
+
+  @override
   Stream<AccountSession> get sessionChanges => const Stream.empty();
   @override
   bool get isPasswordRecovery => false;
