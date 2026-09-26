@@ -188,14 +188,20 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
                       reverseDuration: const Duration(milliseconds: 160),
                       switchInCurve: Curves.easeOutCubic,
                       switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(.025, 0),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
+                      // A leaving step must not swallow a tap meant for the
+                      // arriving one, or the answer is silently lost and the
+                      // step stays blocked.
+                      transitionBuilder: (child, animation) => IgnorePointer(
+                        ignoring: animation.status == AnimationStatus.reverse,
+                        child: FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(.025, 0),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
                         ),
                       ),
                       child: _stepContent(data.catalog),
