@@ -57,7 +57,13 @@ class LegalScreen extends StatelessWidget {
               'Affiliate links',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            Text(affiliateDisclosure),
+            Text(
+              'Official issuer links do not earn RevoCred a commission. If we add partner links, they will be labeled separately. $affiliateDisclosure',
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Guest previews send your questionnaire to the API for a deterministic calculation without creating server-side account records. This device stores a short-lived draft so you can save the plan after confirming your email. Drafts expire after 24 hours and can be cleared from the preview. Use a private device when entering financial preferences.',
+            ),
             SizedBox(height: 8),
             Text(
               'An Apply button opens an issuer or affiliate partner website. RevoCred counts redirects by offer, day and screen, without storing a user ID, cookie, IP address or device identifier in affiliate analytics. Counts are not applications or approvals. External sites have their own privacy policies and may use cookies. We do not send your wallet, spending or chat data with the link. Cards without a partner offer remain eligible for the same recommendations.',

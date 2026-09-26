@@ -102,6 +102,27 @@ void main() {
       );
 
       for (var step = 0; step < 7; step++) {
+        final choice = switch (step) {
+          0 => 'Adult and building a foundation',
+          1 => 'I do not have any credit cards',
+          2 => r'Up to $100 per card',
+          3 => 'Domestic and international',
+          4 => 'Good',
+          6 => 'Flexible travel points',
+          _ => null,
+        };
+        if (choice != null) {
+          final option = find.text(choice);
+          await tester.ensureVisible(option);
+          await tester.tap(option);
+          await tester.pumpAndSettle();
+        }
+        if (step == 5) {
+          await tester.enterText(
+            find.byKey(const ValueKey('spend-dining')),
+            '350',
+          );
+        }
         await tester.tap(find.byKey(const ValueKey('questionnaire-next')));
         await tester.pumpAndSettle();
       }

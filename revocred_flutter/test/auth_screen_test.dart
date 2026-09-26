@@ -14,7 +14,7 @@ import 'package:revocred_flutter/features/auth/presentation/auth_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('welcome screen opens create-account and sign-in forms', (
+  testWidgets('save-plan screen opens create-account and sign-in forms', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -29,18 +29,10 @@ void main() {
         ],
         child: MaterialApp(
           theme: AppTheme.decisionFlow,
-          home: const AuthScreen(),
+          home: const AuthScreen(savePlan: true),
         ),
       ),
     );
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('The right card.'), findsOneWidget);
-    expect(find.textContaining('Decide with confidence.'), findsOneWidget);
-
-    final create = find.byKey(const ValueKey('build-strategy-action'));
-    await tester.ensureVisible(create);
-    await tester.tap(create);
     await tester.pumpAndSettle();
 
     expect(find.text('Build your strategy'), findsOneWidget);
@@ -59,7 +51,7 @@ void main() {
     expect(find.text('Sign in'), findsOneWidget);
   });
 
-  testWidgets('successful sign in leaves welcome for the home screen', (
+  testWidgets('confirmed account without answers is routed to onboarding', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -95,8 +87,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('auth-submit')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Make the next swipe count.'), findsOneWidget);
-    expect(appRouter.routeInformationProvider.value.uri.path, '/home');
+    expect(find.text('What adult life stage fits best?'), findsOneWidget);
+    expect(appRouter.routeInformationProvider.value.uri.path, '/questionnaire');
   });
 
   testWidgets('logged-out real mode still shows the demo home', (tester) async {

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/config/app_config.dart';
 import 'core/data/app_repository.dart';
+import 'core/data/onboarding_draft_store.dart';
 import 'core/router/app_router.dart';
 import 'core/state/app_controller.dart';
 import 'core/theme/app_theme.dart';
@@ -28,6 +29,9 @@ class RevoCredBootstrap extends StatelessWidget {
       appConfigProvider.overrideWithValue(config),
       appRepositoryProvider.overrideWithValue(repository),
       sharedPreferencesProvider.overrideWithValue(preferences),
+      onboardingDraftStoreProvider.overrideWithValue(
+        OnboardingDraftStore(preferences),
+      ),
     ],
     child: const RevoCredApp(),
   );
@@ -61,6 +65,24 @@ class _RevoCredAppState extends ConsumerState<RevoCredApp> {
       builder: (context, child) {
         final page = child ?? const SizedBox.shrink();
         final path = appRouter.routeInformationProvider.value.uri.path;
+        if (!ref.read(appConfigProvider).useMocks &&
+            state.isAuthenticated &&
+            !state.isLoading &&
+            state.error == null &&
+            state.data != null &&
+            !state.data!.isPersonalPreview &&
+            !state.passwordRecovery &&
+            path == '/welcome') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              appRouter.go(
+                state.data!.questionnaireAnswers == null
+                    ? '/questionnaire'
+                    : '/home',
+              );
+            }
+          });
+        }
         if (state.passwordRecovery && path != '/reset-password') {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) appRouter.go('/reset-password');

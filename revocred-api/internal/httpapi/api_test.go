@@ -45,6 +45,12 @@ func (f *fakeRepository) RecordOfferClick(context.Context, string, string) (stri
 }
 
 func (f *fakeRepository) Ping(context.Context) error { return nil }
+func (f *fakeRepository) PreviewPlan(context.Context, domain.RecommendationInput) (domain.Bootstrap, error) {
+	return domain.Bootstrap{}, nil
+}
+func (f *fakeRepository) SaveOnboarding(context.Context, string, domain.RecommendationInput) (domain.RecommendationResult, error) {
+	return domain.RecommendationResult{}, nil
+}
 func (f *fakeRepository) ExportAccount(context.Context, string) (map[string]json.RawMessage, error) {
 	return map[string]json.RawMessage{}, nil
 }

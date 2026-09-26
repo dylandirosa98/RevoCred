@@ -16,11 +16,13 @@ final affiliateOffersProvider = FutureProvider.autoDispose<List<AffiliateOffer>>
   ref,
 ) async {
   final config = ref.watch(appConfigProvider);
-  final authenticated = ref.watch(
-    appControllerProvider.select((state) => state.isAuthenticated),
+  final canApply = ref.watch(
+    appControllerProvider.select(
+      (state) => state.isAuthenticated || state.data?.isPersonalPreview == true,
+    ),
   );
   // Guest browsing uses unverified demo data, even when the API is configured.
-  if (config.useMocks || !authenticated) return const [];
+  if (config.useMocks || !canApply) return const [];
   final client = http.Client();
   ref.onDispose(client.close);
   final timer = Timer(const Duration(minutes: 1), ref.invalidateSelf);
@@ -41,15 +43,28 @@ final affiliateOffersProvider = FutureProvider.autoDispose<List<AffiliateOffer>>
 });
 
 final recommendedApplicationProvider = Provider.autoDispose
-    .family<ApplicationLink?, ApplyPlacement>((ref, placement) {
+    .family<ApplicationLink?, ApplyPlacement>(
+      (ref, placement) => ref.watch(
+        applicationForCardProvider((placement: placement, cardId: null)),
+      ),
+    );
+
+final applicationForCardProvider = Provider.autoDispose
+    .family<ApplicationLink?, ({ApplyPlacement placement, String? cardId})>((
+      ref,
+      request,
+    ) {
+      final placement = request.placement;
       final config = ref.watch(appConfigProvider);
       if (config.useMocks) return null;
       final state = ref.watch(appControllerProvider);
-      if (!state.isAuthenticated || state.isLoading || state.error != null) {
+      if ((!state.isAuthenticated && state.data?.isPersonalPreview != true) ||
+          state.isLoading ||
+          state.error != null) {
         return null;
       }
       final data = state.data;
-      final id = data?.recommendedCardId;
+      final id = request.cardId ?? data?.recommendedCardId;
       if (data == null ||
           id == null ||
           data.wallet.any((card) => card.id == id)) {
@@ -79,11 +94,20 @@ final recommendedApplicationProvider = Provider.autoDispose
         return null;
       }
       return ApplicationLink(
+        isAffiliate: offer.isAffiliate,
+        isRecommended: id == data.recommendedCardId,
         cardName: card.name,
         endsAt: offer.endsAt,
-        uri: Uri.parse(
-          '${config.apiUrl.replaceFirst(RegExp(r'/$'), '')}/v1/offers/${offer.id}/apply',
-        ).replace(queryParameters: {'placement': placement.name}),
+        uri:
+            Uri.parse(
+              '${config.apiUrl.replaceFirst(RegExp(r'/$'), '')}/v1/offers/${offer.id}/apply',
+            ).replace(
+              queryParameters: {
+                'placement': placement == ApplyPlacement.cardDetails
+                    ? 'card_details'
+                    : placement.name,
+              },
+            ),
       );
     });
 

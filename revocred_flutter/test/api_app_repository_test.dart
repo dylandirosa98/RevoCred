@@ -100,7 +100,7 @@ void main() {
               },
             ],
           }, statusCode: 201);
-        case 'POST /v1/recommendations':
+        case 'POST /v1/onboarding':
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           expect(body['monthly_category_spend'], {'groceries': 50000});
           expect(body['fee_tolerance_cents'], 10000);

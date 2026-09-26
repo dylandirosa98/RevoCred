@@ -14,6 +14,7 @@ import (
 const Disclosure = "We may earn a commission if you apply through this link. Compensation does not affect your ranking."
 
 type Offer struct {
+	Kind    string    `json:"kind"`
 	ID      string    `json:"id"`
 	CardID  string    `json:"card_id"`
 	Network string    `json:"network"`
@@ -21,6 +22,7 @@ type Offer struct {
 }
 
 type Publication struct {
+	Kind             string    `json:"kind"`
 	CardID           string    `json:"card_id"`
 	CatalogVersionID string    `json:"catalog_version_id"`
 	Network          string    `json:"network"`
@@ -35,6 +37,9 @@ var uuid = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-
 var publicHostname = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]*[a-z0-9]$`)
 
 func (p Publication) Validate(now time.Time) error {
+	if p.Kind != "" && p.Kind != "official" && p.Kind != "affiliate" {
+		return errors.New("kind must be official or affiliate")
+	}
 	if !uuid.MatchString(p.CardID) || !uuid.MatchString(p.CatalogVersionID) {
 		return errors.New("card_id and catalog_version_id must be UUIDs")
 	}
@@ -66,7 +71,7 @@ func ValidDestination(raw string) bool {
 }
 
 func ValidPlacement(value string) bool {
-	return value == "recommendation" || value == "strategy" || value == "report"
+	return value == "recommendation" || value == "strategy" || value == "report" || value == "card_details"
 }
 
 type ReportRow struct {

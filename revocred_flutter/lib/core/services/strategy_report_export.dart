@@ -116,7 +116,7 @@ Future<Uint8List> buildStrategyReportPdf(
             ),
             pw.SizedBox(height: 6),
             pw.Text(
-              affiliateDisclosure,
+              application.disclosure,
               style: const pw.TextStyle(fontSize: 10),
             ),
             pw.Text(

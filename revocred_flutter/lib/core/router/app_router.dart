@@ -74,7 +74,11 @@ final appRouter = GoRouter(
       path: '/strategy-report',
       pageBuilder: _detailPage(const StrategyReportScreen()),
     ),
-    GoRoute(path: '/welcome', pageBuilder: _detailPage(const AuthScreen())),
+    GoRoute(
+      path: '/welcome',
+      builder: (context, state) =>
+          AuthScreen(savePlan: state.uri.queryParameters['save'] == 'true'),
+    ),
   ],
 );
 

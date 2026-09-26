@@ -61,6 +61,7 @@ func TestPostgresIntegration(t *testing.T) {
 			t.Fatalf("unsafe catalog card: %+v", c)
 		}
 	}
+	t.Run("guest preview and atomic onboarding", func(t *testing.T) { testOnboarding(t, ctx, repo, a, b, cards) })
 	draft := domain.CreateCustomCard{Name: "My  Card", Issuer: "Test", Network: "Visa", RewardRates: map[string]float64{"other": 2}, TravelScope: "none", RewardsType: "cash_back", MinimumCreditTier: "good"}
 	mine, err := repo.CreateCustomCard(ctx, a, draft)
 	if err != nil {

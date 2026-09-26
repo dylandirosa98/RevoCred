@@ -114,6 +114,34 @@ class ApiAppRepository implements AppRepository {
 
   @override
   bool get isAuthenticated => _supabase?.auth.currentSession != null;
+  @override
+  String? get accountEmail => _emailProvider();
+
+  @override
+  Future<List<CreditCard>> loadCatalog() async {
+    final json = await _request('GET', '/v1/public/cards', anonymous: true);
+    return (json['data'] as List)
+        .map(
+          (item) =>
+              CreditCard.fromApiJson((item as Map).cast<String, dynamic>()),
+        )
+        .toList();
+  }
+
+  @override
+  Future<AppData> previewQuestionnaire(QuestionnaireAnswers answers) async {
+    final json = await _request(
+      'POST',
+      '/v1/public/plan',
+      anonymous: true,
+      body: answers.toRecommendationJson(),
+    );
+    return AppData.fromApiJson(
+      (json['data'] as Map).cast<String, dynamic>(),
+      messages: const [],
+      email: '',
+    ).copyWith(isPersonalPreview: true);
+  }
 
   @override
   Future<AuthResult> signIn(String email, String password) async {
@@ -225,7 +253,7 @@ class ApiAppRepository implements AppRepository {
   ) async {
     final json = await _request(
       'POST',
-      '/v1/recommendations',
+      '/v1/onboarding',
       body: answers.toRecommendationJson(),
     );
     final data = json['data'];

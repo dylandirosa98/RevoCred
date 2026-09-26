@@ -9,7 +9,8 @@ import '../../../shared/widgets/app_logo.dart';
 import '../../../shared/widgets/credit_card_view.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({this.savePlan = false, super.key});
+  final bool savePlan;
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
@@ -22,6 +23,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool signingUp = true;
   bool obscurePassword = true;
   String? message;
+
+  @override
+  void initState() {
+    super.initState();
+    showForm = widget.savePlan;
+  }
 
   @override
   void dispose() {
@@ -65,7 +72,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       )
                     : _WelcomePage(
                         key: const ValueKey('auth-welcome'),
-                        onCreateAccount: () => _openForm(signUp: true),
+                        onCreateAccount: () => context.go('/questionnaire'),
                         onSignIn: () => _openForm(signUp: false),
                       ),
               ),
@@ -127,7 +134,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               (result.success ? 'Signed in.' : 'Authentication failed.');
         });
         if (result.success && authenticated) {
-          context.go(signUp ? '/questionnaire' : '/home');
+          final data = ref.read(appControllerProvider).data;
+          context.go(
+            data?.questionnaireAnswers == null ? '/questionnaire' : '/home',
+          );
         }
       }
     } catch (_) {

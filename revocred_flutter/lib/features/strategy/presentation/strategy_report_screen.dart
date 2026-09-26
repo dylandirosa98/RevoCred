@@ -43,7 +43,8 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
     final value = strategyReportYearOneValue(data);
     final walletScore = displayWalletScore(
       useLocal:
-          !appState.isAuthenticated || ref.watch(appConfigProvider).useMocks,
+          (!appState.isAuthenticated && !data.isPersonalPreview) ||
+          ref.watch(appConfigProvider).useMocks,
       storedScore: data.pointsValue,
       localScore: scoreWallet(walletCapabilities(data.wallet)),
     );
@@ -75,6 +76,42 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
           product.pagePadding * 2,
         ),
         children: [
+          if (data.isPersonalPreview) ...[
+            AppPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Your personal strategy preview',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Calculated from your answers by the same server model used for saved plans. No account or credit check needed. This device keeps your draft for up to 24 hours.',
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: () => context.go('/welcome?save=true'),
+                    child: const Text('Create an account to save my plan'),
+                  ),
+                  TextButton(
+                    onPressed: () => context.go('/questionnaire'),
+                    child: const Text('Adjust my answers'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await ref
+                          .read(appControllerProvider.notifier)
+                          .clearGuestPreview();
+                      if (context.mounted) context.go('/welcome');
+                    },
+                    child: const Text('Clear this device’s preview'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -94,7 +131,7 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${data.profile.name}, this is your saved RevoCred plan. It turns your onboarding answers into an application order and wallet playbook.',
+            'Your ${data.isPersonalPreview ? 'preview' : 'saved'} RevoCred strategy uses your spending, existing cards and preferences. Start with the next recommended move; the other cards are options, not instructions to apply for all of them.',
             style: TextStyle(color: product.muted, fontSize: 15, height: 1.45),
           ),
           const SizedBox(height: 20),
@@ -160,6 +197,18 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(plan.title, style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text(
+                  data.recommendedCardId == null
+                      ? 'No new card currently improves your wallet under these assumptions. Keeping your current wallet is a valid result.'
+                      : 'Recommended next: ${data.profile.nextTarget}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                for (final reason in data.nextCardReasons)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text('• $reason'),
+                  ),
                 const SizedBox(height: 8),
                 Text(
                   'Build around the ${plan.ecosystem} ecosystem, adding cards in sequence only when each one fits your normal spending and the benefits justify its cost.',
@@ -265,7 +314,8 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
     try {
       if (data.recommendedCardId != null &&
           !ref.read(appConfigProvider).useMocks &&
-          ref.read(appControllerProvider).isAuthenticated) {
+          (ref.read(appControllerProvider).isAuthenticated ||
+              data.isPersonalPreview)) {
         await ref.read(affiliateOffersProvider.future);
         if (!mounted) return;
       }

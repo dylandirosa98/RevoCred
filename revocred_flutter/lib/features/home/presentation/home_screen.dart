@@ -31,11 +31,15 @@ class HomeScreen extends ConsumerWidget {
       bestRates(capabilities),
     );
     final score = displayWalletScore(
-      useLocal: config.useMocks || !appState.isAuthenticated,
+      useLocal:
+          config.useMocks ||
+          (!appState.isAuthenticated && !data.isPersonalPreview),
       storedScore: data.pointsValue,
       localScore: localWalletScore,
     );
-    final estimatedValue = config.useMocks || !appState.isAuthenticated
+    final estimatedValue =
+        config.useMocks ||
+            (!appState.isAuthenticated && !data.isPersonalPreview)
         ? localEstimatedValue
         : data.projectedYearlyValue;
     if (product.heroTreatment == HeroTreatment.wallet) {

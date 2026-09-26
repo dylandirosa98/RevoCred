@@ -8,6 +8,13 @@ class MockAppRepository implements AppRepository {
     : _data = initialData ?? createDemoAppData();
 
   AppData _data;
+  @override
+  String? get accountEmail => null;
+  @override
+  Future<List<CreditCard>> loadCatalog() async => _data.catalog;
+  @override
+  Future<AppData> previewQuestionnaire(QuestionnaireAnswers answers) async =>
+      _data;
 
   @override
   Stream<AccountSession> get sessionChanges => const Stream.empty();

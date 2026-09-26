@@ -7,6 +7,9 @@ class AuthResult {
 }
 
 abstract interface class AppRepository {
+  String? get accountEmail;
+  Future<List<CreditCard>> loadCatalog();
+  Future<AppData> previewQuestionnaire(QuestionnaireAnswers answers);
   Stream<AccountSession> get sessionChanges;
   bool get isPasswordRecovery;
   Future<void> requestPasswordReset(String email);

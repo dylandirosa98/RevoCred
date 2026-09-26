@@ -17,6 +17,14 @@ import (
 func testAffiliateOffers(t *testing.T, ctx context.Context, admin *pgxpool.Pool, repo *Postgres, input domain.RecommendationInput, cards []domain.CatalogCard) {
 	t.Helper()
 	operator := NewPostgres(admin)
+	var official int
+	if err := admin.QueryRow(ctx, `SELECT count(*) FROM revocred.affiliate_offers WHERE kind='official'`).Scan(&official); err != nil || official != 14 {
+		t.Fatalf("official links: %d %v", official, err)
+	}
+	// Isolate operator lifecycle fixtures from the shipped official links.
+	if _, err := admin.Exec(ctx, `UPDATE revocred.affiliate_offers SET approved=false`); err != nil {
+		t.Fatal(err)
+	}
 	before := recommendation.New().Recommend(input, cards)
 	var version string
 	if err := admin.QueryRow(ctx, `SELECT id::text FROM revocred.card_catalog_versions WHERE catalog_card_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1`, cards[0].ID).Scan(&version); err != nil {
@@ -54,7 +62,13 @@ func testAffiliateOffers(t *testing.T, ctx context.Context, admin *pgxpool.Pool,
 	}
 	wg.Wait()
 	rows, err := operator.OfferReport(ctx, time.Now().Add(-24*time.Hour))
-	if err != nil || len(rows) != 1 || rows[0].Clicks != 12 {
+	var clicks int64
+	for _, row := range rows {
+		if row.OfferID == id {
+			clicks += row.Clicks
+		}
+	}
+	if err != nil || clicks != 12 {
 		t.Fatalf("lost click updates: %+v %v", rows, err)
 	}
 	if _, err = repo.RecordOfferClick(ctx, id, "untrusted"); !errors.Is(err, ErrNotFound) {

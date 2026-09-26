@@ -7,7 +7,6 @@ import '../../../core/logic/card_search.dart';
 import '../../../core/models/app_models.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/content_layout.dart';
 import '../../../shared/widgets/custom_card_form.dart';
 
 class QuestionnaireScreen extends ConsumerStatefulWidget {
@@ -19,23 +18,84 @@ class QuestionnaireScreen extends ConsumerStatefulWidget {
 
 class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   int step = 0;
-  String lifeStage = 'adult-building';
+  String lifeStage = '';
   final existingCardIds = <String>[];
-  String feeTolerance = 'low';
-  String travelScope = 'both';
-  String creditTier = 'good';
-  String rewardsGoal = 'travel';
+  String feeTolerance = '';
+  String travelScope = '';
+  String creditTier = '';
+  String rewardsGoal = '';
+  bool cardsConfirmed = false;
+  bool catalogReady = false;
+  String? loadError;
   String cardQuery = '';
   final spendControllers = {
-    'rent': TextEditingController(),
-    'food': TextEditingController(),
+    'dining': TextEditingController(),
+    'groceries': TextEditingController(),
+    'gas': TextEditingController(),
     'travel': TextEditingController(),
-    'everyday': TextEditingController(),
+    'streaming': TextEditingController(),
+    'other': TextEditingController(),
   };
   bool saving = false;
-  DemoRecommendation? result;
 
   static const totalSteps = 7;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_load);
+  }
+
+  Future<void> _load() async {
+    try {
+      final controller = ref.read(appControllerProvider.notifier);
+      await controller.prepareQuestionnaire();
+      if (!mounted) return;
+      final state = ref.read(appControllerProvider);
+      final saved = state.isAuthenticated
+          ? state.data?.questionnaireAnswers
+          : controller.draftStore.answers;
+      setState(() {
+        catalogReady = true;
+        loadError = null;
+        if (saved != null) {
+          lifeStage = saved.lifeStage;
+          feeTolerance = saved.feeTolerance;
+          travelScope = saved.travelScope;
+          creditTier = saved.creditTier;
+          rewardsGoal = saved.rewardsGoal;
+          for (final entry in spendControllers.entries) {
+            final amount = saved.monthlySpend[entry.key];
+            entry.value.text = amount?.toString() ?? '';
+          }
+          cardsConfirmed = true;
+        }
+        if ((state.isAuthenticated && !ref.read(appConfigProvider).useMocks) ||
+            state.data?.isPersonalPreview == true) {
+          existingCardIds.addAll(state.data!.wallet.map((card) => card.id));
+        } else if (saved != null) {
+          existingCardIds.addAll(saved.existingCardIds);
+        }
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => loadError =
+              'Could not load the current card catalog. Please retry.',
+        );
+      }
+    }
+  }
+
+  bool get canContinue => switch (step) {
+    0 => lifeStage.isNotEmpty,
+    1 => existingCardIds.isNotEmpty || cardsConfirmed,
+    2 => feeTolerance.isNotEmpty,
+    3 => travelScope.isNotEmpty,
+    4 => creditTier.isNotEmpty,
+    5 => true,
+    _ => rewardsGoal.isNotEmpty,
+  };
 
   @override
   void dispose() {
@@ -48,6 +108,22 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   @override
   Widget build(BuildContext context) {
     final data = ref.watch(appControllerProvider).data!;
+    if (!catalogReady) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Build your strategy')),
+        body: Center(
+          child: loadError == null
+              ? const CircularProgressIndicator()
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(loadError!),
+                    TextButton(onPressed: _load, child: const Text('Retry')),
+                  ],
+                ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -120,7 +196,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
               ),
               child: Row(
                 children: [
-                  if (step > 0 && result == null)
+                  if (step > 0)
                     Expanded(
                       child: OutlinedButton(
                         onPressed: saving ? null : () => setState(() => step--),
@@ -130,26 +206,20 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
                         child: const Text('Back'),
                       ),
                     ),
-                  if (step > 0 && result == null) const SizedBox(width: 10),
+                  if (step > 0) const SizedBox(width: 10),
                   Expanded(
                     flex: 2,
                     child: FilledButton(
                       key: const ValueKey('questionnaire-next'),
-                      onPressed: saving
-                          ? null
-                          : result != null
-                          ? _finish
-                          : _next,
+                      onPressed: saving || !canContinue ? null : _next,
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(50),
                       ),
                       child: Text(
                         saving
                             ? 'Calculating...'
-                            : result != null
-                            ? 'Return to profile'
                             : step == totalSteps - 1
-                            ? 'Calculate recommendation'
+                            ? 'Build my strategy'
                             : 'Next',
                       ),
                     ),
@@ -164,12 +234,6 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   }
 
   Widget _stepContent(List<CreditCard> catalog) {
-    if (result != null) {
-      return _ResultView(
-        result: result!,
-        isMock: ref.read(appConfigProvider).useMocks,
-      );
-    }
     return switch (step) {
       0 => _Question(
         key: const ValueKey('question-life-stage'),
@@ -192,7 +256,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
         key: const ValueKey('question-existing-cards'),
         title: 'Which cards do you already have?',
         hint:
-            'Search and select any existing cards. You can continue with none.',
+            'Select the cards you own, or confirm you have none. Saving your plan updates your wallet to this selection; we will not recommend applying for cards you already own.',
         child: _cardSelector([
           ...catalog,
           ...?ref
@@ -212,15 +276,15 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
           onChanged: (value) => setState(() => feeTolerance = value),
           options: const {
             'none': r'$0 only',
-            'low': r'Up to about $95',
-            'mid': r'Up to about $250',
-            'high': r'$250+ premium cards',
+            'low': r'Up to $100 per card',
+            'mid': r'Up to $300 per card',
+            'high': r'Up to $1,000 per card',
           },
         ),
       ),
       3 => _Question(
         key: const ValueKey('question-travel'),
-        title: 'What travel scope should REVO consider?',
+        title: 'Where do you plan to travel?',
         hint: 'Choose no travel focus if everyday value matters more.',
         child: _choices(
           value: travelScope,
@@ -252,14 +316,14 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
         key: const ValueKey('question-spend'),
         title: 'Estimate your monthly spending',
         hint:
-            'Enter rough dollar amounts. Values stay on this device in demo mode.',
+            'Use your normal monthly budget, with each purchase in one category. Blank means zero. Housing is excluded from rewards estimates. Your answers are sent to the API to calculate a plan; in demo mode they stay on this device.',
         child: _spendInputs(),
       ),
       _ => _Question(
         key: const ValueKey('question-goal'),
         title: 'What is your primary rewards goal?',
         hint:
-            'The local v1 formula values travel rewards at 2.5% and cash back at 2.0% of entered spend.',
+            'Choose how you want to use rewards. The server compares sourced card terms, values points conservatively at one cent, and subtracts annual fees. No credit check or guaranteed approval.',
         child: _choices(
           value: rewardsGoal,
           onChanged: (value) => setState(() => rewardsGoal = value),
@@ -358,26 +422,36 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        OutlinedButton.icon(
-          key: const ValueKey('questionnaire-add-custom-card'),
-          onPressed: () async {
-            final draft = await showCustomCardSheet(context);
-            if (draft == null || !mounted) return;
-            final added = await ref
-                .read(appControllerProvider.notifier)
-                .addCustomCard(draft);
-            if (!added || !mounted) return;
-            final data = ref.read(appControllerProvider).data;
-            final created = data?.wallet
-                .where((card) => card.name == draft.name)
-                .firstOrNull;
-            if (created != null) {
-              setState(() => existingCardIds.add(created.id));
-            }
-          },
-          icon: const Icon(Icons.edit_outlined),
-          label: const Text('Add a card that is not listed'),
+        CheckboxListTile(
+          key: const ValueKey('no-existing-cards'),
+          title: const Text('I do not have any credit cards'),
+          value: cardsConfirmed && existingCardIds.isEmpty,
+          onChanged: (value) => setState(() {
+            cardsConfirmed = value == true;
+            if (cardsConfirmed) existingCardIds.clear();
+          }),
         ),
+        if (ref.read(appControllerProvider).isAuthenticated)
+          OutlinedButton.icon(
+            key: const ValueKey('questionnaire-add-custom-card'),
+            onPressed: () async {
+              final draft = await showCustomCardSheet(context);
+              if (draft == null || !mounted) return;
+              final added = await ref
+                  .read(appControllerProvider.notifier)
+                  .addCustomCard(draft);
+              if (!added || !mounted) return;
+              final data = ref.read(appControllerProvider).data;
+              final created = data?.wallet
+                  .where((card) => card.name == draft.name)
+                  .firstOrNull;
+              if (created != null) {
+                setState(() => existingCardIds.add(created.id));
+              }
+            },
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Add a card that is not listed'),
+          ),
         const SizedBox(height: 14),
         if (existingCardIds.isNotEmpty)
           Container(
@@ -463,6 +537,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
                   ? FocusScope.of(context).unfocus()
                   : FocusScope.of(context).nextFocus(),
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              maxLength: 7,
               decoration: InputDecoration(
                 labelText: _label(entries[index].key),
                 prefixText: r'$ ',
@@ -474,6 +549,18 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   }
 
   Future<void> _next() async {
+    if (!canContinue) return;
+    if (step == 5 &&
+        spendControllers.values.any(
+          (c) => (int.tryParse(c.text) ?? 0) > 1000000,
+        )) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(r'Enter at most $1,000,000 per monthly category.'),
+        ),
+      );
+      return;
+    }
     if (step < totalSteps - 1) {
       setState(() => step++);
       return;
@@ -491,11 +578,10 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
       rewardsGoal: rewardsGoal,
     );
     try {
-      final recommendation = await ref
+      await ref
           .read(appControllerProvider.notifier)
           .completeQuestionnaire(answers);
       if (mounted) {
-        setState(() => result = recommendation);
         context.pushReplacement('/strategy-report');
       }
     } catch (error) {
@@ -511,18 +597,12 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
     }
   }
 
-  void _finish() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/profile');
-    }
-  }
-
   String _label(String value) => switch (value) {
-    'rent' => 'Rent or housing',
-    'food' => 'Dining and groceries',
+    'dining' => 'Dining and takeout',
+    'groceries' => 'Groceries',
+    'gas' => 'Gas and fuel',
     'travel' => 'Travel',
+    'streaming' => 'Streaming subscriptions',
     _ => 'Other everyday spend',
   };
 }
@@ -546,74 +626,6 @@ class _Question extends StatelessWidget {
       Text(hint, style: TextStyle(color: context.product.muted, fontSize: 15)),
       const SizedBox(height: 25),
       child,
-    ],
-  );
-}
-
-class _ResultView extends StatelessWidget {
-  const _ResultView({required this.result, required this.isMock});
-  final DemoRecommendation result;
-  final bool isMock;
-  @override
-  Widget build(BuildContext context) => Column(
-    key: const ValueKey('questionnaire-result'),
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Icon(Icons.auto_awesome, size: 52, color: context.product.success),
-      const SizedBox(height: 18),
-      Text(
-        'Your local v1 result',
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.headlineMedium,
-      ),
-      const SizedBox(height: 8),
-      Text(
-        isMock
-            ? 'Demo mode calculated this on device. Your answers were not sent anywhere.'
-            : 'Preferences were sent to the configured API. The v1 estimate below was calculated locally.',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: context.product.warning),
-      ),
-      const SizedBox(height: 24),
-      AppPanel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SectionLabel('Recommended focus'),
-            const SizedBox(height: 9),
-            Text(
-              result.cardName,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Estimated yearly rewards value: \$${result.estimatedYearlyValue}',
-              style: TextStyle(
-                color: context.product.success,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Divider(height: 28, color: context.product.border),
-            for (final reason in result.reasons)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text('- $reason'),
-              ),
-            const SizedBox(height: 8),
-            const SectionLabel('Transparent formula'),
-            const SizedBox(height: 6),
-            Text(
-              result.formula,
-              style: TextStyle(color: context.product.muted),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'This estimate excludes welcome offers, annual fees, caps, interest, taxes, and changing issuer terms.',
-              style: TextStyle(color: context.product.muted, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
     ],
   );
 }

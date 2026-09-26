@@ -17,9 +17,15 @@ import (
 	"github.com/revocred/revocred-api/internal/strategy"
 )
 
-type Postgres struct {
-	pool *pgxpool.Pool
+type postgresDB interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Begin(context.Context) (pgx.Tx, error)
+	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
 }
+
+type Postgres struct{ pool postgresDB }
 
 func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
 

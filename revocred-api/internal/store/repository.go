@@ -16,6 +16,8 @@ var (
 )
 
 type Repository interface {
+	PreviewPlan(context.Context, domain.RecommendationInput) (domain.Bootstrap, error)
+	SaveOnboarding(context.Context, string, domain.RecommendationInput) (domain.RecommendationResult, error)
 	ListOffers(ctx context.Context) ([]affiliate.Offer, error)
 	RecordOfferClick(ctx context.Context, id, placement string) (string, error)
 	Ping(ctx context.Context) error

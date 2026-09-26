@@ -41,10 +41,7 @@ void main() {
     );
     addTearDown(container.dispose);
     final controller = container.read(appControllerProvider.notifier);
-    await expectLater(
-      controller.completeQuestionnaire(answers),
-      throwsStateError,
-    );
+    await expectLater(controller.completeQuestionnaire(answers), completes);
     expect(container.read(appControllerProvider).recommendation, isNull);
   });
 

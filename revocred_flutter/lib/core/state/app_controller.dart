@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/app_config.dart';
 import '../data/app_repository.dart';
 import '../data/demo_seed.dart';
+import '../data/onboarding_draft_store.dart';
 import '../logic/demo_recommendation.dart';
 import '../logic/playbook.dart';
 import '../models/app_models.dart';
@@ -45,6 +46,7 @@ class AppState {
     String? actionMessage,
     bool clearActionMessage = false,
     DemoRecommendation? recommendation,
+    bool clearRecommendation = false,
     bool? passwordRecovery,
   }) => AppState(
     isAuthenticated: isAuthenticated ?? this.isAuthenticated,
@@ -54,7 +56,9 @@ class AppState {
     actionMessage: clearActionMessage
         ? null
         : actionMessage ?? this.actionMessage,
-    recommendation: recommendation ?? this.recommendation,
+    recommendation: clearRecommendation
+        ? null
+        : recommendation ?? this.recommendation,
     passwordRecovery: passwordRecovery ?? this.passwordRecovery,
   );
 }
@@ -64,6 +68,8 @@ final appControllerProvider = NotifierProvider<AppController, AppState>(
 );
 
 class AppController extends Notifier<AppState> {
+  Future<void>? _refreshing;
+  OnboardingDraftStore get draftStore => ref.read(onboardingDraftStoreProvider);
   int _sessionGeneration = 0;
   AppRepository get _repository => ref.read(appRepositoryProvider);
   AppConfig get _config => ref.read(appConfigProvider);
@@ -102,17 +108,39 @@ class AppController extends Notifier<AppState> {
         isLoading: false,
         data: createDemoAppData(),
       );
+      if (!_config.useMocks && draftStore.answers != null) {
+        try {
+          await completeQuestionnaire(draftStore.answers!);
+        } catch (_) {
+          /* A saved draft can be retried from onboarding. */
+        }
+      }
       return;
     }
     await refresh();
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh() =>
+      _refreshing ??= _refresh().whenComplete(() => _refreshing = null);
+
+  Future<void> _refresh() async {
     final generation = _sessionGeneration;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final data = await _repository.loadAppData();
+      var data = await _repository.loadAppData();
       if (generation != _sessionGeneration) return;
+      final pending = draftStore.answers;
+      if (!_config.useMocks &&
+          pending != null &&
+          data.questionnaireAnswers == null &&
+          draftStore.email != null &&
+          draftStore.email == _repository.accountEmail?.trim().toLowerCase()) {
+        await _repository.saveQuestionnaire(pending);
+        if (generation != _sessionGeneration) return;
+        data = await _repository.loadAppData();
+        if (generation != _sessionGeneration) return;
+        await draftStore.clear();
+      }
       state = state.copyWith(
         isAuthenticated: true,
         isLoading: false,
@@ -141,6 +169,9 @@ class AppController extends Notifier<AppState> {
   }
 
   Future<AuthResult> signIn(String email, String password) async {
+    if (!state.isAuthenticated && state.data?.isPersonalPreview == true) {
+      await draftStore.bind(email);
+    }
     final result = await _repository.signIn(email, password);
     if (result.success && _repository.isAuthenticated) {
       state = state.copyWith(isAuthenticated: true);
@@ -150,6 +181,9 @@ class AppController extends Notifier<AppState> {
   }
 
   Future<AuthResult> signUp(String email, String password) async {
+    if (!state.isAuthenticated && state.data?.isPersonalPreview == true) {
+      await draftStore.bind(email);
+    }
     final result = await _repository.signUp(email, password);
     if (result.success && _repository.isAuthenticated) {
       state = state.copyWith(isAuthenticated: true);
@@ -161,6 +195,7 @@ class AppController extends Notifier<AppState> {
   Future<void> signOut() async {
     _sessionGeneration++;
     await _repository.signOut();
+    await draftStore.clear();
     if (_config.useMocks) {
       state = AppState(
         isAuthenticated: true,
@@ -223,6 +258,11 @@ class AppController extends Notifier<AppState> {
   }
 
   Future<void> sendMessage(String prompt) async {
+    if (!state.isAuthenticated && state.data?.isPersonalPreview == true) {
+      throw StateError(
+        'Create an account to let REVO explain your personal plan. Guest demo chat does not use your private preview.',
+      );
+    }
     final generation = _sessionGeneration;
     final data = state.data;
     if (data == null) return;
@@ -251,10 +291,44 @@ class AppController extends Notifier<AppState> {
     }
   }
 
-  Future<DemoRecommendation> completeQuestionnaire(
+  Future<void> prepareQuestionnaire() async {
+    if (_config.useMocks) return;
+    final generation = _sessionGeneration;
+    final catalog = await _repository.loadCatalog();
+    if (generation != _sessionGeneration) return;
+    state = state.copyWith(data: state.data?.copyWith(catalog: catalog));
+  }
+
+  Future<void> clearGuestPreview() async {
+    if (state.isAuthenticated) return;
+    _sessionGeneration++;
+    await draftStore.clear();
+    state = AppState(
+      isAuthenticated: false,
+      isLoading: false,
+      data: createDemoAppData(),
+    );
+  }
+
+  Future<DemoRecommendation?> completeQuestionnaire(
     QuestionnaireAnswers answers,
   ) async {
     final generation = _sessionGeneration;
+    if (!_config.useMocks && !state.isAuthenticated) {
+      final preview = await _repository.previewQuestionnaire(answers);
+      if (generation != _sessionGeneration) {
+        throw const SessionExpiredException();
+      }
+      await draftStore.save(answers, email: draftStore.email);
+      state = state.copyWith(
+        data: preview,
+        clearError: true,
+        clearRecommendation: true,
+        actionMessage:
+            'Your personal preview is ready. Create an account to save it.',
+      );
+      return null;
+    }
     final recommendation = _config.useMocks
         ? computeDemoRecommendation(answers)
         : await _repository.saveQuestionnaire(answers);
@@ -265,22 +339,27 @@ class AppController extends Notifier<AppState> {
         throw StateError(state.error ?? 'Could not refresh app data.');
       }
     }
-    if (recommendation == null) {
-      throw StateError(
-        'Your answers were saved. No eligible card currently improves your wallet under these assumptions. Update your preferences or keep your existing cards.',
-      );
-    }
     final current = state.data;
     final recommendationJson = answers.toRecommendationJson();
     final plan = StrategyPlan.fromAnswers(answers);
     state = state.copyWith(
       data: current?.copyWith(
+        questionnaireAnswers: answers,
+        wallet: _config.useMocks
+            ? current.catalog
+                  .where((card) => answers.existingCardIds.contains(card.id))
+                  .map((card) => card.copyWith(isActive: true))
+                  .toList()
+            : current.wallet,
         monthlySpend: answers.monthlySpend,
         strategyPlan: _config.useMocks ? plan : current.strategyPlan,
         playbook: _config.useMocks
             ? buildPlaybook(
                 code: plan.code,
-                walletNames: current.wallet.map((card) => card.name).toList(),
+                walletNames: current.catalog
+                    .where((card) => answers.existingCardIds.contains(card.id))
+                    .map((card) => card.name)
+                    .toList(),
               )
             : current.playbook,
         strategyPreferences: _config.useMocks
@@ -288,6 +367,7 @@ class AppController extends Notifier<AppState> {
             : current.strategyPreferences,
       ),
       recommendation: recommendation,
+      clearRecommendation: recommendation == null,
       actionMessage: _config.useMocks
           ? 'Demo recommendation calculated locally. Answers were not sent.'
           : 'Answers saved and recommendation calculated by the Go API.',

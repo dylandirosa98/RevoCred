@@ -389,6 +389,9 @@ class AppData {
     this.playbook,
     this.chatMode = 'deterministic',
     this.recommendedCardId,
+    this.isPersonalPreview = false,
+    this.questionnaireAnswers,
+    this.nextCardReasons = const [],
   });
 
   factory AppData.fromJson(Map<String, dynamic> json) {
@@ -526,6 +529,10 @@ class AppData {
       playbook: playbook,
       chatMode: (json['chat_mode'] ?? 'deterministic').toString(),
       recommendedCardId: topItem?['card_id']?.toString(),
+      nextCardReasons: _stringList(topItem?['reasons']),
+      questionnaireAnswers: latestQuestionnaire.isEmpty
+          ? null
+          : QuestionnaireAnswers.fromRecommendationJson(latestQuestionnaire),
     );
   }
 
@@ -544,8 +551,14 @@ class AppData {
   final String chatMode;
   // Server-ranked identity, separate from display names and affiliate metadata.
   final String? recommendedCardId;
+  final bool isPersonalPreview;
+  final QuestionnaireAnswers? questionnaireAnswers;
+  final List<String> nextCardReasons;
 
   AppData copyWith({
+    List<CreditCard>? catalog,
+    bool? isPersonalPreview,
+    QuestionnaireAnswers? questionnaireAnswers,
     List<CreditCard>? wallet,
     List<ChatMessage>? messages,
     UserProfile? profile,
@@ -559,7 +572,7 @@ class AppData {
   }) => AppData(
     profile: profile ?? this.profile,
     wallet: wallet ?? this.wallet,
-    catalog: catalog,
+    catalog: catalog ?? this.catalog,
     roadmap: roadmap ?? this.roadmap,
     messages: messages ?? this.messages,
     quickPrompts: quickPrompts,
@@ -571,10 +584,29 @@ class AppData {
     playbook: playbook ?? this.playbook,
     chatMode: chatMode,
     recommendedCardId: recommendedCardId,
+    isPersonalPreview: isPersonalPreview ?? this.isPersonalPreview,
+    questionnaireAnswers: questionnaireAnswers ?? this.questionnaireAnswers,
+    nextCardReasons: nextCardReasons,
   );
 }
 
 class QuestionnaireAnswers {
+  factory QuestionnaireAnswers.fromRecommendationJson(
+    Map<String, dynamic> json,
+  ) => QuestionnaireAnswers(
+    lifeStage: (json['life_stage'] ?? '').toString(),
+    existingCardIds: _stringList(json['existing_card_ids']),
+    feeTolerance: switch ((json['fee_tolerance_cents'] as num?)?.toInt() ?? 0) {
+      0 => 'none',
+      <= 10000 => 'low',
+      <= 30000 => 'mid',
+      _ => 'high',
+    },
+    travelScope: (json['travel_scope'] ?? '').toString(),
+    creditTier: (json['credit_tier'] ?? '').toString(),
+    rewardsGoal: (json['rewards_goal'] ?? '').toString(),
+    monthlySpend: _centsToDollars(json['monthly_category_spend']),
+  );
   const QuestionnaireAnswers({
     required this.lifeStage,
     required this.existingCardIds,

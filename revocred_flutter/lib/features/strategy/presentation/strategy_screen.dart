@@ -75,6 +75,41 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
               : '${playbook.code}: ${playbook.title}. Current eligibility and wallet value determine the next step.',
           style: TextStyle(color: product.muted, fontSize: 15),
         ),
+        const SizedBox(height: 16),
+        AppPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'YOUR RECOMMENDED STRATEGY',
+                style: TextStyle(
+                  color: product.action,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${data.strategyPlan?.code ?? ''} ${data.strategyPlan?.title ?? 'Build your personal plan'}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                data.recommendedCardId == null
+                    ? 'No new card currently improves your modeled wallet. Keep your existing cards, or review your answers.'
+                    : 'Start with ${data.profile.nextTarget}. This is the highest-ranked eligible improvement for your spending and wallet. Explore other cards below, but add one only if it supports your plan.',
+              ),
+              TextButton(
+                onPressed: () => context.push('/questionnaire'),
+                child: const Text('Review my answers'),
+              ),
+              for (final reason in data.nextCardReasons)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text('• $reason'),
+                ),
+            ],
+          ),
+        ),
         SizedBox(height: product.sectionGap),
         _RoadmapSummary(
           key: const ValueKey('strategy-summary'),
@@ -264,7 +299,9 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
           children: [
             const Expanded(child: SectionLabel('Cards worth comparing')),
             Text(
-              'DEMO CATALOG',
+              ref.watch(appConfigProvider).useMocks
+                  ? 'DEMO CATALOG'
+                  : 'ISSUER SNAPSHOTS',
               style: TextStyle(
                 color: product.muted,
                 fontSize: 9,
@@ -360,7 +397,7 @@ class _RoadmapSummary extends StatelessWidget {
           _MetricDivider(color: product.border),
           Expanded(
             child: _SummaryMetric(
-              label: 'TOP DEMO VALUE',
+              label: 'MODELED VALUE',
               value: '\$$topValue',
               color: product.success,
             ),
@@ -899,14 +936,16 @@ class _PopularCard extends StatelessWidget {
   );
 }
 
-class _CardDetailSheet extends StatelessWidget {
+class _CardDetailSheet extends ConsumerWidget {
   const _CardDetailSheet({required this.card});
 
   final CreditCard card;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final product = context.product;
+    final data = ref.watch(appControllerProvider).data!;
+    final owned = data.wallet.any((item) => item.id == card.id);
     return SafeArea(
       top: false,
       child: SingleChildScrollView(
@@ -961,6 +1000,17 @@ class _CardDetailSheet extends StatelessWidget {
                 Text(
                   '${card.issuer} | Annual fee ${card.annualFee}',
                   style: TextStyle(color: product.muted),
+                ),
+                if (owned)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'Already in your wallet — use this card in your strategy rather than applying again.',
+                    ),
+                  ),
+                ApplyOfferButton(
+                  placement: ApplyPlacement.cardDetails,
+                  cardId: card.id,
                 ),
                 const SizedBox(height: 18),
                 AppPanel(
