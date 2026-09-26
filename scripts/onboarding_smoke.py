@@ -4,6 +4,7 @@
 Runs only against loopback local services. Creates and deletes only its own
 throwaway account. Requires `make local-preview` and requirements-browser.txt.
 """
+import os
 import re
 import time
 
@@ -12,7 +13,9 @@ from playwright.sync_api import sync_playwright, expect
 from browser_smoke import enable_accessibility, fill_field
 from local_e2e import ROOT, load_env, request
 
-WEB = 'http://127.0.0.1:8083'
+# A shared tunnel run overrides all three so the same assertions cover the
+# public origin, not just loopback.
+WEB = os.environ.get('REVOCRED_SHARE_WEB', 'http://127.0.0.1:8083')
 
 
 def answer(page, text):
@@ -32,7 +35,8 @@ def next_step(page):
 
 def main():
     config = load_env(ROOT / '.env.local')
-    api, auth = config['REVOCRED_API_URL'], config['SUPABASE_URL']
+    api = os.environ.get('REVOCRED_SHARE_API', config['REVOCRED_API_URL'])
+    auth = os.environ.get('REVOCRED_SHARE_SUPABASE', config['SUPABASE_URL'])
     public = {'apikey': config['SUPABASE_ANON_KEY']}
     email = f'onboard-{time.time_ns()}@example.test'
     password = 'Local-Onboard-Test-8871!'
@@ -92,6 +96,10 @@ def main():
             recommended = next_move.group(1).strip()
             assert recommended != 'Sapphire Preferred', \
                 f'preview recommended an owned card: {recommended}'
+            # The Apply button attaches after the async offers request, so wait
+            # for the disclosure rather than assuming it rendered immediately.
+            expect(page.get_by_text(re.compile('Official issuer link'))).to_be_visible(timeout=30000)
+            report = page.inner_text('body')
             roadmap = report.split('APPLICATION ROADMAP')[1].split('RECOMMENDED NEXT MOVE')[0]
             for line in roadmap.splitlines():
                 if 'Sapphire Preferred' in line:
