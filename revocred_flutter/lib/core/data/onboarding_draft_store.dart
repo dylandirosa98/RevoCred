@@ -38,6 +38,9 @@ class OnboardingDraftStore {
           ? null
           : QuestionnaireAnswers.fromRecommendationJson(
               (data['answers'] as Map).cast<String, dynamic>(),
+              cardLabels:
+                  (data['card_labels'] as Map?)?.cast<String, dynamic>() ??
+                  const {},
             );
     } catch (_) {
       unawaited(clear());
@@ -60,6 +63,10 @@ class OnboardingDraftStore {
     _memory = jsonEncode({
       'saved_at': DateTime.now().toUtc().toIso8601String(),
       'answers': answers.toRecommendationJson(),
+      'card_labels': {
+        for (final card in answers.addedCards)
+          card.referenceId: {'name': card.cardName, 'issuer': card.issuer},
+      },
       'email': email?.trim().toLowerCase(),
     });
     await preferences?.setString(_key, _memory!);

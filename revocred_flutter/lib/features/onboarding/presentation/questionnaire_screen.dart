@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,6 +9,7 @@ import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/card_terms_sheet.dart';
 import '../../../shared/widgets/custom_card_form.dart';
+import '../../../shared/widgets/issuer_mark.dart';
 
 class QuestionnaireScreen extends ConsumerStatefulWidget {
   const QuestionnaireScreen({super.key});
@@ -21,9 +21,12 @@ class QuestionnaireScreen extends ConsumerStatefulWidget {
 class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   int step = 0;
   String lifeStage = '';
+  final firstName = TextEditingController();
+  final lastName = TextEditingController();
   final existingCardIds = <String>[];
   Timer? _searchDebounce;
   String feeTolerance = '';
+  String idealCardCount = '';
   String travelScope = '';
   String creditTier = '';
   String rewardsGoal = '';
@@ -35,17 +38,36 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   List<ReferenceCard> indexResults = const [];
   bool indexSearching = false;
   String? indexError;
-  final spendControllers = {
-    'dining': TextEditingController(),
-    'groceries': TextEditingController(),
-    'gas': TextEditingController(),
-    'travel': TextEditingController(),
-    'streaming': TextEditingController(),
-    'other': TextEditingController(),
+  final spendValues = <String, int>{
+    'dining': 0,
+    'groceries': 0,
+    'gas': 0,
+    'travel': 0,
+    'streaming': 0,
+    'other': 0,
   };
   bool saving = false;
 
   static const totalSteps = 7;
+  static const stepNames = [
+    'About you',
+    'Your cards',
+    'Wallet size',
+    'Travel',
+    'Credit',
+    'Spending',
+    'Your goal',
+  ];
+  final _scroll = ScrollController();
+
+  // Each step starts at the top. Without this a long step, such as the card
+  // list, leaves the next question scrolled out of view.
+  void _goToStep(int value) {
+    setState(() => step = value);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) _scroll.jumpTo(0);
+    });
+  }
 
   // A signed-out visitor's wallet is demo data, not cards they own. Only a real
   // account or the visitor's own preview may prefill or extend the card list.
@@ -55,6 +77,8 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   @override
   void initState() {
     super.initState();
+    firstName.addListener(_onNameChanged);
+    lastName.addListener(_onNameChanged);
     Future.microtask(_load);
   }
 
@@ -73,14 +97,24 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
         if (saved != null) {
           lifeStage = saved.lifeStage;
           feeTolerance = saved.feeTolerance;
+          idealCardCount = const ['2-3', '3-4'].contains(saved.idealCardCount)
+              ? '2-4'
+              : saved.idealCardCount;
           travelScope = saved.travelScope;
           creditTier = saved.creditTier;
           rewardsGoal = saved.rewardsGoal;
-          for (final entry in spendControllers.entries) {
-            final amount = saved.monthlySpend[entry.key];
-            entry.value.text = amount?.toString() ?? '';
+          for (final category in spendValues.keys) {
+            spendValues[category] = saved.monthlySpend[category] ?? 0;
           }
           cardsConfirmed = true;
+        }
+        final displayName = saved?.displayName.trim().isNotEmpty == true
+            ? saved!.displayName.trim()
+            : state.data?.profile.name.trim() ?? '';
+        if (displayName.isNotEmpty) {
+          final parts = displayName.split(RegExp(r'\s+'));
+          firstName.text = parts.first;
+          lastName.text = parts.length > 1 ? parts.skip(1).join(' ') : '';
         }
         if (hasOwnWallet(state) || saved != null) {
           existingCardIds.addAll(
@@ -101,23 +135,30 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   }
 
   bool get canContinue => switch (step) {
-    0 => lifeStage.isNotEmpty,
+    0 =>
+      firstName.text.trim().isNotEmpty &&
+          lastName.text.trim().isNotEmpty &&
+          lifeStage.isNotEmpty,
     // A card added from search is an answer too, so it must satisfy this step.
     1 =>
       existingCardIds.isNotEmpty || addedFromIndex.isNotEmpty || cardsConfirmed,
-    2 => feeTolerance.isNotEmpty,
+    2 => idealCardCount.isNotEmpty,
     3 => travelScope.isNotEmpty,
     4 => creditTier.isNotEmpty,
     5 => true,
     _ => rewardsGoal.isNotEmpty,
   };
 
+  void _onNameChanged() {
+    if (mounted && step == 0) setState(() {});
+  }
+
   @override
   void dispose() {
     _searchDebounce?.cancel();
-    for (final controller in spendControllers.values) {
-      controller.dispose();
-    }
+    _scroll.dispose();
+    firstName.dispose();
+    lastName.dispose();
     super.dispose();
   }
 
@@ -153,7 +194,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
             padding: const EdgeInsets.only(right: 18),
             child: Center(
               child: Text(
-                '${step + 1}/$totalSteps',
+                'Step ${step + 1} of $totalSteps',
                 style: TextStyle(color: context.product.muted),
               ),
             ),
@@ -177,6 +218,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
             ),
             Expanded(
               child: SingleChildScrollView(
+                controller: _scroll,
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.all(22),
@@ -204,7 +246,25 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
                           ),
                         ),
                       ),
-                      child: _stepContent(data.catalog),
+                      child: KeyedSubtree(
+                        key: ValueKey('step-$step'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              stepNames[step].toUpperCase(),
+                              style: TextStyle(
+                                color: context.product.action,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            _stepContent(data.catalog),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -221,7 +281,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
                   if (step > 0)
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: saving ? null : () => setState(() => step--),
+                        onPressed: saving ? null : () => _goToStep(step - 1),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(50),
                         ),
@@ -260,18 +320,22 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
       0 => _Question(
         key: const ValueKey('question-life-stage'),
         title: 'What adult life stage fits best?',
-        hint:
-            'All choices are for adults age 18 or older. Student cards require confirmed student status; issuer approval is never guaranteed.',
-        child: _choices(
-          value: lifeStage,
-          onChanged: (value) => setState(() => lifeStage = value),
-          options: const {
-            'student': '18+ and currently a student',
-            'adult-learning': '18+ and learning credit basics',
-            'adult-building': 'Adult and building a foundation',
-            'adult-established': 'Established and expanding rewards',
-            'adult-optimizing': 'Experienced and optimizing',
-          },
+        hint: 'Tell us who the strategy is for, then choose the closest fit.',
+        child: Column(
+          children: [
+            _nameInputs(),
+            const SizedBox(height: 26),
+            _choices(
+              value: lifeStage,
+              onChanged: (value) => setState(() => lifeStage = value),
+              options: const {
+                'adult-learning': '18+ and learning credit basics',
+                'adult-building': 'Adult and building a foundation',
+                'adult-established': 'Established and expanding rewards',
+                'adult-optimizing': 'Experienced and optimizing',
+              },
+            ),
+          ],
         ),
       ),
       1 => _Question(
@@ -283,17 +347,16 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
       ),
       2 => _Question(
         key: const ValueKey('question-fees'),
-        title: 'What annual fee feels reasonable?',
+        title: 'How many cards would you like to ideally stay within?',
         hint:
-            'Select the highest tier you would consider when benefits justify it.',
+            'Choose a comfortable long-term wallet size. This helps keep your roadmap focused and manageable.',
         child: _choices(
-          value: feeTolerance,
-          onChanged: (value) => setState(() => feeTolerance = value),
+          value: idealCardCount,
+          onChanged: (value) => setState(() => idealCardCount = value),
           options: const {
-            'none': r'$0 only',
-            'low': r'Up to $100 per card',
-            'mid': r'Up to $300 per card',
-            'high': r'Up to $1,000 per card',
+            '1-2': '1–2 cards',
+            '2-4': '2–4 cards',
+            '4+': '4+ cards',
           },
         ),
       ),
@@ -449,24 +512,185 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   }
 
   Widget _cardSelector(List<CreditCard> catalog) {
-    // searchCards returns nothing for an empty query, so an unsearched list
-    // must be built from the catalog itself or the step looks empty.
-    final results = cardQuery.trim().isEmpty
-        ? (catalog.toList()..sort((a, b) => a.name.compareTo(b.name)))
-        : searchCards(catalog, cardQuery).take(8).toList();
-    final searching = cardQuery.trim().isNotEmpty;
+    final product = context.product;
+    final query = cardQuery.trim();
+    final searching = query.isNotEmpty;
+    final catalogMatches = searching
+        ? searchCards(catalog, query).take(8).toList()
+        : (catalog.toList()..sort((a, b) => a.name.compareTo(b.name)));
+    // The index also lists every catalog card. Those resolve to the catalog
+    // row so a card is never shown twice or entered with duplicate terms.
+    String identity(String issuer, String name) =>
+        '$issuer|$name'.toLowerCase();
+    final catalogById = {for (final card in catalog) card.id: card};
+    final catalogByIdentity = {
+      for (final card in catalog) identity(card.issuer, card.name): card,
+    };
+    CreditCard? catalogFor(ReferenceCard card) {
+      final id = card.catalogCardId;
+      if (id != null && id.isNotEmpty && catalogById[id] != null) {
+        return catalogById[id];
+      }
+      return catalogByIdentity[identity(card.issuer, card.name)];
+    }
+
+    final shownCatalog = {for (final card in catalogMatches) card.id};
+    final extraCatalog = <CreditCard>[];
+    final indexOnly = <ReferenceCard>[];
+    if (query.length >= 2) {
+      for (final card in indexResults) {
+        final resolved = catalogFor(card);
+        if (resolved == null) {
+          indexOnly.add(card);
+        } else if (shownCatalog.add(resolved.id)) {
+          extraCatalog.add(resolved);
+        }
+      }
+    }
+    final catalogRows = [...catalogMatches, ...extraCatalog];
+    final selectedCatalog = [
+      for (final id in existingCardIds)
+        catalogById[id] ??
+            _ownedCardOptions(catalog).where((c) => c.id == id).firstOrNull,
+    ].whereType<CreditCard>().toList();
+    final selectedCount = selectedCatalog.length + addedFromIndex.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        CheckboxListTile(
-          key: const ValueKey('no-existing-cards'),
-          title: const Text('I do not have any credit cards'),
-          value: cardsConfirmed && existingCardIds.isEmpty,
-          onChanged: (value) => setState(() {
-            cardsConfirmed = value == true;
-            if (cardsConfirmed) existingCardIds.clear();
-          }),
+        if (selectedCount > 0) ...[
+          Text(
+            selectedCount == 1 ? 'Your card' : 'Your cards ($selectedCount)',
+            style: TextStyle(
+              color: product.action,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          for (final card in selectedCatalog)
+            _SelectedCardRow(
+              key: ValueKey('selected-card-${card.id}'),
+              issuer: card.issuer,
+              name: card.name,
+              detail: 'Earn rates on file',
+              onRemove: () => setState(() => existingCardIds.remove(card.id)),
+            ),
+          for (final card in addedFromIndex)
+            _SelectedCardRow(
+              key: ValueKey('selected-index-${card.referenceId}'),
+              issuer: card.issuer,
+              name: card.cardName,
+              detail: card.includeTerms
+                  ? 'Using the terms you entered'
+                  : 'No terms - not used in your score',
+              onRemove: () => setState(() => addedFromIndex.remove(card)),
+            ),
+          if (addedFromIndex.any((card) => !card.includeTerms))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Cards added without terms are not used in your score, so your score may be less accurate than it could be.',
+                style: TextStyle(fontSize: 12, color: product.muted),
+              ),
+            ),
+          const SizedBox(height: 16),
+        ],
+        TextField(
+          key: const ValueKey('questionnaire-card-search'),
+          onChanged: (value) {
+            setState(() => cardQuery = value);
+            _searchDebounce?.cancel();
+            _searchDebounce = Timer(
+              const Duration(milliseconds: 300),
+              _searchIndex,
+            );
+          },
+          textInputAction: TextInputAction.search,
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'Search by card or bank, e.g. Discover or Sapphire',
+          ),
         ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                searching ? 'Matching cards' : 'Popular cards',
+                style: TextStyle(
+                  color: product.action,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            if (indexSearching)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+          ],
+        ),
+        if (!searching)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              'Not listed? Search above: the full list covers Chase, Capital One, Discover, Citi, Wells Fargo, U.S. Bank and more.',
+              style: TextStyle(color: product.muted, fontSize: 12),
+            ),
+          ),
+        const SizedBox(height: 4),
+        for (final card in catalogRows)
+          CheckboxListTile(
+            key: ValueKey('existing-card-${card.id}'),
+            value: existingCardIds.contains(card.id),
+            onChanged: (_) => setState(() {
+              cardsConfirmed = false;
+              existingCardIds.contains(card.id)
+                  ? existingCardIds.remove(card.id)
+                  : existingCardIds.add(card.id);
+            }),
+            secondary: IssuerMark(issuer: card.issuer, size: 36),
+            title: Text(card.name),
+            subtitle: Text('${card.issuer} | ${card.annualFee}'),
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.trailing,
+          ),
+        for (final card in indexOnly)
+          ListTile(
+            key: ValueKey('index-result-${card.id}'),
+            contentPadding: EdgeInsets.zero,
+            leading: IssuerMark(issuer: card.issuer, size: 36),
+            title: Text(card.label),
+            subtitle: Text(
+              card.hasTerms
+                  ? 'Earn rates on file (checked ${card.sourceCapturedOn})'
+                  : 'Identity only - you will enter the terms',
+            ),
+            trailing: addedFromIndex.any((item) => item.referenceId == card.id)
+                ? Icon(Icons.check_circle, color: product.success)
+                : TextButton(
+                    onPressed: () => _addFromIndex(card),
+                    child: const Text('Add'),
+                  ),
+          ),
+        if (indexError != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(indexError!, style: const TextStyle(fontSize: 12)),
+          )
+        else if (query.length >= 2 &&
+            !indexSearching &&
+            catalogRows.isEmpty &&
+            indexOnly.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'No card matches "$query". Try the bank name, like Discover or Citi, or a shorter part of the card name.',
+              style: TextStyle(fontSize: 13, color: product.muted),
+            ),
+          ),
+        const SizedBox(height: 10),
         if (ref.read(appControllerProvider).isAuthenticated)
           OutlinedButton.icon(
             key: const ValueKey('questionnaire-add-custom-card'),
@@ -488,193 +712,60 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
             icon: const Icon(Icons.edit_outlined),
             label: const Text('Add a card that is not listed'),
           ),
-        const SizedBox(height: 14),
-        if (existingCardIds.isNotEmpty)
-          Container(
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: context.product.border),
-                bottom: BorderSide(color: context.product.border),
-              ),
-            ),
-            child: Column(
-              children: existingCardIds.map((id) {
-                final card = catalog.where((item) => item.id == id).firstOrNull;
-                if (card == null) {
-                  return ListTile(
-                    dense: true,
-                    title: Text(id),
-                    trailing: IconButton(
-                      onPressed: () =>
-                          setState(() => existingCardIds.remove(id)),
-                      icon: const Icon(Icons.close, size: 18),
-                    ),
-                  );
-                }
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: Text(
-                    card.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  trailing: IconButton(
-                    tooltip: 'Remove ${card.name}',
-                    onPressed: () => setState(() => existingCardIds.remove(id)),
-                    icon: const Icon(Icons.close, size: 18),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        if (existingCardIds.isNotEmpty) const SizedBox(height: 14),
-        TextField(
-          key: const ValueKey('questionnaire-card-search'),
-          onChanged: (value) {
-            setState(() => cardQuery = value);
-            _searchDebounce?.cancel();
-            _searchDebounce = Timer(
-              const Duration(milliseconds: 350),
-              _searchIndex,
-            );
-          },
-          textInputAction: TextInputAction.search,
-          decoration: const InputDecoration(
-            prefixIcon: Icon(Icons.search),
-            hintText: 'Search cards or issuers',
-          ),
+        const Divider(height: 28),
+        CheckboxListTile(
+          key: const ValueKey('no-existing-cards'),
+          title: const Text('I do not have any credit cards'),
+          value: cardsConfirmed && selectedCount == 0,
+          contentPadding: EdgeInsets.zero,
+          onChanged: (value) => setState(() {
+            cardsConfirmed = value == true;
+            if (cardsConfirmed) {
+              existingCardIds.clear();
+              addedFromIndex.clear();
+            }
+          }),
         ),
-        if (addedFromIndex.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Text(
-            'Cards you added from search',
-            style: TextStyle(
-              color: context.product.action,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          for (final card in addedFromIndex)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                card.cardName,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(
-                card.includeTerms
-                    ? 'Using the terms you entered'
-                    : 'No terms - not used in your score',
-              ),
-              trailing: IconButton(
-                tooltip: 'Remove ${card.cardName}',
-                onPressed: () => setState(() => addedFromIndex.remove(card)),
-                icon: const Icon(Icons.close, size: 18),
-              ),
-            ),
-          const Text(
-            'Cards added without terms are not used in your score, so your score may be less accurate than it could be.',
-            style: TextStyle(fontSize: 12),
-          ),
-        ],
-        if (cardQuery.trim().length >= 2) ...[
-          const SizedBox(height: 12),
-          Text(
-            'Search all cards',
-            style: TextStyle(
-              color: context.product.action,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          if (indexSearching)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: LinearProgressIndicator(minHeight: 2),
-            )
-          else if (indexError != null)
-            Text(indexError!, style: const TextStyle(fontSize: 12))
-          else if (indexResults.isEmpty)
-            const Text(
-              'No match in the card list. Use the search above to pick it, or add it with your own terms.',
-              style: TextStyle(fontSize: 12),
-            ),
-          for (final card in indexResults)
-            ListTile(
-              key: ValueKey('index-result-${card.id}'),
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text(card.label),
-              subtitle: Text(
-                card.hasTerms
-                    ? 'Earn rates on file (checked ${card.sourceCapturedOn})'
-                    : 'Identity only - you will enter the terms',
-              ),
-              trailing: TextButton(
-                onPressed:
-                    addedFromIndex.any((item) => item.referenceId == card.id)
-                    ? null
-                    : () => _addFromIndex(card),
-                child: const Text('Add'),
-              ),
-            ),
-        ],
-        const SizedBox(height: 12),
-        if (!searching)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Text(
-              'Showing every card. Search to narrow the list.',
-              style: TextStyle(color: context.product.muted, fontSize: 12),
-            ),
-          ),
-        for (final card in results)
-          CheckboxListTile(
-            key: ValueKey('existing-card-${card.id}'),
-            value: existingCardIds.contains(card.id),
-            onChanged: (_) => setState(
-              () => existingCardIds.contains(card.id)
-                  ? existingCardIds.remove(card.id)
-                  : existingCardIds.add(card.id),
-            ),
-            title: Text(card.name),
-            subtitle: Text('${card.issuer} | ${card.annualFee}'),
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.trailing,
-          ),
       ],
     );
   }
 
   Widget _spendInputs() {
-    final entries = spendControllers.entries.toList();
+    final entries = spendValues.entries.toList();
+    final total = spendValues.values.fold<int>(0, (sum, value) => sum + value);
     return Column(
       children: [
         for (var index = 0; index < entries.length; index++)
           Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: TextField(
+            padding: const EdgeInsets.only(bottom: 18),
+            child: _SpendSlider(
               key: ValueKey('spend-${entries[index].key}'),
-              controller: entries[index].value,
-              keyboardType: TextInputType.number,
-              textInputAction: index == entries.length - 1
-                  ? TextInputAction.done
-                  : TextInputAction.next,
-              onSubmitted: (_) => index == entries.length - 1
-                  ? FocusScope.of(context).unfocus()
-                  : FocusScope.of(context).nextFocus(),
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              maxLength: 7,
-              decoration: InputDecoration(
-                labelText: _label(entries[index].key),
-                prefixText: r'$ ',
-              ),
+              label: _label(entries[index].key),
+              value: entries[index].value,
+              onChanged: (value) =>
+                  setState(() => spendValues[entries[index].key] = value),
             ),
           ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            total == 0
+                ? 'Leave a category at \$0 if you do not spend there.'
+                : 'About \$${_formatDollars(total)} a month, or \$${_formatDollars(total * 12)} a year.',
+            style: TextStyle(
+              color: context.product.muted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ],
     );
   }
+
+  String _formatDollars(int value) => value.toString().replaceAllMapped(
+    RegExp(r'\B(?=(\d{3})+(?!\d))'),
+    (_) => ',',
+  );
 
   Future<void> _searchIndex() async {
     final query = cardQuery.trim();
@@ -726,33 +817,25 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
 
   Future<void> _next() async {
     if (!canContinue) return;
-    if (step == 5 &&
-        spendControllers.values.any(
-          (c) => (int.tryParse(c.text) ?? 0) > 1000000,
-        )) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(r'Enter at most $1,000,000 per monthly category.'),
-        ),
-      );
-      return;
-    }
     if (step < totalSteps - 1) {
-      setState(() => step++);
+      _goToStep(step + 1);
       return;
     }
     setState(() => saving = true);
     final answers = QuestionnaireAnswers(
       lifeStage: lifeStage,
       existingCardIds: existingCardIds,
-      feeTolerance: feeTolerance,
+      // The current recommendation engine still requires a fee threshold. Use
+      // a conservative default until fee preference is inferred from card
+      // details instead of asking an extra onboarding question.
+      feeTolerance: feeTolerance.isEmpty ? 'low' : feeTolerance,
+      idealCardCount: idealCardCount,
       travelScope: travelScope,
       creditTier: creditTier,
-      monthlySpend: spendControllers.map(
-        (key, value) => MapEntry(key, int.tryParse(value.text) ?? 0),
-      ),
+      monthlySpend: Map.unmodifiable(spendValues),
       rewardsGoal: rewardsGoal,
       addedCards: addedFromIndex,
+      displayName: '${firstName.text.trim()} ${lastName.text.trim()}'.trim(),
     );
     try {
       await ref
@@ -782,6 +865,166 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
     'streaming' => 'Streaming subscriptions',
     _ => 'Other everyday spend',
   };
+
+  Widget _nameInputs() => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        child: TextField(
+          key: const ValueKey('onboarding-first-name'),
+          controller: firstName,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.givenName],
+          maxLength: 30,
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+          decoration: const InputDecoration(
+            labelText: 'First name',
+            counterText: '',
+          ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: TextField(
+          key: const ValueKey('onboarding-last-name'),
+          controller: lastName,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.familyName],
+          maxLength: 30,
+          decoration: const InputDecoration(
+            labelText: 'Last name',
+            counterText: '',
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _SpendSlider extends StatelessWidget {
+  const _SpendSlider({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    super.key,
+  });
+
+  static const max = 5000;
+  static const step = 50;
+  final String label;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final product = context.product;
+    return Semantics(
+      label: '$label monthly spending',
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        decoration: BoxDecoration(
+          color: product.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: product.border),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: product.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                AnimatedContainer(
+                  key: const ValueKey('spend-value'),
+                  duration: const Duration(milliseconds: 120),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: product.subtle,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    value == max ? r'$5,000+' : '\$${_money(value)}',
+                    style: TextStyle(
+                      color: product.action,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: product.action,
+                inactiveTrackColor: product.border,
+                thumbColor: product.action,
+                overlayColor: product.action.withValues(alpha: .14),
+                trackHeight: 4,
+                tickMarkShape: const RoundSliderTickMarkShape(
+                  tickMarkRadius: 1.15,
+                ),
+                activeTickMarkColor: product.actionInk.withValues(alpha: .7),
+                inactiveTickMarkColor: product.muted.withValues(alpha: .45),
+                valueIndicatorColor: product.action,
+                valueIndicatorTextStyle: TextStyle(
+                  color: product.actionInk,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              child: Slider(
+                value: value.toDouble(),
+                min: 0,
+                max: max.toDouble(),
+                divisions: max ~/ step,
+                label: value == max ? r'$5,000+' : '\$${_money(value)}',
+                semanticFormatterCallback: (next) {
+                  final snapped = (next / step).round() * step;
+                  return snapped == max
+                      ? r'$5,000 or more per month'
+                      : '\$${_money(snapped)} per month';
+                },
+                onChanged: (next) => onChanged((next / step).round() * step),
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  r'$0',
+                  style: TextStyle(color: product.muted, fontSize: 11),
+                ),
+                Text(
+                  r'$2,500',
+                  style: TextStyle(color: product.muted, fontSize: 11),
+                ),
+                Text(
+                  r'$5,000+',
+                  style: TextStyle(color: product.muted, fontSize: 11),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _money(int amount) => amount.toString().replaceAllMapped(
+    RegExp(r'\B(?=(\d{3})+(?!\d))'),
+    (_) => ',',
+  );
 }
 
 class _Question extends StatelessWidget {
@@ -804,5 +1047,34 @@ class _Question extends StatelessWidget {
       const SizedBox(height: 25),
       child,
     ],
+  );
+}
+
+class _SelectedCardRow extends StatelessWidget {
+  const _SelectedCardRow({
+    required this.issuer,
+    required this.name,
+    required this.detail,
+    required this.onRemove,
+    super.key,
+  });
+
+  final String issuer;
+  final String name;
+  final String detail;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    dense: true,
+    contentPadding: EdgeInsets.zero,
+    leading: IssuerMark(issuer: issuer, size: 32),
+    title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+    subtitle: Text(detail),
+    trailing: IconButton(
+      tooltip: 'Remove $name',
+      onPressed: onRemove,
+      icon: const Icon(Icons.close, size: 18),
+    ),
   );
 }

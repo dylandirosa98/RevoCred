@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/revocred/revocred-api/internal/auth"
+	"github.com/revocred/revocred-api/internal/carddata"
 	"github.com/revocred/revocred-api/internal/chat"
 	"github.com/revocred/revocred-api/internal/config"
 	"github.com/revocred/revocred-api/internal/httpapi"
@@ -54,6 +55,19 @@ func run(logger *slog.Logger) error {
 		return errors.New("DATABASE_URL is invalid")
 	}
 	poolConfig.MaxConns = cfg.DatabaseMaxConns
+	if cfg.DatabaseRootCAs != nil {
+		// sslmode=verify-full still checks the host name; only the trusted
+		// roots change.
+		if poolConfig.ConnConfig.TLSConfig == nil {
+			return errors.New("DATABASE_CA_CERT requires a TLS sslmode in DATABASE_URL")
+		}
+		poolConfig.ConnConfig.TLSConfig.RootCAs = cfg.DatabaseRootCAs
+		for _, fallback := range poolConfig.ConnConfig.Fallbacks {
+			if fallback.TLSConfig != nil {
+				fallback.TLSConfig.RootCAs = cfg.DatabaseRootCAs
+			}
+		}
+	}
 	startupCtx, cancelStartup := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelStartup()
 	pool, err := pgxpool.NewWithConfig(startupCtx, poolConfig)
@@ -71,10 +85,24 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	repository := store.NewPostgres(pool)
+	// This public feed receives no member data. Load the durable snapshot first;
+	// background network failures never block serving the core catalog.
+	dataCtx, stopData := context.WithCancel(context.Background())
+	defer stopData()
+	if os.Getenv("OPENCARD_ENABLED") != "false" {
+		cache := carddata.New(&http.Client{Timeout: 20 * time.Second}, repository, carddata.SourceURL)
+		if err := cache.Load(startupCtx); err != nil {
+			logger.Warn("OpenCard cache load failed", "error", err)
+		}
+		repository.UseCardData(cache)
+		go cache.Run(dataCtx, func(err error) { logger.Warn("OpenCard refresh failed; retaining cached data", "error", err) })
+	}
 	chatProvider, err := chat.New(chat.Options{
-		APIKey:  cfg.OpenCodeGoAPIKey,
-		Model:   cfg.OpenCodeGoModel,
-		BaseURL: cfg.OpenCodeGoBaseURL,
+		APIKey:          cfg.AIAPIKey,
+		Model:           cfg.AIModel,
+		BaseURL:         cfg.AIBaseURL,
+		ReasoningEffort: cfg.AIReasoningEffort,
+		Logger:          logger,
 	})
 	if err != nil {
 		return err
@@ -87,7 +115,7 @@ func run(logger *slog.Logger) error {
 		logger,
 		cfg.AllowedOrigins,
 		cfg.RequestTimeout,
-		httpapi.Options{MetricsToken: cfg.MetricsToken},
+		httpapi.Options{MetricsToken: cfg.MetricsToken, ClientIPHeader: cfg.ClientIPHeader},
 	)
 
 	server := &http.Server{
@@ -95,7 +123,7 @@ func run(logger *slog.Logger) error {
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       20 * time.Second,
-		WriteTimeout:      45 * time.Second,
+		WriteTimeout:      50 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 

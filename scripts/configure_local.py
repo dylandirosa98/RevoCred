@@ -11,6 +11,11 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 
 
+# REVO provider settings; AI_* are preferred, OPENCODE_GO_* are the older names.
+AI_KEYS = ("AI_API_KEY", "AI_MODEL", "AI_BASE_URL", "AI_REASONING_EFFORT",
+           "OPENCODE_GO_API_KEY", "OPENCODE_GO_MODEL", "OPENCODE_GO_BASE_URL")
+
+
 def main() -> None:
     result = subprocess.run(
         ["supabase", "status", "--output", "json"],
@@ -39,7 +44,7 @@ def main() -> None:
     api_path = ROOT / "revocred-api" / ".env.local"
     if api_path.exists():
         for line in api_path.read_text(encoding="utf-8").splitlines():
-            if line.startswith("OPENCODE_GO_") and "=" in line:
+            if line.split("=", 1)[0] in AI_KEYS:
                 key, value = line.split("=", 1)
                 preserved[key] = value
     api_lines = [
@@ -53,7 +58,7 @@ def main() -> None:
         "SHUTDOWN_TIMEOUT=10s",
         "DB_MAX_CONNS=10",
     ]
-    for key in ("OPENCODE_GO_API_KEY", "OPENCODE_GO_MODEL", "OPENCODE_GO_BASE_URL"):
+    for key in AI_KEYS:
         if key in preserved:
             api_lines.append(f"{key}={preserved[key]}")
     api = "\n".join(api_lines) + "\n"

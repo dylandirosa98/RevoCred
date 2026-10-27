@@ -74,9 +74,18 @@ func (a *API) cors(next http.Handler) http.Handler {
 	})
 }
 
+// chatRequestTimeout must stay below the server's WriteTimeout.
+const chatRequestTimeout = 45 * time.Second
+
 func (a *API) deadline(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), a.requestTimeout)
+		timeout := a.requestTimeout
+		if r.Method == http.MethodPost && (r.URL.Path == "/v1/chat/messages" || r.URL.Path == "/v1/public/explain") {
+			// A model reply can take longer than an ordinary request. The chat
+			// provider stops the model early enough to still answer and save.
+			timeout = chatRequestTimeout
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

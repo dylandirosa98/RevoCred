@@ -1,8 +1,10 @@
 package domain
 
 import (
+	"encoding/json"
 	"time"
 
+	"github.com/revocred/revocred-api/internal/carddata"
 	"github.com/revocred/revocred-api/internal/strategy"
 )
 
@@ -20,6 +22,10 @@ type Profile struct {
 }
 
 type CatalogCard struct {
+	// Community data remains reference-only for scoring, eligibility and card
+	// selection. Wallet-only Ongoing uses bounded, reviewed exact-text adapters;
+	// unreviewed prose must never be interpreted automatically as cash value.
+	CommunityData       *carddata.Details  `json:"community_data,omitempty"`
 	ID                  string             `json:"id"`
 	Slug                string             `json:"slug"`
 	Issuer              string             `json:"issuer"`
@@ -80,7 +86,7 @@ type CreateCustomCard struct {
 	MinimumCreditTier  string             `json:"minimum_credit_tier"`
 	Nickname           string             `json:"nickname"`
 	// TermsUnknown is true only when the user explicitly skipped terms.
-	TermsUnknown bool `json:"-"`
+	TermsUnknown bool `json:"terms_unknown,omitempty"`
 }
 
 // OnboardingCard is a card chosen from the search-only reference index during
@@ -96,7 +102,8 @@ type OnboardingCard struct {
 	MinimumTier    string             `json:"minimum_credit_tier"`
 }
 
-// Substitution names an approved stand-in for a strategy card the person owns.
+// Substitution names an approved stand-in for a strategy role. It is only used
+// when the person already owns that stand-in.
 type Substitution struct {
 	CardID string `json:"card_id"`
 	Name   string `json:"name"`
@@ -127,6 +134,7 @@ type RecommendationInput struct {
 	OwnedCards           []CatalogCard    `json:"-"`
 	MonthlyCategorySpend map[string]int64 `json:"monthly_category_spend"`
 	FeeToleranceCents    int              `json:"fee_tolerance_cents"`
+	IdealCardCount       string           `json:"ideal_card_count,omitempty"`
 	TravelScope          string           `json:"travel_scope"`
 	RewardsGoal          string           `json:"rewards_goal"`
 	CreditTier           string           `json:"credit_tier"`
@@ -166,18 +174,52 @@ type RecommendationResult struct {
 }
 
 type ChatMessage struct {
-	ID        string    `json:"id"`
-	Role      string    `json:"role"`
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"created_at"`
+	ID      string `json:"id"`
+	Role    string `json:"role"`
+	Content string `json:"content"`
+	// Blocks is the resolved structured reply the app renders. It may be empty
+	// for older messages, which then render as plain text.
+	Blocks    json.RawMessage `json:"blocks,omitempty"`
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+// OngoingValue is wallet-only. Recommendation Net remains rewards less fees.
+type OngoingValue struct {
+	ModelVersion     string         `json:"model_version"`
+	RewardsCents     int64          `json:"rewards_cents"`
+	CreditsCents     int64          `json:"credits_cents"`
+	AnniversaryCents int64          `json:"anniversary_cents"`
+	FeesCents        int64          `json:"fees_cents"`
+	TotalCents       int64          `json:"total_cents"`
+	Benefits         []BenefitValue `json:"benefits"`
+	Assumptions      []string       `json:"assumptions"`
+}
+type BenefitValue struct {
+	SourceVerifiedOn string `json:"source_verified_on"`
+	SnapshotSHA256   string `json:"snapshot_sha256"`
+	CatalogVersion   string `json:"catalog_version"`
+	CardID           string `json:"card_id"`
+	CardName         string `json:"card_name"`
+	ID               string `json:"id"`
+	Title            string `json:"title"`
+	Kind             string `json:"kind"`
+	FaceCents        int64  `json:"face_cents"`
+	EstimatedCents   int64  `json:"estimated_cents"`
+	Frequency        string `json:"frequency"`
+	Conditions       string `json:"conditions"`
+	SourceURL        string `json:"source_url"`
+	ReviewedOn       string `json:"reviewed_on"`
+	EvidenceVersion  string `json:"evidence_version"`
+	Status           string `json:"status"`
 }
 
 type WalletMetrics struct {
-	Score       int    `json:"score"`
-	Rating      string `json:"rating"`
-	Additions   int    `json:"additions"`
-	Penalties   int    `json:"penalties"`
-	YearlyValue int    `json:"yearly_value"`
+	OngoingValue OngoingValue `json:"ongoing_value"`
+	Score        int          `json:"score"`
+	Rating       string       `json:"rating"`
+	Additions    int          `json:"additions"`
+	Penalties    int          `json:"penalties"`
+	YearlyValue  int          `json:"yearly_value"`
 }
 
 type Bootstrap struct {

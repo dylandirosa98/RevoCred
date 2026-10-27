@@ -52,8 +52,14 @@ func (p *Postgres) PreviewPlan(ctx context.Context, input domain.RecommendationI
 	categories, goal, target := questionnaireProfile(input, result)
 	profile := domain.Profile{DisplayName: "Your preview", CreditCardStrategy: result.StrategyCode, Goal: goal, TopSpendCategories: categories, NextApplicationTarget: target, RewardsGoal: input.RewardsGoal, TravelScope: input.TravelScope}
 	playbook := strategy.Build(result.StrategyCode, walletNames(wallet), playbookPrefs(&input))
+	substitutions, err := p.Substitutions(ctx)
+	if err != nil {
+		return domain.Bootstrap{}, err
+	}
+	applySubstitutions(&playbook, wallet, substitutions)
 	applyRecommendation(&playbook, &result)
-	return domain.Bootstrap{Catalog: catalog, Wallet: wallet, Profile: &profile, LatestRecommendations: &result, LatestQuestionnaire: &input, WalletMetrics: scoring.Metrics(wallet, input.MonthlyCategorySpend), Playbook: &playbook, QuickPrompts: []string{}}, nil
+	profile.NextApplicationTarget = playbook.NextCard
+	return domain.Bootstrap{Catalog: catalog, Wallet: wallet, Profile: &profile, LatestRecommendations: &result, LatestQuestionnaire: &input, WalletMetrics: scoring.Metrics(wallet, input.MonthlyCategorySpend, input.TravelScope), Playbook: &playbook, QuickPrompts: []string{}}, nil
 }
 
 // SaveOnboarding atomically reconciles the chosen wallet and stores the plan.

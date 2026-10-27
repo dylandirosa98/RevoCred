@@ -1,6 +1,90 @@
 import '../logic/playbook.dart';
+import 'ongoing_value.dart';
+export 'ongoing_value.dart';
+import 'purchase_guide.dart';
+export 'purchase_guide.dart';
 
 enum MessageRole { user, assistant }
+
+/// Supplemental, attributed public product data. Never scoring inputs.
+class CommunityCardData {
+  const CommunityCardData({
+    required this.id,
+    required this.attribution,
+    required this.sourceUrl,
+    required this.licenseUrl,
+    required this.issuerUrl,
+    required this.lastVerified,
+    required this.retrievedAt,
+    required this.currencyLabel,
+    required this.rewardRates,
+    required this.benefits,
+    required this.warning,
+    this.welcomeOfferDescription = '',
+    this.redemptionNotes = '',
+    this.travelPerks = const [],
+  });
+  factory CommunityCardData.fromJson(Map<String, dynamic> json) =>
+      CommunityCardData(
+        id: (json['id'] ?? '').toString(),
+        attribution: (json['attribution'] ?? '').toString(),
+        sourceUrl: (json['source_url'] ?? '').toString(),
+        licenseUrl: (json['license_url'] ?? '').toString(),
+        issuerUrl: (json['issuer_url'] ?? '').toString(),
+        lastVerified: (json['last_verified'] ?? '').toString(),
+        retrievedAt: (json['retrieved_at'] ?? '').toString(),
+        currencyLabel: (json['currency_label'] ?? '').toString(),
+        rewardRates: _stringList(json['reward_rates']),
+        benefits: _stringList(json['benefits']),
+        travelPerks: _travelPerkLines(json['travel_perks']),
+        warning:
+            (json['warning'] ?? 'Community-maintained; verify issuer terms.')
+                .toString(),
+        welcomeOfferDescription: json['welcome_offer'] is Map
+            ? ((json['welcome_offer'] as Map)['description'] ?? '').toString()
+            : '',
+        redemptionNotes: json['rewards'] is Map
+            ? ((json['rewards'] as Map)['redemption_notes'] ?? '').toString()
+            : '',
+      );
+  final String id, attribution, sourceUrl, licenseUrl, issuerUrl;
+  final String lastVerified, retrievedAt, currencyLabel, warning;
+  final String welcomeOfferDescription, redemptionNotes;
+  final List<String> rewardRates, benefits;
+  final List<String> travelPerks;
+}
+
+// Display-only recursive formatting preserves unfamiliar structured fields.
+// Missing/null fields are unknown, never inferred as absent or unlimited.
+List<String> _travelPerkLines(dynamic value, [String label = '']) {
+  String readable(String key) {
+    final words = key.replaceAll('_', ' ');
+    return words.isEmpty
+        ? words
+        : '${words[0].toUpperCase()}${words.substring(1)}';
+  }
+
+  if (value == null) return [];
+  if (value is Map) {
+    return [
+      for (final entry in value.entries)
+        ..._travelPerkLines(
+          entry.value,
+          label.isEmpty
+              ? readable(entry.key.toString())
+              : '$label · ${readable(entry.key.toString())}',
+        ),
+    ];
+  }
+  if (value is List) {
+    return [for (final item in value) ..._travelPerkLines(item, label)];
+  }
+  if (value is! String && value is! num && value is! bool) return [];
+  final text = value.toString().trim();
+  if (text.isEmpty) return [];
+  final display = label.endsWith('Period') ? text.replaceAll('_', ' ') : text;
+  return [label.isEmpty ? display : '$label: $display'];
+}
 
 class CreditCard {
   const CreditCard({
@@ -20,6 +104,9 @@ class CreditCard {
     this.sourceDisclaimer =
         'Verify current terms with the issuer. Educational use only.',
     this.termsUnknown = false,
+    this.communityData,
+    this.minimumCreditTier = '',
+    this.modeledRates = const {},
   });
 
   factory CreditCard.fromJson(Map<String, dynamic> json) => CreditCard(
@@ -41,6 +128,11 @@ class CreditCard {
     feeTier: (json['feeTier'] ?? json['annual_fee_tier'] ?? '0') as String,
     walletCardId: (json['walletCardId'] ?? json['wallet_card_id']) as String?,
     termsUnknown: json['termsUnknown'] == true || json['terms_unknown'] == true,
+    communityData: json['community_data'] is Map
+        ? CommunityCardData.fromJson(
+            (json['community_data'] as Map).cast<String, dynamic>(),
+          )
+        : null,
   );
 
   factory CreditCard.fromApiJson(
@@ -71,6 +163,11 @@ class CreditCard {
       multiplier: strongestRate == null ? '1x' : '${strongestRate}x',
       benefits: _stringList(json['benefits']),
       pointMultipliers: rates,
+      modeledRates:
+          rewardRates?.map(
+            (key, value) => MapEntry(key, (value as num).toDouble()),
+          ) ??
+          const {},
       transferablePoints: json['transferable_points'] == true,
       isActive: isActive,
       walletCardId: walletCardId,
@@ -91,6 +188,12 @@ class CreditCard {
             ? 'Verify current terms with the issuer. Educational use only.'
             : text;
       }(),
+      communityData: json['community_data'] is Map
+          ? CommunityCardData.fromJson(
+              (json['community_data'] as Map).cast<String, dynamic>(),
+            )
+          : null,
+      minimumCreditTier: (json['minimum_credit_tier'] ?? '').toString(),
     );
   }
 
@@ -99,6 +202,7 @@ class CreditCard {
   final String brand;
   final String name;
   final String annualFee;
+  final Map<String, double> modeledRates;
   final String bestUse;
   final String multiplier;
   final List<String> benefits;
@@ -108,6 +212,11 @@ class CreditCard {
   final String feeTier;
   final String? walletCardId;
   final String sourceDisclaimer;
+  final CommunityCardData? communityData;
+
+  /// Minimum qualifying credit tier from the versioned catalog
+  /// (building, fair, good, excellent). Empty when unknown.
+  final String minimumCreditTier;
   // True when the cardholder chose not to supply terms. Such a card is listed
   // as owned but is left out of the score, because no known rate is not a
   // low rate.
@@ -117,6 +226,7 @@ class CreditCard {
     bool? isActive,
     String? walletCardId,
     bool? termsUnknown,
+    String? minimumCreditTier,
   }) => CreditCard(
     id: id,
     issuer: issuer,
@@ -127,12 +237,15 @@ class CreditCard {
     multiplier: multiplier,
     benefits: benefits,
     pointMultipliers: pointMultipliers,
+    modeledRates: modeledRates,
     transferablePoints: transferablePoints,
     isActive: isActive ?? this.isActive,
     feeTier: feeTier,
     walletCardId: walletCardId ?? this.walletCardId,
     sourceDisclaimer: sourceDisclaimer,
     termsUnknown: termsUnknown ?? this.termsUnknown,
+    communityData: communityData,
+    minimumCreditTier: minimumCreditTier ?? this.minimumCreditTier,
   );
 }
 
@@ -161,18 +274,97 @@ class RoadmapStep {
   final int estimatedValue;
 }
 
+/// A structured REVO block. Only the shapes the API emits are modelled here;
+/// an unknown type falls back to plain text so a newer server can never break
+/// an older client.
+class ChatBlock {
+  const ChatBlock({
+    required this.type,
+    this.text = '',
+    this.items = const [],
+    this.chart,
+  });
+
+  factory ChatBlock.fromJson(Map<String, dynamic> json) => ChatBlock(
+    type: (json['type'] ?? '').toString(),
+    text: (json['text'] ?? '').toString(),
+    items: ((json['items'] as List<dynamic>?) ?? const [])
+        .map((item) => item.toString())
+        .toList(growable: false),
+    chart: json['chart'] is Map<String, dynamic>
+        ? ChatChart.fromJson(json['chart'] as Map<String, dynamic>)
+        : null,
+  );
+
+  final String type;
+  final String text;
+  final List<String> items;
+  final ChatChart? chart;
+}
+
+class ChatChart {
+  const ChatChart({
+    required this.title,
+    required this.unit,
+    this.note = '',
+    this.bars = const [],
+  });
+
+  factory ChatChart.fromJson(Map<String, dynamic> json) => ChatChart(
+    title: (json['title'] ?? '').toString(),
+    unit: (json['unit'] ?? 'usd').toString(),
+    note: (json['note'] ?? '').toString(),
+    bars: ((json['bars'] as List<dynamic>?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (bar) => ChatBar(
+            label: (bar['label'] ?? '').toString(),
+            value: (bar['value'] as num?)?.toDouble() ?? 0,
+            valueLabel: (bar['value_label'] ?? '').toString(),
+            caption: (bar['caption'] ?? '').toString(),
+          ),
+        )
+        .toList(growable: false),
+  );
+
+  final String title;
+  final String unit;
+  final String note;
+  final List<ChatBar> bars;
+  bool get isPercent => unit == 'percent';
+}
+
+class ChatBar {
+  const ChatBar({
+    required this.label,
+    required this.value,
+    this.valueLabel = '',
+    this.caption = '',
+  });
+
+  final String label;
+  final double value;
+  final String valueLabel;
+  final String caption;
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
     required this.role,
     required this.content,
     required this.createdAt,
+    this.blocks = const [],
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
     id: json['id'].toString(),
     role: json['role'] == 'user' ? MessageRole.user : MessageRole.assistant,
     content: json['content'] as String,
+    blocks: ((json['blocks'] as List<dynamic>?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(ChatBlock.fromJson)
+        .toList(growable: false),
     createdAt:
         DateTime.tryParse(
           (json['createdAt'] ?? json['created_at'] ?? '').toString(),
@@ -184,6 +376,9 @@ class ChatMessage {
   final MessageRole role;
   final String content;
   final DateTime createdAt;
+
+  /// Empty for messages saved before structured replies existed.
+  final List<ChatBlock> blocks;
 }
 
 class UserProfile {
@@ -419,7 +614,9 @@ class AppData {
     this.recommendedCardId,
     this.isPersonalPreview = false,
     this.questionnaireAnswers,
+    this.ongoingValue,
     this.nextCardReasons = const [],
+    this.purchaseGuide,
   });
 
   factory AppData.fromJson(Map<String, dynamic> json) {
@@ -453,6 +650,11 @@ class AppData {
       strategyPlan: StrategyPlan.maybeForCode(
         (json['strategyCode'] ?? json['strategy_code'])?.toString(),
       ),
+      purchaseGuide: json['purchase_guide'] is Map
+          ? PurchaseGuide.fromJson(
+              (json['purchase_guide'] as Map).cast<String, dynamic>(),
+            )
+          : null,
     );
   }
 
@@ -460,6 +662,7 @@ class AppData {
     Map<String, dynamic> json, {
     required List<dynamic> messages,
     required String email,
+    String displayNameFallback = '',
   }) {
     final profileJson =
         (json['profile'] as Map?)?.cast<String, dynamic>() ??
@@ -499,8 +702,7 @@ class AppData {
       );
     }).toList();
     final topItem = recommendationItems.firstOrNull as Map?;
-    final firstYearCents =
-        (topItem?['first_year_estimate_cents'] as num?)?.round() ?? 0;
+
     final walletMetrics =
         (json['wallet_metrics'] as Map?)?.cast<String, dynamic>() ??
         const <String, dynamic>{};
@@ -514,28 +716,39 @@ class AppData {
     final playbook = playbookJson != null
         ? PlaybookAssignment.fromJson(playbookJson)
         : null;
-    final playbookRoadmap = playbook?.steps.asMap().entries.map((entry) {
-      final step = entry.value;
-      return RoadmapStep(
-        id: '${playbook.code}-${entry.key}',
-        cardId: step.name,
-        stage: switch (step.status) {
-          'have' => 'Already in wallet',
-          'next' => 'Consider next',
-          'unavailable' => 'Not currently recommended',
-          _ => 'Later',
-        },
-        note: step.note.isEmpty ? step.use : step.note,
-        estimatedValue: 0,
-      );
-    }).toList();
+    final playbookRoadmap = playbook?.steps
+        .where((step) => step.status == 'next' || step.status == 'later')
+        .toList()
+        .asMap()
+        .entries
+        .map((entry) {
+          final step = entry.value;
+          return RoadmapStep(
+            id: '${playbook.code}-${entry.key}',
+            cardId: step.name,
+            stage: switch (step.status) {
+              'have' => 'Already in wallet',
+              'next' => 'Consider next',
+              'unavailable' => 'Not currently recommended',
+              _ => 'Later',
+            },
+            note: step.note.isEmpty ? step.use : step.note,
+            estimatedValue: 0,
+          );
+        })
+        .toList();
+    final savedDisplayName =
+        profileJson['display_name']?.toString().trim() ?? '';
     return AppData(
-      profile: UserProfile.fromJson({...profileJson, 'email': email}),
+      profile: UserProfile.fromJson({
+        ...profileJson,
+        if (savedDisplayName.isEmpty && displayNameFallback.trim().isNotEmpty)
+          'display_name': displayNameFallback.trim(),
+        'email': email,
+      }),
       wallet: wallet,
       catalog: catalog,
-      roadmap: (playbookRoadmap != null && playbookRoadmap.isNotEmpty)
-          ? playbookRoadmap
-          : roadmap,
+      roadmap: playbookRoadmap ?? roadmap,
       messages: messages
           .map(
             (item) =>
@@ -544,9 +757,13 @@ class AppData {
           .toList(),
       quickPrompts: _stringList(json['quick_prompts']),
       pointsValue: (walletMetrics['score'] as num?)?.round() ?? 0,
+      ongoingValue: walletMetrics['ongoing_value'] is Map
+          ? OngoingValue.fromJson(
+              (walletMetrics['ongoing_value'] as Map).cast<String, dynamic>(),
+            )
+          : null,
       projectedYearlyValue:
-          (walletMetrics['yearly_value'] as num?)?.round() ??
-          firstYearCents ~/ 100,
+          (walletMetrics['yearly_value'] as num?)?.round() ?? 0,
       monthlySpend: _centsToDollars(
         latestQuestionnaire['monthly_category_spend'],
       ),
@@ -558,6 +775,11 @@ class AppData {
       chatMode: (json['chat_mode'] ?? 'deterministic').toString(),
       recommendedCardId: topItem?['card_id']?.toString(),
       nextCardReasons: _stringList(topItem?['reasons']),
+      purchaseGuide: json['purchase_guide'] is Map
+          ? PurchaseGuide.fromJson(
+              (json['purchase_guide'] as Map).cast<String, dynamic>(),
+            )
+          : null,
       questionnaireAnswers: latestQuestionnaire.isEmpty
           ? null
           : QuestionnaireAnswers.fromRecommendationJson(latestQuestionnaire),
@@ -572,6 +794,7 @@ class AppData {
   final List<String> quickPrompts;
   final int pointsValue;
   final int projectedYearlyValue;
+  final OngoingValue? ongoingValue;
   final Map<String, int> monthlySpend;
   final StrategyPlan? strategyPlan;
   final StrategyPreferences? strategyPreferences;
@@ -582,6 +805,7 @@ class AppData {
   final bool isPersonalPreview;
   final QuestionnaireAnswers? questionnaireAnswers;
   final List<String> nextCardReasons;
+  final PurchaseGuide? purchaseGuide;
 
   AppData copyWith({
     List<CreditCard>? catalog,
@@ -597,6 +821,7 @@ class AppData {
     StrategyPreferences? strategyPreferences,
     PlaybookAssignment? playbook,
     List<RoadmapStep>? roadmap,
+    PurchaseGuide? purchaseGuide,
   }) => AppData(
     profile: profile ?? this.profile,
     wallet: wallet ?? this.wallet,
@@ -606,6 +831,7 @@ class AppData {
     quickPrompts: quickPrompts,
     pointsValue: pointsValue ?? this.pointsValue,
     projectedYearlyValue: projectedYearlyValue ?? this.projectedYearlyValue,
+    ongoingValue: ongoingValue,
     monthlySpend: monthlySpend ?? this.monthlySpend,
     strategyPlan: strategyPlan ?? this.strategyPlan,
     strategyPreferences: strategyPreferences ?? this.strategyPreferences,
@@ -615,6 +841,7 @@ class AppData {
     isPersonalPreview: isPersonalPreview ?? this.isPersonalPreview,
     questionnaireAnswers: questionnaireAnswers ?? this.questionnaireAnswers,
     nextCardReasons: nextCardReasons,
+    purchaseGuide: purchaseGuide ?? this.purchaseGuide,
   );
 }
 
@@ -628,6 +855,7 @@ class OnboardingCardDraft {
     this.rewardRates = const {},
     this.transferable = false,
     this.bestUse = '',
+    this.issuer = '',
   });
 
   factory OnboardingCardDraft.fromReference(
@@ -637,11 +865,12 @@ class OnboardingCardDraft {
     Map<String, double>? rewardRates,
   }) => OnboardingCardDraft(
     referenceId: card.id,
-    cardName: '${card.issuer} ${card.name}',
+    cardName: card.label,
     includeTerms: includeTerms,
     annualFeeCents: annualFeeCents ?? card.annualFeeCents,
     rewardRates: rewardRates ?? card.rewardRates,
     bestUse: card.rewardsType,
+    issuer: card.issuer,
   );
 
   final String referenceId;
@@ -651,6 +880,9 @@ class OnboardingCardDraft {
   final Map<String, double> rewardRates;
   final bool transferable;
   final String bestUse;
+
+  /// Display only, for the issuer mark; the API resolves the card by id.
+  final String issuer;
 
   Map<String, dynamic> toJson() => {
     'reference_id': referenceId,
@@ -709,13 +941,21 @@ class ReferenceCard {
   final String? catalogCardId;
 
   bool get hasTerms => termsStatus == 'verified' && rewardRates.isNotEmpty;
-  String get label => '$issuer $name';
+  // "Discover it Miles" already names its issuer; prefixing it again would
+  // read "Discover Discover it Miles".
+  String get label => name.toLowerCase().startsWith(issuer.toLowerCase())
+      ? name
+      : '$issuer $name';
 }
 
 class QuestionnaireAnswers {
+  /// [cardLabels] restores display names for cards added from search, keyed by
+  /// reference id. The API payload carries only ids, so a device-local draft
+  /// keeps the names alongside it.
   factory QuestionnaireAnswers.fromRecommendationJson(
-    Map<String, dynamic> json,
-  ) => QuestionnaireAnswers(
+    Map<String, dynamic> json, {
+    Map<String, dynamic> cardLabels = const {},
+  }) => QuestionnaireAnswers(
     lifeStage: (json['life_stage'] ?? '').toString(),
     existingCardIds: _stringList(json['existing_card_ids']),
     displayName: (json['display_name'] ?? '').toString(),
@@ -724,7 +964,14 @@ class QuestionnaireAnswers {
         .map(
           (item) => OnboardingCardDraft(
             referenceId: item['reference_id'].toString(),
-            cardName: '${item['reference_id']}',
+            cardName:
+                (cardLabels['${item['reference_id']}'] as Map?)?['name']
+                    ?.toString() ??
+                'Card from search',
+            issuer:
+                (cardLabels['${item['reference_id']}'] as Map?)?['issuer']
+                    ?.toString() ??
+                '',
             includeTerms: item['include_terms'] == true,
             annualFeeCents: (item['annual_fee_cents'] as num?)?.round() ?? 0,
             rewardRates: ((item['reward_rates'] as Map?) ?? const {}).map(
@@ -739,6 +986,7 @@ class QuestionnaireAnswers {
       <= 30000 => 'mid',
       _ => 'high',
     },
+    idealCardCount: (json['ideal_card_count'] ?? '').toString(),
     travelScope: (json['travel_scope'] ?? '').toString(),
     creditTier: (json['credit_tier'] ?? '').toString(),
     rewardsGoal: (json['rewards_goal'] ?? '').toString(),
@@ -754,6 +1002,7 @@ class QuestionnaireAnswers {
     required this.rewardsGoal,
     this.addedCards = const [],
     this.displayName = '',
+    this.idealCardCount = '',
   });
 
   final String lifeStage;
@@ -765,11 +1014,13 @@ class QuestionnaireAnswers {
   final String rewardsGoal;
   final List<OnboardingCardDraft> addedCards;
   final String displayName;
+  final String idealCardCount;
 
   Map<String, dynamic> toJson() => {
     'life_stage': lifeStage,
     'existing_card_ids': existingCardIds,
     'fee_tolerance': feeTolerance,
+    'ideal_card_count': idealCardCount,
     'travel_scope': travelScope,
     'credit_tier': creditTier,
     'monthly_spend': monthlySpend,
@@ -788,6 +1039,7 @@ class QuestionnaireAnswers {
       'high' => 100000,
       _ => 0,
     },
+    if (idealCardCount.isNotEmpty) 'ideal_card_count': idealCardCount,
     'travel_scope': travelScope,
     'rewards_goal': rewardsGoal,
     'credit_tier': creditTier,
@@ -807,6 +1059,7 @@ class CustomCardDraft {
     required this.rates,
     required this.transferablePoints,
     required this.bestUse,
+    this.termsUnknown = false,
   });
 
   final String name;
@@ -816,6 +1069,7 @@ class CustomCardDraft {
   final Map<String, double> rates;
   final bool transferablePoints;
   final String bestUse;
+  final bool termsUnknown;
 }
 
 class DemoRecommendation {

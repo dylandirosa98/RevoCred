@@ -34,8 +34,8 @@ CREATE INDEX card_reference_issuer ON revocred.card_reference_index(issuer) WHER
 COMMENT ON TABLE revocred.card_reference_index IS
     'Search-only card identity index for onboarding. Not recommendable. Terms are a dated snapshot and must be verified with the issuer.';
 
--- When a person already holds a card a strategy would use, an approved
--- substitute can take its place. No substitute means the strategy is unchanged.
+-- When a person already holds an approved alternative to a strategy card, it
+-- can cover that roadmap role. Unowned alternatives are never suggested.
 CREATE TABLE revocred.card_substitutions (
     strategy_card_id UUID NOT NULL REFERENCES revocred.catalog_cards(id),
     substitute_card_id UUID NOT NULL REFERENCES revocred.catalog_cards(id),

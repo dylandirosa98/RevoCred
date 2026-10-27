@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"errors"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -34,11 +33,7 @@ func (a *API) onboardingInput(w http.ResponseWriter, r *http.Request) (domain.Re
 	return input, true
 }
 func (a *API) previewPlan(w http.ResponseWriter, r *http.Request) {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	if !a.limits.allow("plan:"+host, 30, time.Now()) {
+	if !a.limits.allow("plan:"+a.clientIP(r), 30, time.Now()) {
 		a.tooMany(w, r)
 		return
 	}
@@ -79,11 +74,7 @@ func (a *API) onboardingError(w http.ResponseWriter, r *http.Request, err error)
 // rate limited per IP because it is unauthenticated, and it never exposes
 // anything a user cannot see in the public catalog.
 func (a *API) cardIndex(w http.ResponseWriter, r *http.Request) {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	if !a.limits.allow("index:"+host, 60, time.Now()) {
+	if !a.limits.allow("index:"+a.clientIP(r), 60, time.Now()) {
 		a.tooMany(w, r)
 		return
 	}

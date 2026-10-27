@@ -115,20 +115,52 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('decision-category-travel')));
     await tester.pumpAndSettle();
-    expect(find.text('Best for Travel'), findsOneWidget);
+    expect(find.text('Best cards for Travel'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('category-recommendations-list')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('category-card-venture-x')),
+      findsOneWidget,
+    );
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+    expect(find.text('Best known for Travel'), findsOneWidget);
     expect(find.text('Why this card?'), findsOneWidget);
     expect(find.text('Ask REVO'), findsWidgets);
 
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('decision-more-categories')),
+    );
     await tester.tap(find.byKey(const ValueKey('decision-more-categories')));
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('decision-more-category-grid')),
       findsOneWidget,
     );
-    await tester.tap(find.byKey(const ValueKey('decision-more-category-rent')));
+    await tester.tap(
+      find.byKey(const ValueKey('decision-more-category-drugstores')),
+    );
     await tester.pumpAndSettle();
-    expect(find.text('Best for Rent'), findsOneWidget);
-    expect(find.text('More: Rent'), findsOneWidget);
+    expect(find.text('Best cards for Drugstores'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('category-card-freedom-unlimited')),
+      findsOneWidget,
+    );
+    // Purchase comparisons must never offer an unowned catalog card.
+    expect(
+      find.byKey(const ValueKey('category-card-discover-it')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('category-card-citi-strata')),
+      findsNothing,
+    );
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+    expect(find.text('Best known for Drugstores'), findsOneWidget);
+    expect(find.text('More: Drugstores'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

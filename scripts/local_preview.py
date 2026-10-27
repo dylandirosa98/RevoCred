@@ -55,12 +55,16 @@ def main():
     binary = STATE / 'revocred-api'
     subprocess.run(['go', 'build', '-o', str(binary), './cmd/api'], cwd=ROOT / 'revocred-api', check=True)
     flutter = os.environ.get('FLUTTER', str(Path.home() / '.local/share/flutter/bin/flutter'))
-    subprocess.run([flutter, 'build', 'web', '--release', '--no-web-resources-cdn', '--dart-define-from-file=../.env.local', '--output=' + str(STATE / 'web')], cwd=ROOT / 'revocred_flutter', check=True)
+    # Flutter's custom web output path has omitted generated asset manifests in
+    # some SDK releases. Build into Flutter's canonical directory so fonts,
+    # images and AssetManifest files are always served together.
+    subprocess.run([flutter, 'build', 'web', '--release', '--no-web-resources-cdn', '--dart-define-from-file=../.env.local'], cwd=ROOT / 'revocred_flutter', check=True)
+    web_root = ROOT / 'revocred_flutter' / 'build' / 'web'
     entries = []
     try:
         for name, command, environment in (
             ('api', [str(binary)], {**os.environ, **values, 'PORT': '8082'}),
-            ('web', [sys.executable, '-m', 'http.server', '8083', '--bind', '127.0.0.1', '--directory', str(STATE / 'web')], os.environ),
+            ('web', [sys.executable, '-m', 'http.server', '8083', '--bind', '127.0.0.1', '--directory', str(web_root)], os.environ),
         ):
             with (STATE / f'{name}.log').open('ab') as log:
                 process = subprocess.Popen(command, env=environment, stdout=log, stderr=log, start_new_session=True)

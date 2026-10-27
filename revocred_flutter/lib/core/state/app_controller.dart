@@ -69,8 +69,10 @@ final appControllerProvider = NotifierProvider<AppController, AppState>(
 
 class AppController extends Notifier<AppState> {
   Future<void>? _refreshing;
+  int? _refreshGeneration;
   OnboardingDraftStore get draftStore => ref.read(onboardingDraftStoreProvider);
   int _sessionGeneration = 0;
+  int get sessionGeneration => _sessionGeneration;
   AppRepository get _repository => ref.read(appRepositoryProvider);
   AppConfig get _config => ref.read(appConfigProvider);
 
@@ -80,6 +82,7 @@ class AppController extends Notifier<AppState> {
     final subscription = _repository.sessionChanges.listen((session) {
       if (!session.authenticated) {
         _sessionGeneration++;
+        if (state.isAuthenticated) unawaited(draftStore.clear());
         state = AppState(
           isAuthenticated: false,
           isLoading: false,
@@ -120,8 +123,18 @@ class AppController extends Notifier<AppState> {
     await refresh();
   }
 
-  Future<void> refresh() =>
-      _refreshing ??= _refresh().whenComplete(() => _refreshing = null);
+  Future<void> refresh() {
+    if (_refreshing != null && _refreshGeneration == _sessionGeneration) {
+      return _refreshing!;
+    }
+    _refreshGeneration = _sessionGeneration;
+    late final Future<void> pending;
+    pending = _refresh().whenComplete(() {
+      if (identical(_refreshing, pending)) _refreshing = null;
+    });
+    _refreshing = pending;
+    return pending;
+  }
 
   Future<void> _refresh() async {
     final generation = _sessionGeneration;
@@ -161,7 +174,7 @@ class AppController extends Notifier<AppState> {
       state = AppState(
         isAuthenticated: state.isAuthenticated,
         isLoading: false,
-        data: state.data ?? createDemoAppData(),
+        data: state.data,
         error: error.toString(),
         passwordRecovery: state.passwordRecovery,
       );
@@ -184,6 +197,7 @@ class AppController extends Notifier<AppState> {
     String email,
     String password, {
     String displayName = '',
+    bool notificationsOptIn = false,
   }) async {
     final trimmedName = displayName.trim();
     if (!state.isAuthenticated && state.data?.isPersonalPreview == true) {
@@ -192,7 +206,12 @@ class AppController extends Notifier<AppState> {
     // The name is saved with the plan, so it also has to survive a reload
     // between signing up and confirming the email.
     if (trimmedName.isNotEmpty) await draftStore.saveName(trimmedName);
-    final result = await _repository.signUp(email, password);
+    final result = await _repository.signUp(
+      email,
+      password,
+      displayName: trimmedName,
+      notificationsOptIn: notificationsOptIn,
+    );
     if (result.success && _repository.isAuthenticated) {
       state = state.copyWith(isAuthenticated: true);
       await refresh();
@@ -216,7 +235,7 @@ class AppController extends Notifier<AppState> {
         isAuthenticated: false,
         isLoading: false,
         data: createDemoAppData(),
-        actionMessage: 'Signed out. Showing the demo profile.',
+        actionMessage: 'Signed out.',
       );
     }
   }
@@ -265,7 +284,15 @@ class AppController extends Notifier<AppState> {
     }
   }
 
-  Future<void> sendMessage(String prompt) async {
+  Future<void> sendMessage(
+    String prompt, {
+    String? aiConsentVersion,
+    int? expectedSessionGeneration,
+  }) async {
+    if (expectedSessionGeneration != null &&
+        expectedSessionGeneration != _sessionGeneration) {
+      throw const SessionExpiredException();
+    }
     if (!state.isAuthenticated && state.data?.isPersonalPreview == true) {
       throw StateError(
         'Create an account to let REVO explain your personal plan. Guest demo chat does not use your private preview.',
@@ -285,7 +312,10 @@ class AppController extends Notifier<AppState> {
       clearError: true,
     );
     try {
-      final reply = await _repository.sendMessage(prompt);
+      final reply = await _repository.sendMessage(
+        prompt,
+        aiConsentVersion: aiConsentVersion,
+      );
       if (generation != _sessionGeneration) return;
       final current = state.data;
       if (current != null) {
@@ -294,7 +324,9 @@ class AppController extends Notifier<AppState> {
         );
       }
     } catch (error) {
-      state = state.copyWith(error: 'REVO could not respond: $error');
+      if (generation == _sessionGeneration) {
+        state = state.copyWith(error: 'REVO could not respond: $error');
+      }
       rethrow;
     }
   }
@@ -386,11 +418,14 @@ class AppController extends Notifier<AppState> {
   Future<void> updateDisplayName(String name) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) throw StateError('Enter a name.');
+    final generation = _sessionGeneration;
     try {
       await _repository.updateDisplayName(trimmed);
+      if (generation != _sessionGeneration) return;
       // Load directly instead of refresh(): refresh() joins an in-flight
       // refresh, which would silently drop this change during startup.
       final data = await _repository.loadAppData();
+      if (generation != _sessionGeneration) return;
       state = state.copyWith(
         data: data,
         isLoading: false,

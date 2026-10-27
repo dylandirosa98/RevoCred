@@ -72,6 +72,7 @@ type RevocredQuestionnaireResponse struct {
 	UserID               pgtype.UUID        `json:"user_id"`
 	MonthlyCategorySpend []byte             `json:"monthly_category_spend"`
 	FeeToleranceCents    int32              `json:"fee_tolerance_cents"`
+	IdealCardCount       string             `json:"ideal_card_count"`
 	TravelScope          string             `json:"travel_scope"`
 	RewardsGoal          string             `json:"rewards_goal"`
 	CreditTier           string             `json:"credit_tier"`

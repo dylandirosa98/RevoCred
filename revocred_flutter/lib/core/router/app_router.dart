@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../state/app_controller.dart';
 
 import '../../features/cards/presentation/cards_screen.dart';
 import '../../features/auth/presentation/auth_screen.dart';
@@ -15,6 +17,28 @@ import '../../shared/widgets/app_shell.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/welcome',
+  redirect: (context, route) {
+    final container = ProviderScope.containerOf(context, listen: false);
+    if (container.read(appConfigProvider).useMocks) return null;
+    final session = container.read(appControllerProvider);
+    final path = route.uri.path;
+    if (session.passwordRecovery) {
+      return path == '/reset-password' ? null : '/reset-password';
+    }
+    if (session.isAuthenticated) return null;
+    if (const [
+      '/welcome',
+      '/questionnaire',
+      '/legal',
+      '/account-recovery',
+    ].contains(path)) {
+      return null;
+    }
+    if (path == '/strategy-report' && session.data?.isPersonalPreview == true) {
+      return null;
+    }
+    return '/welcome';
+  },
   routes: [
     GoRoute(
       path: '/reset-password',
@@ -72,19 +96,48 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/strategy-report',
-      pageBuilder: _detailPage(const StrategyReportScreen()),
+      pageBuilder: _detailPage(const _DataReady(child: StrategyReportScreen())),
     ),
     GoRoute(
       path: '/welcome',
-      builder: (context, state) =>
-          AuthScreen(savePlan: state.uri.queryParameters['save'] == 'true'),
+      builder: (context, state) => AuthScreen(
+        savePlan: state.uri.queryParameters['save'] == 'true',
+        returnToReport: state.uri.queryParameters['from'] == 'report',
+      ),
     ),
   ],
 );
 
 Page<void> Function(BuildContext, GoRouterState) _page(Widget child) =>
-    (context, state) =>
-        NoTransitionPage<void>(key: state.pageKey, child: child);
+    (context, state) => NoTransitionPage<void>(
+      key: state.pageKey,
+      child: _DataReady(child: child),
+    );
+
+/// Restored sessions may reach a deep link before the API bootstrap completes.
+/// Never build account content with missing data or a signed-out demo profile.
+class _DataReady extends ConsumerWidget {
+  const _DataReady({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(appControllerProvider);
+    final mocks = ref.watch(appConfigProvider).useMocks;
+    if (!mocks &&
+        !state.isAuthenticated &&
+        state.data?.isPersonalPreview != true) {
+      return const SizedBox.shrink();
+    }
+    if (state.data == null) {
+      return BrandedLoadingScreen(
+        error: state.error,
+        onRetry: () => ref.read(appControllerProvider.notifier).refresh(),
+      );
+    }
+    return child;
+  }
+}
 
 Page<void> Function(BuildContext, GoRouterState) _detailPage(Widget child) =>
     (context, state) => CustomTransitionPage<void>(

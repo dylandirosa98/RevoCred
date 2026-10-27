@@ -1,14 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/logic/wallet_score.dart';
+import '../../../core/logic/card_search.dart';
 import '../../../core/models/app_models.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/content_layout.dart';
 import '../../../shared/widgets/credit_card_view.dart';
+import '../../../shared/widgets/card_terms_sheet.dart';
+import '../../../shared/widgets/issuer_mark.dart';
 import '../../../shared/widgets/custom_card_form.dart';
+import '../../../shared/widgets/send_revo_message.dart';
 
 class CardsScreen extends ConsumerStatefulWidget {
   const CardsScreen({super.key});
@@ -19,6 +24,21 @@ class CardsScreen extends ConsumerStatefulWidget {
 
 class _CardsScreenState extends ConsumerState<CardsScreen> {
   bool showPicker = false;
+  bool _handledRouteSearch = false;
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
+  Timer? _searchDebounce;
+  List<ReferenceCard> _indexResults = const [];
+  bool _indexSearching = false;
+  String? _indexError;
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +49,40 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
     final available = data.catalog
         .where((card) => !activeIds.contains(card.id))
         .toList();
+    final openSearch =
+        GoRouterState.of(context).uri.queryParameters['search'] == '1';
+    if (openSearch && !_handledRouteSearch) {
+      _handledRouteSearch = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => showPicker = true);
+        _searchFocus.requestFocus();
+      });
+    } else if (!openSearch) {
+      _handledRouteSearch = false;
+    }
+    final query = _searchController.text.trim();
+    final matches = query.isEmpty
+        ? available.take(6).toList()
+        : searchCards(available, query).take(12).toList();
+    final catalogIds = data.catalog.map((card) => card.id).toSet();
+    final catalogIdentities = data.catalog
+        .map((card) => '${card.issuer}|${card.name}'.toLowerCase())
+        .toSet();
+    final indexOnly = query.length < 2
+        ? const <ReferenceCard>[]
+        : _indexResults
+              .where((card) {
+                final catalogID = card.catalogCardId;
+                if (catalogID != null && catalogIds.contains(catalogID)) {
+                  return false;
+                }
+                return !catalogIdentities.contains(
+                  '${card.issuer}|${card.name}'.toLowerCase(),
+                );
+              })
+              .take(12)
+              .toList();
     return ContentLayout(
       children: [
         Row(
@@ -51,27 +105,10 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
           style: TextStyle(color: product.muted),
         ),
         SizedBox(height: product.sectionGap),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final stack = WalletCardStack(
-              cards: data.wallet,
-              onAskRevo: _askRevo,
-              onRemove: _confirmRemove,
-            );
-            final coverage = _CoveragePanel(cards: data.wallet);
-            return constraints.maxWidth >= 820
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(flex: 5, child: stack),
-                      const SizedBox(width: 24),
-                      Expanded(flex: 3, child: coverage),
-                    ],
-                  )
-                : Column(
-                    children: [stack, const SizedBox(height: 16), coverage],
-                  );
-          },
+        WalletCardStack(
+          cards: data.wallet,
+          onAskRevo: _askRevo,
+          onRemove: _confirmRemove,
         ),
         SizedBox(height: product.sectionGap),
         OutlinedButton.icon(
@@ -86,33 +123,71 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                FilledButton.tonalIcon(
-                  key: const ValueKey('add-custom-card-button'),
-                  onPressed: () async {
-                    final draft = await showCustomCardSheet(context);
-                    if (draft == null || !context.mounted) return;
-                    final added = await ref
-                        .read(appControllerProvider.notifier)
-                        .addCustomCard(draft);
-                    if (!context.mounted) return;
-                    if (added) setState(() => showPicker = false);
-                  },
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Add a card I already have'),
+                const Row(
+                  children: [
+                    Icon(Icons.search),
+                    SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        'Find a card to add',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const ValueKey('wallet-card-search'),
+                  controller: _searchController,
+                  focusNode: _searchFocus,
+                  textInputAction: TextInputAction.search,
+                  onChanged: _searchChanged,
+                  decoration: InputDecoration(
+                    hintText: 'Search by issuer or card name',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: query.isEmpty
+                        ? null
+                        : IconButton(
+                            key: const ValueKey('wallet-clear-search'),
+                            tooltip: 'Clear search',
+                            onPressed: () {
+                              _searchController.clear();
+                              _searchChanged('');
+                              _searchFocus.requestFocus();
+                            },
+                            icon: const Icon(Icons.close),
+                          ),
+                  ),
                 ),
                 const SizedBox(height: 16),
-                const SectionLabel('Catalog'),
+                SectionLabel(
+                  query.isEmpty ? 'Popular cards' : 'Matching cards',
+                ),
+                if (_indexSearching)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: LinearProgressIndicator(minHeight: 2),
+                  ),
                 const SizedBox(height: 8),
                 if (available.isEmpty)
-                  const Text(
-                    'All listed catalog cards are already in this wallet.',
+                  const Text('All catalog cards are already in your wallet.')
+                else if (matches.isEmpty &&
+                    indexOnly.isEmpty &&
+                    !_indexSearching)
+                  Text(
+                    'No cards match “$query”. Check the spelling or add it manually.',
+                    style: TextStyle(color: product.muted),
                   )
                 else
-                  for (final card in available)
+                  for (final card in matches)
                     ListTile(
+                      key: ValueKey('wallet-search-result-${card.id}'),
                       contentPadding: EdgeInsets.zero,
                       minVerticalPadding: 10,
-                      leading: CreditCardArt(card: card, width: 72, height: 45),
+                      leading: IssuerMark(issuer: card.issuer, size: 44),
                       title: Text(
                         card.name,
                         style: const TextStyle(fontWeight: FontWeight.w700),
@@ -144,6 +219,54 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
                         child: const Text('Add'),
                       ),
                     ),
+                for (final card in indexOnly)
+                  ListTile(
+                    key: ValueKey('wallet-index-result-${card.id}'),
+                    contentPadding: EdgeInsets.zero,
+                    minVerticalPadding: 10,
+                    leading: IssuerMark(issuer: card.issuer, size: 44),
+                    title: Text(
+                      card.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(
+                      card.hasTerms
+                          ? '${card.issuer} | issuer terms on file'
+                          : '${card.issuer} | add your card terms or skip scoring',
+                    ),
+                    trailing: FilledButton(
+                      onPressed: state.isLoading
+                          ? null
+                          : () => _addReferenceCard(card),
+                      child: const Text('Add'),
+                    ),
+                  ),
+                if (_indexError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      _indexError!,
+                      style: TextStyle(color: product.muted, fontSize: 12),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    key: const ValueKey('add-custom-card-button'),
+                    onPressed: () async {
+                      final draft = await showCustomCardSheet(context);
+                      if (draft == null || !context.mounted) return;
+                      final added = await ref
+                          .read(appControllerProvider.notifier)
+                          .addCustomCard(draft);
+                      if (!context.mounted) return;
+                      if (added) setState(() => showPicker = false);
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text("Can't find it? Add it manually"),
+                  ),
+                ),
               ],
             ),
           ),
@@ -187,114 +310,88 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
   }
 
   void _askRevo(String prompt) {
-    context.go('/revo');
-    ref.read(appControllerProvider.notifier).sendMessage(prompt);
-  }
-}
-
-class _CoveragePanel extends StatelessWidget {
-  const _CoveragePanel({required this.cards});
-  final List<CreditCard> cards;
-
-  @override
-  Widget build(BuildContext context) {
-    final product = context.product;
-    final capabilities = walletCapabilities(cards);
-    final food = capabilities.dining > capabilities.groceries
-        ? capabilities.dining
-        : capabilities.groceries;
-    final travel = [
-      capabilities.travel,
-      capabilities.flights,
-      capabilities.hotels,
-    ].reduce((best, rate) => rate > best ? rate : best);
-    final rates = [food, travel, capabilities.catchAll];
-    final covered = rates.where((rate) => rate > 1).length;
-    final coverage = ((covered / rates.length) * 100).round();
-    final feeReview = cards
-        .where((card) => card.annualFee != r'$0')
-        .map((card) => card.name)
-        .firstOrNull;
-    return AppPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionLabel('Wallet coverage'),
-          const SizedBox(height: 12),
-          Text('$coverage%', style: Theme.of(context).textTheme.displaySmall),
-          const SizedBox(height: 5),
-          Text(
-            'of common spend categories have a rewards multiplier above 1x',
-            style: TextStyle(color: product.muted),
-          ),
-          const SizedBox(height: 18),
-          _CoverageRow(
-            label: 'Dining and groceries',
-            value: _rateLabel(food),
-            color: food > 1 ? product.success : product.muted,
-          ),
-          _CoverageRow(
-            label: 'Travel',
-            value: _rateLabel(travel),
-            color: travel > 1 ? product.action : product.muted,
-          ),
-          _CoverageRow(
-            label: 'Everything else',
-            value: _rateLabel(capabilities.catchAll),
-            color: capabilities.catchAll > 1
-                ? product.secondary
-                : product.muted,
-          ),
-          Divider(height: product.compact ? 20 : 28),
-          Row(
-            children: [
-              Icon(Icons.info_outline, size: 17, color: product.warning),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  feeReview == null
-                      ? 'No annual-fee cards to review'
-                      : 'Next fee review: $feeReview',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+    sendRevoMessage(context, ref, prompt, openChat: true);
   }
 
-  String _rateLabel(double rate) => '${rate < 1 ? 1 : rate}x';
-}
+  void _searchChanged(String value) {
+    setState(() {});
+    _searchDebounce?.cancel();
+    final query = value.trim();
+    if (query.length < 2) {
+      setState(() {
+        _indexResults = const [];
+        _indexSearching = false;
+        _indexError = null;
+      });
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 300), _searchIndex);
+  }
 
-class _CoverageRow extends StatelessWidget {
-  const _CoverageRow({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-  final String label;
-  final String value;
-  final Color color;
+  Future<void> _searchIndex() async {
+    final query = _searchController.text.trim();
+    if (query.length < 2) return;
+    setState(() {
+      _indexSearching = true;
+      _indexError = null;
+    });
+    try {
+      final results = await ref
+          .read(appRepositoryProvider)
+          .searchCardIndex(query);
+      if (!mounted || _searchController.text.trim() != query) return;
+      setState(() {
+        _indexResults = results;
+        _indexSearching = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _indexSearching = false;
+        _indexError =
+            'The extended card list is unavailable. You can still add the card manually.';
+      });
+    }
+  }
 
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 11),
-    child: Row(
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  Future<void> _addReferenceCard(ReferenceCard card) async {
+    final choice = await showCardTermsSheet(context, card);
+    if (choice == null || !mounted) return;
+    final added = await ref
+        .read(appControllerProvider.notifier)
+        .addCustomCard(
+          CustomCardDraft(
+            name: card.name,
+            issuer: card.issuer,
+            network: _supportedNetwork(card.network),
+            annualFeeDollars: choice.annualFeeCents ~/ 100,
+            rates: choice.rewardRates,
+            transferablePoints: choice.transferable,
+            bestUse: choice.skipped
+                ? 'Terms not supplied; excluded from scoring'
+                : card.rewardsType,
+            termsUnknown: choice.skipped,
+          ),
+        );
+    if (!mounted) return;
+    if (added) {
+      setState(() => showPicker = false);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ref.read(appControllerProvider).error ?? 'Could not add this card.',
+          ),
         ),
-        const SizedBox(width: 9),
-        Expanded(child: Text(label)),
-        Text(
-          value,
-          style: TextStyle(color: color, fontWeight: FontWeight.w800),
-        ),
-      ],
-    ),
-  );
+      );
+    }
+  }
+
+  String _supportedNetwork(String value) => switch (value.toLowerCase()) {
+    'visa' => 'Visa',
+    'mastercard' => 'Mastercard',
+    'amex' || 'american express' => 'Amex',
+    'discover' => 'Discover',
+    _ => 'Other',
+  };
 }

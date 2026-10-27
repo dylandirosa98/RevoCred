@@ -12,7 +12,12 @@ import (
 	"time"
 )
 
-type Options struct{ MetricsToken string }
+type Options struct {
+	MetricsToken string
+	// ClientIPHeader names a header set by a trusted edge proxy (for example
+	// Railway's X-Real-IP). Leave empty when clients can reach the API directly.
+	ClientIPHeader string
+}
 
 type window struct {
 	until time.Time
@@ -56,19 +61,29 @@ type counters struct{ requests, failures, limited, clientErrors atomic.Uint64 }
 func (a *API) rateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/v1/") {
-			// Forwarded headers are untrusted. At a reverse proxy, configure
-			// per-client limits at the edge as well; this limit groups the proxy.
-			host, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err != nil {
-				host = r.RemoteAddr
-			}
-			if !a.limits.allow("ip:"+host, 600, time.Now()) {
+			if !a.limits.allow("ip:"+a.clientIP(r), 600, time.Now()) {
 				a.tooMany(w, r)
 				return
 			}
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// clientIP keys per-client limits. Forwarded headers are untrusted unless a
+// trusted edge header is configured; without one, traffic behind a proxy
+// shares the proxy's limit.
+func (a *API) clientIP(r *http.Request) string {
+	if a.clientIPHeader != "" {
+		if ip := net.ParseIP(strings.TrimSpace(r.Header.Get(a.clientIPHeader))); ip != nil {
+			return ip.String()
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 func (a *API) tooMany(w http.ResponseWriter, r *http.Request) {

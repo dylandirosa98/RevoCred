@@ -1,0 +1,72 @@
+name: iOS compile fixture (not TestFlight)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'revocred_flutter/**'
+      - 'scripts/*release*'
+      - 'scripts/*ios*'
+      - 'config/ios-*'
+      - '.github/workflows/ios.yml'
+  # New workflow need not be on main: a release branch push discovers it.
+  push:
+    branches: [main, 'release/**']
+permissions:
+  contents: read
+concurrency:
+  group: ios-fixture-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  unsigned-ios:
+    # Standard public-repository hosted runner; no larger/paid runner labels.
+    runs-on: macos-15
+    timeout-minutes: 55
+    env:
+      CI: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: flutter/flutter
+          ref: 6b182d2c7585eba26d4edce0f97630effd256c33
+          path: .flutter-sdk
+          persist-credentials: false
+      - name: Initialize fixture evidence (even if setup fails)
+        run: python3 scripts/ios_ci.py --preflight-only
+      - name: Select installed Xcode 26+ and require iOS 26+ SDK
+        run: python3 scripts/ios_ci.py --select-xcode
+      - name: Add exact pinned Flutter to PATH
+        run: echo "$GITHUB_WORKSPACE/.flutter-sdk/bin" >> "$GITHUB_PATH"
+      - name: Release tooling regression tests
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_*release*.py'
+          python3 -m unittest discover -s scripts -p 'test_ios_ci.py'
+      - name: Compile unsigned device + simulator; launch iPhone and iPad fixture
+        run: python3 scripts/ios_ci.py
+      - name: Upload only allowlisted secret-free fixture evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-compile-fixture-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: warn
+          # .local is hidden; paths below are deliberately allowlisted, never env/signing files.
+          include-hidden-files: true
+          path: |
+            .local/release-readiness/build-result.json
+            .local/release-readiness/*.log
+            .local/release-readiness/*.png
+            .local/release-readiness/*compile-fixture.zip
+      - name: Scope of this result
+        if: always()
+        run: |
+          {
+            echo '## Compile fixture only — NOT TestFlight-ready'
+            echo 'No signing, live service configuration, real accounts, upload or review submission.'
+            echo 'Inspect build-result.json, compile logs and iPhone/iPad launch screenshots.'
+            echo 'Launch-process smoke does not validate app journeys or production readiness.'
+            echo 'Signing/upload automation is intentionally disabled until separately authorized and configured.'
+          } >> "$GITHUB_STEP_SUMMARY"

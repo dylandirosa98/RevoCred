@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/revocred/revocred-api/internal/auth"
 	"github.com/revocred/revocred-api/internal/chat"
 	"github.com/revocred/revocred-api/internal/domain"
+	"github.com/revocred/revocred-api/internal/purchaseguide"
 	"github.com/revocred/revocred-api/internal/store"
 	"github.com/revocred/revocred-api/internal/strategy"
 )
@@ -36,6 +36,7 @@ type API struct {
 	limits         limiter
 	stats          counters
 	metricsToken   string
+	clientIPHeader string
 }
 
 func New(
@@ -55,6 +56,7 @@ func New(
 	}
 	if len(options) > 0 {
 		api.metricsToken = options[0].MetricsToken
+		api.clientIPHeader = options[0].ClientIPHeader
 	}
 	for _, origin := range allowedOrigins {
 		api.allowedOrigins[strings.TrimRight(origin, "/")] = struct{}{}
@@ -66,6 +68,7 @@ func New(
 	mux.HandleFunc("GET /metrics", api.metrics)
 	mux.HandleFunc("OPTIONS /", api.options)
 	mux.HandleFunc("POST /v1/public/explain", api.publicExplain)
+	mux.HandleFunc("GET /v1/public/chat-disclosure", api.chatDisclosure)
 	mux.HandleFunc("GET /v1/public/cards", api.cards)
 	mux.HandleFunc("GET /v1/public/card-index", api.cardIndex)
 	mux.HandleFunc("POST /v1/public/plan", api.previewPlan)
@@ -73,6 +76,7 @@ func New(
 	mux.HandleFunc("GET /v1/offers", api.offers)
 	mux.HandleFunc("GET /v1/offers/{id}/apply", api.applyOffer)
 	api.protected(mux, "GET /v1/bootstrap", api.bootstrap)
+	api.protected(mux, "GET /v1/purchase-guide", api.purchaseGuide)
 	api.protected(mux, "POST /v1/client-errors", api.clientError)
 	api.protected(mux, "GET /v1/account/export", api.exportAccount)
 	api.protected(mux, "DELETE /v1/account", api.deleteAccount)
@@ -138,7 +142,10 @@ func (a *API) bootstrap(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	value.ChatMode = a.chatProvider.Mode()
-	writeData(w, http.StatusOK, value)
+	writeData(w, http.StatusOK, struct {
+		domain.Bootstrap
+		PurchaseGuide purchaseguide.Guide `json:"purchase_guide"`
+	}{value, purchaseguide.NewGuide(value.Wallet, purchaseguide.DefaultOptions())})
 }
 
 func (a *API) cards(w http.ResponseWriter, r *http.Request) {
@@ -397,16 +404,13 @@ func (a *API) getMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) publicExplain(w http.ResponseWriter, r *http.Request) {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	if !a.limits.allow("explain:"+host, 20, time.Now()) {
+	if !a.limits.allow("explain:"+a.clientIP(r), 20, time.Now()) {
 		a.tooMany(w, r)
 		return
 	}
 	var input struct {
-		Content string `json:"content"`
+		Content          string `json:"content"`
+		AIConsentVersion string `json:"ai_consent_version"`
 	}
 	if !a.decodeJSON(w, r, &input) {
 		return
@@ -416,7 +420,11 @@ func (a *API) publicExplain(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "request validation failed", map[string]string{"content": "must contain 1 to 4000 characters"})
 		return
 	}
-	reply, err := a.chatProvider.Reply(r.Context(), input.Content, chat.DemoBrowseContext())
+	provider, permitted := a.consentedChatProvider(w, r, input.AIConsentVersion)
+	if !permitted {
+		return
+	}
+	reply, err := provider.Reply(r.Context(), input.Content, chat.DemoBrowseContext())
 	if err != nil {
 		a.internalError(w, r, err)
 		return
@@ -424,13 +432,14 @@ func (a *API) publicExplain(w http.ResponseWriter, r *http.Request) {
 	writeData(w, http.StatusCreated, []domain.ChatMessage{{
 		ID: "demo-user", Role: "user", Content: input.Content,
 	}, {
-		ID: "demo-assistant", Role: "assistant", Content: reply,
+		ID: "demo-assistant", Role: "assistant", Content: reply.Text, Blocks: replyBlocks(reply),
 	}})
 }
 
 func (a *API) postMessage(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Content string `json:"content"`
+		Content          string `json:"content"`
+		AIConsentVersion string `json:"ai_consent_version"`
 	}
 	if !a.decodeJSON(w, r, &input) {
 		return
@@ -441,13 +450,28 @@ func (a *API) postMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := authenticatedUser(r.Context()).ID
+	provider, permitted := a.consentedChatProvider(w, r, input.AIConsentVersion)
+	if !permitted {
+		return
+	}
 	bootstrap, err := a.repository.Bootstrap(r.Context(), userID)
 	if err != nil {
 		a.internalError(w, r, err)
 		return
 	}
-	reply, err := a.chatProvider.Reply(r.Context(), input.Content, chat.Context{
+	recent, err := a.repository.ListMessages(r.Context(), userID, 8)
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	history := make([]chat.Turn, 0, len(recent))
+	for _, message := range recent {
+		history = append(history, chat.Turn{Role: message.Role, Content: message.Content})
+	}
+	reply, err := provider.Reply(r.Context(), input.Content, chat.Context{
 		SessionID:       userID,
+		History:         history,
+		Catalog:         bootstrap.Catalog,
 		Wallet:          bootstrap.Wallet,
 		Recommendations: bootstrap.LatestRecommendations,
 		Profile:         bootstrap.Profile,
@@ -459,7 +483,7 @@ func (a *API) postMessage(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, r, err)
 		return
 	}
-	messages, err := a.repository.AppendChatExchange(r.Context(), userID, input.Content, reply)
+	messages, err := a.repository.AppendChatExchange(r.Context(), userID, input.Content, reply.Text, replyBlocks(reply))
 	if err != nil {
 		a.internalError(w, r, err)
 		return
@@ -522,4 +546,17 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code, messag
 		payload["details"] = details
 	}
 	writeJSON(w, status, map[string]any{"error": payload})
+}
+
+// replyBlocks serialises the resolved blocks for storage. Storage keeps exactly
+// what was drawn, so history never re-derives numbers against newer terms.
+func replyBlocks(reply chat.Reply) json.RawMessage {
+	if len(reply.Blocks) == 0 {
+		return nil
+	}
+	encoded, err := json.Marshal(reply.Blocks)
+	if err != nil {
+		return nil
+	}
+	return encoded
 }

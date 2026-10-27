@@ -103,7 +103,7 @@ func TestPostgresIntegration(t *testing.T) {
 	if _, err = repo.SaveRecommendation(ctx, a, input, result); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = repo.AppendChatExchange(ctx, a, "private prompt", "private response"); err != nil {
+	if _, err = repo.AppendChatExchange(ctx, a, "private prompt", "private response", []byte(`[{"type":"paragraph","text":"private response"}]`)); err != nil {
 		t.Fatal(err)
 	}
 	messages, err := repo.ListMessages(ctx, a, 100)

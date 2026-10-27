@@ -24,7 +24,53 @@ def enable_accessibility(page):
 def fill_field(page, index, value):
     # Target the accessibility inputs Flutter keeps in sync; hidden
     # text-editing-host inputs also match generic `input` selectors.
-    page.get_by_role('textbox').nth(index).fill(value)
+    field = page.get_by_role('textbox').nth(index)
+    field.click()
+    page.wait_for_timeout(150)
+    field.fill(value)
+    expect(field).to_have_value(value)
+    page.wait_for_timeout(150)
+
+
+def set_spending_sliders(page, amounts):
+    """Set every slider through semantics and verify each snapped $50 step."""
+    sliders = page.get_by_role('slider')
+    expect(sliders.first).to_be_visible()
+    assert sliders.count() == len(amounts), 'unexpected spending slider count'
+    for index, amount in enumerate(amounts):
+        assert amount >= 0 and amount % 50 == 0, \
+            f'spending amount must be a non-negative $50 step: {amount}'
+        # Flutter replaces a slider's semantics node after each increment. Re-
+        # resolve and refocus it for every key so no step targets a detached node.
+        for _ in range(105):
+            slider = page.get_by_role('slider').nth(index)
+            current = _slider_dollars(slider)
+            if current <= 0:
+                break
+            slider.focus()
+            slider.press('ArrowLeft')
+            page.wait_for_timeout(90)
+        for _ in range(105):
+            slider = page.get_by_role('slider').nth(index)
+            current = _slider_dollars(slider)
+            if current >= amount:
+                break
+            slider.focus()
+            slider.press('ArrowRight')
+            page.wait_for_timeout(90)
+
+        value = _slider_dollars(page.get_by_role('slider').nth(index))
+        assert value == amount, \
+            f'slider {index} stopped at ${value}, expected ${amount}'
+
+
+def _slider_dollars(slider):
+    # Flutter exposes the human formatter through aria-valuetext; aria-valuenow
+    # is an internal normalized accessibility value and is not the dollar amount.
+    text = slider.get_attribute('aria-valuetext') or ''
+    match = re.search(r'\$([\d,]+)', text)
+    assert match, f'slider has no dollar-valued aria text: {text!r}'
+    return int(match.group(1).replace(',', ''))
 
 
 def latest_email(address: str):
@@ -48,6 +94,11 @@ def main():
         if urllib.parse.urlparse(value).hostname not in ('localhost', '127.0.0.1'):
             raise SystemExit('Browser smoke refuses non-loopback services.')
     public = {'apikey': config['SUPABASE_ANON_KEY']}
+    # Explicit share overrides still target the local preview through its
+    # existing tunnels. Never infer public endpoints from production settings.
+    api = os.environ.get('REVOCRED_SHARE_API', api)
+    auth = os.environ.get('REVOCRED_SHARE_SUPABASE', auth)
+    web = os.environ.get('REVOCRED_SHARE_WEB', 'http://127.0.0.1:8083')
     email = f'browser-{time.time_ns()}@example.test'
     original_password = 'Local-Browser-Test-49381!'
     password = original_password
@@ -60,7 +111,7 @@ def main():
             page = context.new_page()
             errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))
-            page.goto('http://127.0.0.1:8083/')
+            page.goto(web + '/')
             enable_accessibility(page)
             page.get_by_role('button', name='I already have an account').click()
             # Let the animated form swap finish so Flutter attaches its
@@ -68,17 +119,21 @@ def main():
             expect(page.get_by_role('button', name='Sign in', exact=True)).to_be_visible()
             page.wait_for_timeout(400)
             fill_field(page, 0, email)
+            fill_field(page, 1, 'Incorrect-Password-123!')
+            page.get_by_role('button', name='Sign in', exact=True).click()
+            expect(page.get_by_text('Invalid login credentials', exact=False)).to_be_visible(timeout=30000)
+            expect(page).to_have_url(re.compile(r'.*#/welcome$'))
             fill_field(page, 1, password)
             page.get_by_role('button', name='Sign in', exact=True).click()
             # A confirmed account with no saved questionnaire is sent to
             # onboarding rather than an empty home screen.
             expect(page).to_have_url(re.compile(r'.*#/questionnaire$'), timeout=30000)
-            page.goto('http://127.0.0.1:8083/#/account')
+            page.goto(web + '/#/account')
             enable_accessibility(page)
             page.get_by_role('button', name='Export my data').click()
             expect(page.get_by_text('Your account data (JSON)', exact=True)).to_be_visible()
             page.get_by_role('button', name='Close', exact=True).click()
-            page.goto('http://127.0.0.1:8083/#/profile')
+            page.goto(web + '/#/profile')
             enable_accessibility(page)
             page.get_by_role('button', name='Log out', exact=True).click()
             expect(page).to_have_url(re.compile(r'.*#/welcome$'))
@@ -91,7 +146,7 @@ def main():
             html_body = message.get('HTML') or message.get('Text') or ''
             links = re.findall(r'href=["\']([^"\']+)', html_body)
             link = next(html.unescape(value) for value in links if '/auth/v1/verify' in value)
-            if urllib.parse.urlparse(link).hostname not in ('localhost', '127.0.0.1'):
+            if urllib.parse.urlparse(link).hostname not in ('localhost', '127.0.0.1', urllib.parse.urlparse(auth).hostname):
                 raise AssertionError('Unexpected external recovery link')
             page.goto(link)
             enable_accessibility(page)
@@ -105,7 +160,7 @@ def main():
             page.reload()
             enable_accessibility(page)
             expect(page).to_have_url(re.compile(r'.*#/home$'))
-            page.goto('http://127.0.0.1:8083/#/account')
+            page.goto(web + '/#/account')
             enable_accessibility(page)
             expect(page.get_by_role('button', name='Delete my account', exact=True)).to_be_visible()
             page.wait_for_timeout(400)
@@ -115,7 +170,7 @@ def main():
             expect(page).to_have_url(re.compile(r'.*#/welcome$'), timeout=30000)
             deleted = True
             mobile = browser.new_page(viewport={'width':390,'height':844})
-            mobile.goto('http://127.0.0.1:8083/')
+            mobile.goto(web + '/')
             enable_accessibility(mobile)
             mobile.get_by_role('button', name='Privacy and terms', exact=True).click()
             expect(mobile.get_by_text('RevoCred local / pre-release notice', exact=True)).to_be_visible()

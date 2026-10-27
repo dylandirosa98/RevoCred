@@ -11,7 +11,7 @@ import (
 
 func testOnboarding(t *testing.T, ctx context.Context, repo *Postgres, a, b string, cards []domain.CatalogCard) {
 	t.Helper()
-	input := domain.RecommendationInput{LifeStage: "adult", MonthlyCategorySpend: map[string]int64{"dining": 40000, "groceries": 50000, "gas": 10000, "travel": 15000, "streaming": 3000, "other": 30000}, CreditTier: "good", RewardsGoal: "cash_back", TravelScope: "none", FeeToleranceCents: 10000, ExistingCardIDs: []string{cards[0].ID, cards[1].ID}}
+	input := domain.RecommendationInput{LifeStage: "adult", MonthlyCategorySpend: map[string]int64{"dining": 40000, "groceries": 50000, "gas": 10000, "travel": 15000, "streaming": 3000, "other": 30000}, CreditTier: "good", RewardsGoal: "cash_back", TravelScope: "none", FeeToleranceCents: 10000, IdealCardCount: "2-3", ExistingCardIDs: []string{cards[0].ID, cards[1].ID}}
 	preview, err := repo.PreviewPlan(ctx, input)
 	if err != nil {
 		t.Fatal(err)
@@ -34,6 +34,10 @@ func testOnboarding(t *testing.T, ctx context.Context, repo *Postgres, a, b stri
 	}
 	if !reflect.DeepEqual(saved.Items, preview.LatestRecommendations.Items) {
 		t.Fatal("guest and saved ranking differ")
+	}
+	bootstrap, err := repo.Bootstrap(ctx, a)
+	if err != nil || bootstrap.LatestQuestionnaire == nil || bootstrap.LatestQuestionnaire.IdealCardCount != "2-3" {
+		t.Fatalf("ideal card count did not round trip: %+v %v", bootstrap.LatestQuestionnaire, err)
 	}
 	if _, err = repo.SaveOnboarding(ctx, a, input); err != nil {
 		t.Fatalf("retry: %v", err)

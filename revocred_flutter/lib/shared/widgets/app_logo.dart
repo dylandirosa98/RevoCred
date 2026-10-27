@@ -38,29 +38,33 @@ class AppLogo extends StatelessWidget {
             excludeFromSemantics: true,
           ),
           if (!compact) ...[
-            SizedBox(width: 3 * scale),
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'EVO',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  TextSpan(
-                    text: 'CRED',
-                    style: TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-              style: TextStyle(
-                color: foreground,
-                fontFamily: product.headingFontFamily,
-                fontSize: 20 * scale,
-                letterSpacing:
-                    (product.panelTreatment == PanelTreatment.technical
-                        ? .2
-                        : -.8) *
-                    scale,
+            // The mark has transparent padding in the source PNG. A slight
+            // negative gap makes the visible R and EVOCRED read as one word.
+            Transform.translate(
+              offset: Offset(-1 * scale, 0),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'EVO',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    TextSpan(
+                      text: 'CRED',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+                style: TextStyle(
+                  color: foreground,
+                  fontFamily: product.headingFontFamily,
+                  fontSize: 20 * scale,
+                  letterSpacing:
+                      (product.panelTreatment == PanelTreatment.technical
+                          ? .2
+                          : -.8) *
+                      scale,
+                ),
               ),
             ),
           ],

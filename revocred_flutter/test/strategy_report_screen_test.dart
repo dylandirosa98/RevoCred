@@ -27,16 +27,26 @@ void main() {
     appRouter.go('/strategy-report');
     await tester.pumpAndSettle();
 
-    expect(find.text('Your Personalized Credit Card Strategy'), findsOneWidget);
-    expect(find.byTooltip('Back to settings'), findsOneWidget);
+    // The answer comes first: the strategy and the single next move.
+    expect(find.textContaining(RegExp(r'^S\d\d STRATEGY$')), findsOneWidget);
+    expect(
+      find.textContaining(
+        RegExp('^(Consider next: |No new application is recommended)'),
+      ),
+      findsWidgets,
+    );
+    expect(find.byTooltip('Back to settings'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('continue-strategy-report')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('strategy-report')), findsOneWidget);
-    expect(find.text('YOUR CREDIT PROFILE'), findsOneWidget);
-    expect(find.text('CARDS YOU ALREADY HAVE'), findsOneWidget);
-    expect(find.text('RECOMMENDED STRATEGY'), findsOneWidget);
-    expect(find.text('HOW TO USE YOUR WALLET'), findsOneWidget);
-    expect(find.text('APPLICATION ROADMAP'), findsOneWidget);
-    expect(find.text('CURRENT WALLET ANNUAL VALUE'), findsOneWidget);
-    expect(find.text('IMPORTANT NOTES'), findsOneWidget);
+    expect(find.byKey(const ValueKey('strategy-roadmap-view')), findsOneWidget);
+    expect(find.text('YOUR STRATEGY ROADMAP'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('strategy-education-reminder')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('download-strategy-report')),
       findsOneWidget,

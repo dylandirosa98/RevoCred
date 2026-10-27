@@ -58,6 +58,9 @@ class PlaybookStep {
     required this.use,
     required this.status,
     this.note = '',
+    this.coveredBy = '',
+    this.timing = '',
+    this.timingNote = '',
   });
 
   factory PlaybookStep.fromJson(Map<String, dynamic> json) => PlaybookStep(
@@ -65,12 +68,18 @@ class PlaybookStep {
     use: (json['use'] ?? '').toString(),
     status: (json['status'] ?? '').toString(),
     note: (json['note'] ?? '').toString(),
+    coveredBy: (json['covered_by'] ?? '').toString(),
+    timing: (json['timing'] ?? '').toString(),
+    timingNote: (json['timing_note'] ?? '').toString(),
   );
 
   final String name;
   final String use;
   final String status;
   final String note;
+  final String coveredBy;
+  final String timing;
+  final String timingNote;
 }
 
 class UnusedPlaybookCard {
@@ -125,14 +134,16 @@ PlaybookAssignment? buildPlaybook({
     final match = _matchWallet(name, walletNames);
     if (match != null) {
       used.add(_normalize(match));
+      final substituted = _normalize(match) != _normalize(name);
       steps.add(
         PlaybookStep(
           name: name,
           use: _cardUse[name] ?? 'Use this card as specified by the playbook.',
           status: 'have',
-          note: _normalize(match) == _normalize(name)
+          coveredBy: match,
+          note: !substituted
               ? ''
-              : 'Your $match covers this playbook slot.',
+              : 'Keep your $match; it covers the $name role in this strategy.',
         ),
       );
       continue;
@@ -145,6 +156,9 @@ PlaybookAssignment? buildPlaybook({
           name: name,
           use: _cardUse[name] ?? 'Use this card as specified by the playbook.',
           status: 'next',
+          timing: 'Consider now, after checks',
+          timingNote:
+              'Verify recent applications, account age, issuer rules and budget first. Eligibility timing is unknown without account history.',
         ),
       );
     } else {
@@ -153,6 +167,10 @@ PlaybookAssignment? buildPlaybook({
           name: name,
           use: _cardUse[name] ?? 'Use this card as specified by the playbook.',
           status: 'later',
+          timing:
+              'Wait approximately 3-6 months after the previous application',
+          timingNote:
+              'Planning estimate only. Re-run recommendations after the previous card; proceed only if it still adds value and issuer rules permit.',
         ),
       );
     }

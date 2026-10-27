@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/revocred/revocred-api/internal/carddata"
 	"github.com/revocred/revocred-api/internal/domain"
 	"github.com/revocred/revocred-api/internal/recommendation"
 	"github.com/revocred/revocred-api/internal/scoring"
@@ -25,7 +27,13 @@ type postgresDB interface {
 	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
 }
 
-type Postgres struct{ pool postgresDB }
+type Postgres struct {
+	pool     postgresDB
+	cardData *carddata.Cache
+}
+
+// UseCardData attaches optional, independently cached product descriptions.
+func (p *Postgres) UseCardData(cache *carddata.Cache) { p.cardData = cache }
 
 func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
 
@@ -85,14 +93,18 @@ func (p *Postgres) Bootstrap(ctx context.Context, userID string) (domain.Bootstr
 		recommendations.StrategyCode = code
 	}
 	playbook := strategy.Build(code, walletNames(wallet), playbookPrefs(questionnaire))
-	applyRecommendation(&playbook, recommendations)
 	substitutions, err := p.Substitutions(ctx)
 	if err != nil {
 		return domain.Bootstrap{}, err
 	}
-	applySubstitutions(&playbook, recommendations, wallet, substitutions)
+	applySubstitutions(&playbook, wallet, substitutions)
+	applyRecommendation(&playbook, recommendations)
 	if profile != nil {
 		profile.NextApplicationTarget = playbook.NextCard
+	}
+	scope := ""
+	if questionnaire != nil {
+		scope = questionnaire.TravelScope
 	}
 	return domain.Bootstrap{
 		Catalog:               catalog,
@@ -100,7 +112,7 @@ func (p *Postgres) Bootstrap(ctx context.Context, userID string) (domain.Bootstr
 		Wallet:                wallet,
 		LatestRecommendations: recommendations,
 		LatestQuestionnaire:   questionnaire,
-		WalletMetrics:         scoring.Metrics(wallet, spend),
+		WalletMetrics:         scoring.Metrics(wallet, spend, scope),
 		Playbook:              &playbook,
 		QuickPrompts: []string{
 			"What card should I use for groceries?",
@@ -138,6 +150,9 @@ func (p *Postgres) ListCatalog(ctx context.Context) ([]domain.CatalogCard, error
 		card, err := scanCatalogCard(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan catalog card: %w", err)
+		}
+		if p.cardData != nil {
+			card.CommunityData = p.cardData.Get(card.ID)
 		}
 		cards = append(cards, card)
 	}
@@ -264,6 +279,9 @@ ORDER BY w.created_at DESC`, userID)
 		}
 		if err := json.Unmarshal(benefitsJSON, &card.Benefits); err != nil {
 			return nil, fmt.Errorf("decode wallet benefits: %w", err)
+		}
+		if p.cardData != nil {
+			card.CommunityData = p.cardData.Get(card.ID)
 		}
 		item.Card = &card
 		wallet = append(wallet, item)
@@ -444,10 +462,11 @@ func (p *Postgres) SaveRecommendation(ctx context.Context, userID string, input 
 	err = tx.QueryRow(ctx, `
 INSERT INTO revocred.questionnaire_responses (
     user_id, monthly_category_spend, fee_tolerance_cents, travel_scope,
-    rewards_goal, credit_tier, existing_card_ids, life_stage
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    rewards_goal, credit_tier, existing_card_ids, life_stage, ideal_card_count
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING id::text`, userID, spendJSON, input.FeeToleranceCents, input.TravelScope,
-		input.RewardsGoal, input.CreditTier, input.ExistingCardIDs, input.LifeStage).Scan(&questionnaireID)
+		input.RewardsGoal, input.CreditTier, input.ExistingCardIDs, input.LifeStage,
+		input.IdealCardCount).Scan(&questionnaireID)
 	if err != nil {
 		return domain.RecommendationResult{}, fmt.Errorf("save questionnaire: %w", err)
 	}
@@ -510,47 +529,46 @@ INSERT INTO revocred.recommendation_items (
 	return result, nil
 }
 
-// applySubstitutions replaces a strategy card the person already holds with an
-// approved alternative. A substitute is only used when the ranked result also
-// found it eligible, so the strategy never points at a weaker card. With no
-// approved or eligible substitute the strategy is left exactly as it was.
-func applySubstitutions(playbook *strategy.Playbook, result *domain.RecommendationResult, wallet []domain.WalletCard, substitutions map[string]domain.Substitution) {
-	if result == nil || len(substitutions) == 0 {
+// applySubstitutions marks a strategy role covered only when the person already
+// owns an explicitly approved replacement. It never advertises an unowned
+// substitute and it keeps the original strategy card as the role identity.
+func applySubstitutions(playbook *strategy.Playbook, wallet []domain.WalletCard, substitutions map[string][]domain.Substitution) {
+	if len(substitutions) == 0 {
 		return
 	}
-	eligible := make(map[string]bool, len(result.Items))
-	for _, item := range result.Items {
-		eligible[item.CardName] = true
-	}
-	ownedIDByName := map[string]string{}
+	ownedByName := map[string]string{}
 	for _, item := range wallet {
 		if item.Status == "active" && item.Card != nil {
-			ownedIDByName[item.Card.Name] = item.CatalogCardID
+			ownedByName[normalizeCardName(item.Card.Name)] = item.Card.Name
 		}
 	}
-	// substituteFor returns a replacement only when one is approved and ranked.
-	substituteFor := func(name string) (string, bool) {
-		ownedID, owned := ownedIDByName[name]
-		if !owned || name == "" {
-			return "", false
-		}
-		substitute, ok := substitutions[ownedID]
-		if !ok || !eligible[substitute.Name] {
-			return "", false
-		}
-		return substitute.Name, true
-	}
+	used := map[string]bool{}
 	for i := range playbook.Steps {
 		step := &playbook.Steps[i]
-		if substitute, ok := substituteFor(step.Name); ok {
-			step.Note = "Suggested instead of " + step.Name + ", which you already hold."
-			step.Name = substitute
+		if step.Status == "have" {
+			used[normalizeCardName(step.CoveredBy)] = true
+			continue
+		}
+		for _, substitute := range substitutions[step.Name] {
+			ownedName, ok := ownedByName[normalizeCardName(substitute.Name)]
+			if !ok {
+				continue
+			}
+			step.Status = "have"
+			step.CoveredBy = ownedName
+			step.Note = "Keep your " + ownedName + "; it covers the " + step.Name + " role in this strategy."
+			used[normalizeCardName(ownedName)] = true
+			break
 		}
 	}
-	if playbook.NextCard != "" {
-		if substitute, ok := substituteFor(playbook.NextCard); ok {
-			playbook.NextCard = substitute
+	if len(used) > 0 {
+		kept := playbook.Unused[:0]
+		for _, card := range playbook.Unused {
+			if !used[normalizeCardName(card.Name)] {
+				kept = append(kept, card)
+			}
 		}
+		playbook.Unused = kept
 	}
 }
 
@@ -592,12 +610,19 @@ func applyRecommendation(playbook *strategy.Playbook, result *domain.Recommendat
 	// A card outside a thematic playbook may still be best for some spending.
 	playbook.Unused = []strategy.UnusedCard{}
 	eligible := map[string]bool{}
+	covered := map[string]bool{}
+	for _, step := range playbook.Steps {
+		if step.Status == "have" {
+			covered[normalizeCardName(step.Name)] = true
+			covered[normalizeCardName(step.CoveredBy)] = true
+		}
+	}
 	if result != nil {
 		for _, item := range result.Items {
 			eligible[item.CardName] = true
-		}
-		if len(result.Items) > 0 {
-			playbook.NextCard = result.Items[0].CardName
+			if playbook.NextCard == "" && !covered[normalizeCardName(item.CardName)] {
+				playbook.NextCard = item.CardName
+			}
 		}
 	}
 	found := false
@@ -619,6 +644,16 @@ func applyRecommendation(playbook *strategy.Playbook, result *domain.Recommendat
 	if playbook.NextCard != "" && !found {
 		playbook.Steps = append(playbook.Steps, strategy.PlaybookStep{Name: playbook.NextCard, Status: "next", Use: "Highest-ranked eligible improvement for your current wallet."})
 	}
+	strategy.Schedule(playbook)
+}
+
+func normalizeCardName(value string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return -1
+	}, value)
 }
 
 func walletNames(wallet []domain.WalletCard) []string {
@@ -649,11 +684,12 @@ func (p *Postgres) latestQuestionnaire(ctx context.Context, userID string) (*dom
 	var spendJSON []byte
 	err := p.pool.QueryRow(ctx, `
 SELECT monthly_category_spend, fee_tolerance_cents, travel_scope, rewards_goal,
-       credit_tier, existing_card_ids, life_stage
+       credit_tier, existing_card_ids, life_stage, ideal_card_count
 FROM revocred.questionnaire_responses
 WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1`, userID).Scan(
 		&spendJSON, &input.FeeToleranceCents, &input.TravelScope, &input.RewardsGoal,
 		&input.CreditTier, &input.ExistingCardIDs, &input.LifeStage,
+		&input.IdealCardCount,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -715,8 +751,8 @@ WHERE ri.recommendation_run_id = $1 ORDER BY ri.rank`, result.RunID)
 
 func (p *Postgres) ListMessages(ctx context.Context, userID string, limit int) ([]domain.ChatMessage, error) {
 	rows, err := p.pool.Query(ctx, `
-SELECT id::text, role, content, created_at FROM (
-    SELECT id, role, content, created_at, sequence
+SELECT id::text, role, content, blocks, created_at FROM (
+    SELECT id, role, content, blocks, created_at, sequence
     FROM revocred.chat_messages WHERE user_id = $1
     ORDER BY sequence DESC LIMIT $2
 ) recent ORDER BY sequence`, userID, limit)
@@ -727,7 +763,7 @@ SELECT id::text, role, content, created_at FROM (
 	messages := make([]domain.ChatMessage, 0)
 	for rows.Next() {
 		var message domain.ChatMessage
-		if err := rows.Scan(&message.ID, &message.Role, &message.Content, &message.CreatedAt); err != nil {
+		if err := rows.Scan(&message.ID, &message.Role, &message.Content, &message.Blocks, &message.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan chat message: %w", err)
 		}
 		messages = append(messages, message)
@@ -738,7 +774,7 @@ SELECT id::text, role, content, created_at FROM (
 	return messages, nil
 }
 
-func (p *Postgres) AppendChatExchange(ctx context.Context, userID, prompt, reply string) ([]domain.ChatMessage, error) {
+func (p *Postgres) AppendChatExchange(ctx context.Context, userID, prompt, reply string, blocks json.RawMessage) ([]domain.ChatMessage, error) {
 	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("begin chat transaction: %w", err)
@@ -746,11 +782,17 @@ func (p *Postgres) AppendChatExchange(ctx context.Context, userID, prompt, reply
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	messages := make([]domain.ChatMessage, 2)
-	for i, message := range []struct{ role, content string }{{"user", prompt}, {"assistant", reply}} {
+	// Only the assistant reply carries blocks; the prompt stays plain text.
+	messagesIn := []struct {
+		role, content string
+		blocks        json.RawMessage
+	}{{role: "user", content: prompt}, {role: "assistant", content: reply, blocks: blocks}}
+	for i, message := range messagesIn {
 		err := tx.QueryRow(ctx, `
-INSERT INTO revocred.chat_messages (user_id, role, content) VALUES ($1, $2, $3)
-RETURNING id::text, role, content, created_at`, userID, message.role, message.content).Scan(
-			&messages[i].ID, &messages[i].Role, &messages[i].Content, &messages[i].CreatedAt,
+INSERT INTO revocred.chat_messages (user_id, role, content, blocks)
+VALUES ($1, $2, $3, $4)
+RETURNING id::text, role, content, blocks, created_at`, userID, message.role, message.content, message.blocks).Scan(
+			&messages[i].ID, &messages[i].Role, &messages[i].Content, &messages[i].Blocks, &messages[i].CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("save %s message: %w", message.role, err)

@@ -1,5 +1,7 @@
 import '../logic/playbook.dart';
+import '../logic/demo_purchase_guide.dart';
 import '../models/app_models.dart';
+import '../models/chat_disclosure.dart';
 import 'app_repository.dart';
 import 'demo_seed.dart';
 
@@ -79,6 +81,7 @@ class MockAppRepository implements AppRepository {
     String email,
     String password, {
     String displayName = '',
+    bool notificationsOptIn = false,
   }) async {
     if (displayName.trim().isNotEmpty) {
       _data = _data.copyWith(
@@ -101,7 +104,21 @@ class MockAppRepository implements AppRepository {
   }
 
   @override
-  Future<AppData> loadAppData() async => _data;
+  Future<AppData> loadAppData() async => _data.copyWith(
+    purchaseGuide: _data.purchaseGuide ?? demoPurchaseGuide(_data.wallet),
+  );
+
+  @override
+  Future<PurchaseGuide> loadPurchaseGuide({
+    String travelMode = 'general',
+    bool capsAvailable = true,
+  }) async =>
+      _data.purchaseGuide ??
+      demoPurchaseGuide(
+        _data.wallet,
+        travelMode: travelMode,
+        capsAvailable: capsAvailable,
+      );
 
   @override
   Future<void> addCard(String cardId) async {
@@ -118,10 +135,12 @@ class MockAppRepository implements AppRepository {
   Future<void> addCustomCard(CustomCardDraft card) async {
     final id = 'custom-${card.name.toLowerCase().replaceAll(' ', '-')}';
     if (_data.wallet.any((item) => item.id == id)) return;
-    final multipliers = card.rates.entries
-        .where((entry) => entry.value > 0)
-        .map((entry) => '${entry.value}x ${entry.key}')
-        .toList();
+    final multipliers = card.termsUnknown
+        ? <String>[]
+        : card.rates.entries
+              .where((entry) => entry.value > 0)
+              .map((entry) => '${entry.value}x ${entry.key}')
+              .toList();
     final created = CreditCard(
       id: id,
       issuer: card.issuer,
@@ -129,12 +148,17 @@ class MockAppRepository implements AppRepository {
       name: card.name,
       annualFee: '\$${card.annualFeeDollars}',
       bestUse: card.bestUse.isEmpty ? 'User-supplied card' : card.bestUse,
-      multiplier: '${card.rates['other'] ?? 1}x',
-      benefits: const ['User-supplied terms'],
+      multiplier: card.termsUnknown ? '—' : '${card.rates['other'] ?? 1}x',
+      benefits: [
+        card.termsUnknown
+            ? 'Terms not supplied; excluded from scoring'
+            : 'User-supplied terms',
+      ],
       pointMultipliers: multipliers,
       transferablePoints: card.transferablePoints,
       isActive: true,
       walletCardId: id,
+      termsUnknown: card.termsUnknown,
     );
     _data = _data.copyWith(
       wallet: [..._data.wallet, created],
@@ -158,7 +182,14 @@ class MockAppRepository implements AppRepository {
   }
 
   @override
-  Future<ChatMessage> sendMessage(String prompt) async {
+  Future<ChatDisclosure> loadChatDisclosure() async =>
+      const ChatDisclosure.basic();
+
+  @override
+  Future<ChatMessage> sendMessage(
+    String prompt, {
+    String? aiConsentVersion,
+  }) async {
     await Future<void>.delayed(const Duration(milliseconds: 350));
     final lower = prompt.toLowerCase();
     final response = lower.contains('grocer')

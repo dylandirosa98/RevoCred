@@ -1,0 +1,1620 @@
+[
+  {
+    "community_data": {
+      "id": "us-amex-gold",
+      "name": "American Express\u00ae Gold Card",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://www.americanexpress.com/us/credit-cards/card/gold-card/",
+      "last_verified": "2026-07-25",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Membership Rewards points",
+      "reward_rates": [
+        "1x \u2014 1x on other eligible purchases",
+        "4x \u2014 Restaurants worldwide",
+        "4x \u2014 U.S. supermarkets \u00b7 cap: {\n            \"amount\": 25000,\n            \"currency\": \"USD\",\n            \"period\": \"calendar_year\"\n          }",
+        "3x \u2014 Flights booked directly with airlines or via Amex Travel"
+      ],
+      "benefits": [
+        "Uber Cash / dining credit bundle \u2014 Monthly Uber Cash and periodic dining statement credits when enrolled; exact amounts change with offer terms.",
+        "Dunkin' statement credit \u2014 Monthly Dunkin' credit when enrolled; terms apply.",
+        "Purchase Protection \u2014 Covers eligible purchases against accidental damage or theft for a limited period. \u00b7 conditions: See American Express Guide to Benefits.",
+        "Car Rental Loss and Damage Insurance \u2014 Secondary coverage on eligible rentals when paid with the card."
+      ],
+      "rewards": {
+        "currency": "membership_rewards",
+        "currency_label": "Membership Rewards points",
+        "rate_type": "points_multiplier",
+        "base_rate": {
+          "points_per_dollar": 1,
+          "description": "1x on other eligible purchases"
+        },
+        "categories": [
+          {
+            "label": "Restaurants worldwide",
+            "points_per_dollar": 4,
+            "cap": null
+          },
+          {
+            "label": "U.S. supermarkets",
+            "points_per_dollar": 4,
+            "cap": {
+              "amount": 25000,
+              "currency": "USD",
+              "period": "calendar_year"
+            }
+          },
+          {
+            "label": "Flights booked directly with airlines or via Amex Travel",
+            "points_per_dollar": 3,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "Transfer partners and statement credits via Amex Travel; rates vary."
+      },
+      "welcome_offer": {
+        "amount": 60000,
+        "unit": "points",
+        "spend_required": 6000,
+        "spend_currency": "USD",
+        "months": 6,
+        "description": "Welcome offer varies by channel; confirm on official apply page.",
+        "as_of": "2026-07-23"
+      },
+      "travel_perks": {
+        "lounge_access": null,
+        "tsa_precheck_credit": null,
+        "global_entry_credit": null,
+        "free_checked_bags": null,
+        "hotel_status": null,
+        "other": []
+      },
+      "source_annual_fee": 325,
+      "sources": [
+        "https://www.americanexpress.com/us/credit-cards/card/gold-card/",
+        "https://www.americanexpress.com/us/credit-cards/"
+      ],
+      "notes": "Product name Gold is not a Network Tier; network_tier is none for Amex network packages.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000016",
+    "slug": "amex-gold",
+    "issuer": "American Express",
+    "network": "Amex",
+    "name": "Amex Gold",
+    "summary": "Sourced 2026-09-23 from https://www.americanexpress.com/en-us/credit-cards/credit-intel/gold-card-annual-fee/",
+    "best_use": "Dining and U.S. supermarket points",
+    "annual_fee_cents": 32500,
+    "reward_rates": {
+      "dining": 4,
+      "flights": 3,
+      "groceries": 4,
+      "other": 1
+    },
+    "benefits": [
+      "4x at restaurants worldwide (up to $50,000 per calendar year, then 1x)",
+      "4x at U.S. supermarkets (up to $25,000 per calendar year, then 1x)",
+      "Up to $100 Resy credit per calendar year: $50 January-June and $50 July-December at qualifying U.S. Resy restaurants; enrollment required",
+      "Up to $84 Dunkin credit per year: $7 monthly at U.S. Dunkin locations; enrollment required",
+      "$120 Uber Cash per year: $10 monthly for U.S. rides and orders; add Gold to your Uber account and use an Amex card to pay",
+      "Up to $120 dining credit per year: $10 monthly at participating partners; enrollment required",
+      "$100 property credit on eligible Hotel Collection stays booked through Amex Travel; two-night minimum and property-specific restrictions",
+      "Transfer points to participating airline and hotel partners",
+      "Verify current terms with American Express; conditional credits are not included in reward estimates"
+    ],
+    "transferable_points": true,
+    "travel_scope": "both",
+    "minimum_credit_tier": "good",
+    "rewards_type": "travel",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "benefit-display-2026-10-13-v1",
+    "terms_unknown": false,
+    "source_name": "American Express Gold benefit snapshot 2026-10-13",
+    "source_url": "https://www.americanexpress.com/us/credit-cards/card/gold-card/",
+    "source_disclaimer": "Benefits read from the issuer 2026-10-13. Verify current terms; enrollment and eligible purchases required where stated. Scoring rates retain the prior conservative model. Conditional credits and bonuses are excluded from estimated value.",
+    "source_published_at": "2026-10-12T20:00:00-04:00",
+    "catalog_version_created_at": "2026-10-13T13:53:30.553024-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-amex-platinum",
+      "name": "The Platinum Card\u00ae",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://www.americanexpress.com/us/credit-cards/card/platinum/",
+      "last_verified": "2026-07-24",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Membership Rewards points",
+      "reward_rates": [
+        "1x \u2014 1x on other eligible purchases",
+        "5x \u2014 Flights booked directly with airlines or through American Express Travel \u00b7 cap: {\n            \"amount\": 500000,\n            \"currency\": \"USD\",\n            \"period\": \"calendar_year\"\n          }",
+        "5x \u2014 Prepaid hotels booked on American Express Travel"
+      ],
+      "benefits": [
+        "Global Lounge Collection \u2014 Access to Centurion Lounges, Priority Pass (enrollment required), limited Delta Sky Club visits when flying eligible Delta, and other partner lounges \u2014 over 1,550 lounges marketed.",
+        "Global Entry or TSA PreCheck fee credit \u2014 Statement credit every 4 years for Global Entry ($120) or TSA PreCheck (up to $85 through CLEAR; confirm current Amex terms) when application fee is charged to the card.",
+        "Uber Cash \u2014 Up to $200 Uber Cash annually when Card is added to Uber account ($15 monthly + $20 December bonus); terms apply.",
+        "Uber One credit \u2014 Up to $120 in statement credits per calendar year for auto-renewing Uber One membership.",
+        "Airline Fee Credit \u2014 Up to $200 airline fee credit for incidental fees charged by a selected airline; categories and eligibility per Amex terms.",
+        "Fine Hotels + Resorts / Hotel Collection perks \u2014 Complimentary benefits on eligible prepaid Fine Hotels + Resorts and Hotel Collection stays (e.g., property credit, breakfast, upgrade when available)."
+      ],
+      "rewards": {
+        "currency": "membership_rewards",
+        "currency_label": "Membership Rewards points",
+        "rate_type": "points_multiplier",
+        "base_rate": {
+          "points_per_dollar": 1,
+          "description": "1x on other eligible purchases"
+        },
+        "categories": [
+          {
+            "label": "Flights booked directly with airlines or through American Express Travel",
+            "points_per_dollar": 5,
+            "cap": {
+              "amount": 500000,
+              "currency": "USD",
+              "period": "calendar_year"
+            }
+          },
+          {
+            "label": "Prepaid hotels booked on American Express Travel",
+            "points_per_dollar": 5,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "Membership Rewards transfer partners and Pay with Points options vary."
+      },
+      "welcome_offer": {
+        "amount": null,
+        "unit": "points",
+        "spend_required": null,
+        "spend_currency": "USD",
+        "months": null,
+        "description": "Welcome Membership Rewards points are personalized; Amex product HTML bundles other cards' spend language. Do not treat a single spend figure as authoritative without the live welcome module. Third-party trackers (e.g. credit-card-bonuses-api) often show ~100,000 points after $8,000 in 6 months \u2014 discovery clue only.",
+        "as_of": "2026-07-24"
+      },
+      "travel_perks": {
+        "lounge_access": {
+          "program": "Global Lounge Collection (Centurion + Priority Pass + partners)",
+          "visits_per_year": null,
+          "notes": "Delta Sky Club access is limited (e.g., 10 visits when flying eligible Delta); confirm current enrollment rules."
+        },
+        "tsa_precheck_credit": {
+          "amount": 85,
+          "currency": "USD",
+          "period": "every_4_years"
+        },
+        "global_entry_credit": {
+          "amount": 120,
+          "currency": "USD",
+          "period": "every_4_years"
+        },
+        "free_checked_bags": null,
+        "hotel_status": null,
+        "other": [
+          "No foreign transaction fees",
+          "Airline fee credit",
+          "Uber Cash"
+        ]
+      },
+      "source_annual_fee": 895,
+      "sources": [
+        "https://www.americanexpress.com/us/credit-cards/card/platinum/",
+        "https://icm.aexp-static.com/Internet/Acquisition/US_en/AppContent/OneSite/category/cardarts/platinum-card.png"
+      ],
+      "notes": "Credits and lounge entitlements are offer/enrollment-dependent. Cross-checked fee $895 and 5x flight/hotel earn against Amex official page; welcome bonus left null after third-party cross-check showed conflict with polluted $3,000 spend text in page bundle.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000017",
+    "slug": "amex-platinum",
+    "issuer": "American Express",
+    "network": "Amex",
+    "name": "Platinum",
+    "summary": "Sourced 2026-09-23 from https://www.americanexpress.com/us/credit-cards/category/reward-points/",
+    "best_use": "Premium travel credits and lounge access",
+    "annual_fee_cents": 89500,
+    "reward_rates": {
+      "other": 1
+    },
+    "benefits": [
+      "$895 annual fee",
+      "5x prepaid hotels and flights via Amex Travel (caps apply)",
+      "Lounge access",
+      "Multiple statement credits; enrollment often required",
+      "Verify current terms with American Express"
+    ],
+    "transferable_points": true,
+    "travel_scope": "both",
+    "minimum_credit_tier": "excellent",
+    "rewards_type": "travel",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "conservative-2026-09-23-v1",
+    "terms_unknown": false,
+    "source_name": "American Express product snapshot",
+    "source_url": "https://www.americanexpress.com/us/credit-cards/category/reward-points/",
+    "source_disclaimer": "Issuer snapshot captured 2026-09-23; independently review before public launch. Conservative model: one cent per point; no bonuses, statement credits, portal multipliers, capped-category uplift, or housing rewards. Verify current issuer terms.",
+    "source_published_at": "2026-09-22T20:00:00-04:00",
+    "catalog_version_created_at": "2026-09-26T14:15:24.900142-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-capital-one-quicksilver",
+      "name": "Quicksilver from Capital One",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://www.capitalone.com/credit-cards/quicksilver/",
+      "last_verified": "2026-07-24",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "cash back",
+      "reward_rates": [
+        "1.5% \u2014 Unlimited 1.5% cash back on every purchase, every day",
+        "5% \u2014 Capital One Entertainment purchases",
+        "5% \u2014 Hotels, rental cars, vacation rentals and activities booked through Capital One Travel"
+      ],
+      "benefits": [
+        "No Foreign Transaction Fees \u2014 You won't pay foreign transaction fees when you make purchases outside the U.S.",
+        "Complimentary Concierge Service \u2014 Comprehensive, personalized assistance for dining, entertainment and travel needs, 24 hours a day, 365 days a year. Terms, conditions and exclusions apply.",
+        "Extended Warranty Protection \u2014 Extend the manufacturer's warranty at no charge on eligible items purchased with a qualifying card.",
+        "24-hour Travel Assistance Services \u2014 Receive an emergency replacement card and a cash advance if your card is lost or stolen, subject to credit availability.",
+        "Travel Accident Insurance \u2014 If you use your Quicksilver card to purchase your fare, you may be eligible for automatic insurance at no extra charge.",
+        "Purchase Protection \u2014 If you buy something with your Quicksilver card and it's damaged or stolen within 90 days of the purchase date, you may be covered up to $1,000 per loss and up to $25,000 per year.",
+        "Price Protection \u2014 If you buy an eligible item and see it advertised at a lower price within 120 days of purchase, you may be reimbursed for the difference in price.",
+        "$0 Fraud Liability \u2014 If your card is lost or stolen, you won't be responsible for unauthorized charges."
+      ],
+      "rewards": {
+        "currency": "cash_back",
+        "currency_label": "cash back",
+        "rate_type": "cashback_percent",
+        "base_rate": {
+          "points_per_dollar": 1.5,
+          "description": "Unlimited 1.5% cash back on every purchase, every day"
+        },
+        "categories": [
+          {
+            "label": "Capital One Entertainment purchases",
+            "points_per_dollar": 5,
+            "cap": null
+          },
+          {
+            "label": "Hotels, rental cars, vacation rentals and activities booked through Capital One Travel",
+            "points_per_dollar": 5,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "Cash back rewards do not expire for the life of the account. No limit on how much you can earn. Can redeem for cash, statement credit, covering a recent purchase, gift cards, or Amazon.com and PayPal purchases."
+      },
+      "welcome_offer": {
+        "amount": 200,
+        "unit": "cash_bonus",
+        "spend_required": 500,
+        "spend_currency": "USD",
+        "months": 3,
+        "description": "Earn a $200 cash bonus after spending $500 on purchases within the first 3 months from account opening. Existing or previous cardmembers are not eligible if they have received a new cardmember bonus for this product in the past 48 months.",
+        "as_of": "2026-07-24"
+      },
+      "travel_perks": {
+        "lounge_access": null,
+        "tsa_precheck_credit": null,
+        "global_entry_credit": null,
+        "free_checked_bags": null,
+        "hotel_status": null,
+        "other": [
+          "No foreign transaction fees",
+          "Hertz Five Star status: Skip the rental counter at select locations and enjoy access to a wider selection of available vehicles with a complimentary upgrade"
+        ]
+      },
+      "source_annual_fee": 0,
+      "sources": [
+        "https://www.capitalone.com/credit-cards/quicksilver/",
+        "https://www.capitalone.com/learn-grow/money-management/quicksilver-card-benefits/",
+        "https://www.capitalone.com/credit-cards/cash-back/quicksilver/"
+      ],
+      "notes": "network_tier set to 'platinum' (Quicksilver is a Visa Platinum-class product); some issuances are Visa Signature. The 'Capital One Travel price match' perk from the previous version was not found on fetched pages and has been removed. Specific variable APR range is not disclosed on the official page (rendered via template/disclosures); only '0% intro APR for 15 months' and 'variable after that' are confirmed, so apr.purchase min/max remain null pending re-verification against Rates & Fees.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000008",
+    "slug": "quicksilver",
+    "issuer": "Capital One",
+    "network": "Visa",
+    "name": "Quicksilver",
+    "summary": "Sourced 2026-10-26 from https://www.capitalone.com/credit-cards/quicksilver/ (base Quicksilver; excellent credit)",
+    "best_use": "Flat 1.5% cash back catch-all",
+    "annual_fee_cents": 0,
+    "reward_rates": {
+      "other": 1.5
+    },
+    "benefits": [
+      "$0 annual fee",
+      "1.5% cash back on every purchase",
+      "No foreign transaction fees",
+      "Requires excellent credit; verify eligibility with Capital One",
+      "Promotional cash bonuses may be offered; bonuses are excluded from reward estimates",
+      "Verify current terms with Capital One; conditional bonuses are not included in reward estimates"
+    ],
+    "transferable_points": false,
+    "travel_scope": "both",
+    "minimum_credit_tier": "excellent",
+    "rewards_type": "cash_back",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "benefit-display-2026-10-26-v1",
+    "terms_unknown": false,
+    "source_name": "Capital One Quicksilver benefit snapshot 2026-10-26",
+    "source_url": "https://www.capitalone.com/credit-cards/quicksilver/",
+    "source_disclaimer": "Benefits read from the issuer 2026-10-26. Base Quicksilver requires excellent credit; verify current terms and eligibility. Scoring rates retain the prior conservative model. Promotional bonuses are excluded from estimated value.",
+    "source_published_at": "2026-10-25T20:00:00-04:00",
+    "catalog_version_created_at": "2026-10-25T23:21:40.214748-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-capital-one-savor-student-cash-rewards",
+      "name": "Savor Rewards for Students",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://www.capitalone.com/credit-cards/savor-student/",
+      "last_verified": "2026-07-25",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Cash back",
+      "reward_rates": [
+        "1% \u2014 1% cash back on all other purchases.",
+        "3% \u2014 Grocery stores (excludes superstores like Walmart & Target)",
+        "3% \u2014 Dining (restaurants, cafes, bars, fast food, bakeries)",
+        "3% \u2014 Entertainment (movie theaters, live events, amusement parks and more)",
+        "3% \u2014 Popular streaming services (e.g. Netflix, Hulu, Disney+)"
+      ],
+      "benefits": [],
+      "rewards": {
+        "currency": "cash_back",
+        "currency_label": "Cash back",
+        "rate_type": "cashback_percent",
+        "base_rate": {
+          "points_per_dollar": 1,
+          "description": "1% cash back on all other purchases."
+        },
+        "categories": [
+          {
+            "label": "Grocery stores (excludes superstores like Walmart & Target)",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Dining (restaurants, cafes, bars, fast food, bakeries)",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Entertainment (movie theaters, live events, amusement parks and more)",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Popular streaming services (e.g. Netflix, Hulu, Disney+)",
+            "points_per_dollar": 3,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "Unlimited 3% cash back at grocery stores and on dining. 3% on entertainment and popular streaming. 1% on all other purchases."
+      },
+      "welcome_offer": {
+        "amount": 100,
+        "unit": "USD",
+        "spend_required": 300,
+        "spend_currency": "USD",
+        "months": 3,
+        "description": "$100 cash bonus after spending $300 on purchases within the first 3 months from account opening. Limited time offer.",
+        "as_of": "2026-07-24"
+      },
+      "travel_perks": {
+        "lounge_access": null,
+        "tsa_precheck_credit": null,
+        "global_entry_credit": null,
+        "free_checked_bags": null,
+        "hotel_status": null,
+        "other": []
+      },
+      "source_annual_fee": 0,
+      "sources": [
+        "https://www.capitalone.com/credit-cards/savor-student/",
+        "https://www.capitalone.com/credit-cards/fair-and-building/"
+      ],
+      "notes": "Verified from official Capital One product page and fair-and-building listing page. Capital One Savor is a Mastercard (network corrected from visa; the Visa-only 'signature' tier was invalid). Annual fee $0. $100 cash bonus after $300 spend in 3 months. 3% cash back on grocery stores, dining, entertainment, and popular streaming; 1% on all other purchases. Mastercard tier (world vs world_elite) not stated on the page, so network_tier left 'none'. APR and foreign transaction fee not visible on fetched pages (behind JS overlay). Name updated to 'Savor Rewards for Students' per official page.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000007",
+    "slug": "savor-for-students",
+    "issuer": "Capital One",
+    "network": "Mastercard",
+    "name": "Savor for Students",
+    "summary": "Sourced 2026-09-23 from https://www.capitalone.com/credit-cards/savor-student/",
+    "best_use": "Student dining and grocery cash back",
+    "annual_fee_cents": 0,
+    "reward_rates": {
+      "dining": 3,
+      "entertainment": 3,
+      "groceries": 3,
+      "other": 1
+    },
+    "benefits": [
+      "$0 annual fee",
+      "3% groceries, dining, entertainment, streaming",
+      "1% everything else",
+      "Verify current terms with Capital One"
+    ],
+    "transferable_points": false,
+    "travel_scope": "both",
+    "minimum_credit_tier": "building",
+    "rewards_type": "cash_back",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "conservative-2026-09-23-v1",
+    "terms_unknown": false,
+    "source_name": "Capital One product snapshot",
+    "source_url": "https://www.capitalone.com/credit-cards/savor-student/",
+    "source_disclaimer": "Issuer snapshot captured 2026-09-23; independently review before public launch. Conservative model: one cent per point; no bonuses, statement credits, portal multipliers, capped-category uplift, or housing rewards. Verify current issuer terms.",
+    "source_published_at": "2026-09-22T20:00:00-04:00",
+    "catalog_version_created_at": "2026-09-26T14:15:24.900142-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-capital-one-savorone",
+      "name": "SavorOne Rewards",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://www.capitalone.com/credit-cards/savorone/",
+      "last_verified": "2026-10-22",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Cash back",
+      "reward_rates": [
+        "1% \u2014 1% cash back on all other purchases.",
+        "3% \u2014 Grocery stores, dining, entertainment and popular streaming services"
+      ],
+      "benefits": [],
+      "rewards": {
+        "currency": "usd",
+        "currency_label": "Cash back",
+        "rate_type": "cashback_percent",
+        "base_rate": {
+          "points_per_dollar": 1,
+          "description": "1% cash back on all other purchases."
+        },
+        "categories": [
+          {
+            "label": "Grocery stores, dining, entertainment and popular streaming services",
+            "points_per_dollar": 3,
+            "cap": null
+          }
+        ],
+        "redemption_notes": ""
+      },
+      "welcome_offer": null,
+      "travel_perks": null,
+      "source_annual_fee": 39,
+      "sources": [
+        "https://www.capitalone.com/credit-cards/savorone/",
+        "https://www.mastercard.com/us/en/personal/find-a-card/credit-card/issuers/capital-one.html",
+        "https://www.capitalone.com/learn-grow/money-management/no-foreign-transaction-fee-credit-card/"
+      ],
+      "notes": "Fair-credit SavorOne with a $39 annual fee, distinct from Savor (us-capital-one-savor). Mastercard network per Mastercard's Capital One card listing (Capital One SavorOne Cash Rewards Credit Card). network_tier is recorded as none because no official page names the Mastercard package.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000014",
+    "slug": "savorone",
+    "issuer": "Capital One",
+    "network": "Mastercard",
+    "name": "SavorOne",
+    "summary": "Sourced 2026-09-23 from https://www.capitalone.com/credit-cards/savorone/",
+    "best_use": "Dining and grocery cash back",
+    "annual_fee_cents": 3900,
+    "reward_rates": {
+      "dining": 3,
+      "entertainment": 3,
+      "groceries": 3,
+      "other": 1
+    },
+    "benefits": [
+      "$39 annual fee on the SavorOne product page",
+      "3% groceries, dining, entertainment, streaming",
+      "1% everything else",
+      "Capital One also offers $0 Savor variants; verify which product applies"
+    ],
+    "transferable_points": false,
+    "travel_scope": "both",
+    "minimum_credit_tier": "fair",
+    "rewards_type": "cash_back",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "conservative-2026-09-23-v1",
+    "terms_unknown": false,
+    "source_name": "Capital One product snapshot",
+    "source_url": "https://www.capitalone.com/credit-cards/savorone/",
+    "source_disclaimer": "Issuer snapshot captured 2026-09-23; independently review before public launch. Conservative model: one cent per point; no bonuses, statement credits, portal multipliers, capped-category uplift, or housing rewards. Verify current issuer terms.",
+    "source_published_at": "2026-09-22T20:00:00-04:00",
+    "catalog_version_created_at": "2026-09-26T14:15:24.900142-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-capital-one-venture-x",
+      "name": "Capital One Venture X Rewards Credit Card",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://www.capitalone.com/credit-cards/venture-x/",
+      "last_verified": "2026-07-24",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Capital One miles",
+      "reward_rates": [
+        "2x \u2014 Unlimited 2x miles on every purchase",
+        "10x \u2014 Hotels and rental cars booked through Capital One Travel",
+        "5x \u2014 Flights and vacation rentals booked through Capital One Travel",
+        "5x \u2014 Capital One Entertainment purchases"
+      ],
+      "benefits": [
+        "$300 Capital One Travel credit \u2014 $300 annual credit for hotels, flights, vacation rentals and related Capital One Travel purchases.",
+        "10,000 anniversary bonus miles \u2014 Earn 10,000 bonus miles after each account anniversary, starting with the first.",
+        "Capital One Lounges and Landings access \u2014 Primary cardholders: access to Capital One Lounge and Landing locations subject to space; guest and authorized-user policies updated in 2026 \u2014 confirm current terms.",
+        "Priority Pass lounges \u2014 Access to 1,300+ participating Priority Pass lounges worldwide after enrollment; guest rules may differ from Capital One Lounges.",
+        "TSA PreCheck or Global Entry credit \u2014 Statement credit for TSA PreCheck or Global Entry application fee when charged to the card; amount/cadence per Capital One terms."
+      ],
+      "rewards": {
+        "currency": "miles",
+        "currency_label": "Capital One miles",
+        "rate_type": "miles_multiplier",
+        "base_rate": {
+          "points_per_dollar": 2,
+          "description": "Unlimited 2x miles on every purchase"
+        },
+        "categories": [
+          {
+            "label": "Hotels and rental cars booked through Capital One Travel",
+            "points_per_dollar": 10,
+            "cap": null
+          },
+          {
+            "label": "Flights and vacation rentals booked through Capital One Travel",
+            "points_per_dollar": 5,
+            "cap": null
+          },
+          {
+            "label": "Capital One Entertainment purchases",
+            "points_per_dollar": 5,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "Miles redeem via Capital One Travel or transfer partners; 10,000 anniversary bonus miles after each account anniversary."
+      },
+      "welcome_offer": {
+        "amount": 75000,
+        "unit": "miles",
+        "spend_required": 4000,
+        "spend_currency": "USD",
+        "months": 3,
+        "description": "Welcome bonus marketed as 75,000 miles after spending $4,000 in the first 3 months on common Capital One offers (spend tokens are dynamic on the product page); confirm on Apply Now. Cross-checked vs credit-card-db-api and credit-card-bonuses-api as clues only.",
+        "as_of": "2026-07-24"
+      },
+      "travel_perks": {
+        "lounge_access": {
+          "program": "Capital One Lounges/Landings + Priority Pass",
+          "visits_per_year": null,
+          "notes": "Primary cardholder complimentary access; AU/guest fees or spend unlocks may apply after 2026 policy changes."
+        },
+        "tsa_precheck_credit": {
+          "amount": null,
+          "currency": "USD",
+          "period": "see_issuer_terms"
+        },
+        "global_entry_credit": {
+          "amount": null,
+          "currency": "USD",
+          "period": "see_issuer_terms"
+        },
+        "free_checked_bags": null,
+        "hotel_status": null,
+        "other": [
+          "$300 Capital One Travel credit",
+          "10,000 anniversary miles",
+          "No foreign transaction fees"
+        ]
+      },
+      "source_annual_fee": 395,
+      "sources": [
+        "https://www.capitalone.com/credit-cards/venture-x/"
+      ],
+      "notes": "Distinct from Capital One Venture Rewards. Lounge guest/AU rules changed in 2026. Network Visa Infinite confirmed on Capital One page. Spend threshold filled after third-party corroboration + Capital One offer copy pointing at ESB spend tokens; still verify on live apply flow.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000015",
+    "slug": "venture-x",
+    "issuer": "Capital One",
+    "network": "Visa",
+    "name": "Venture X",
+    "summary": "Sourced 2026-09-23 from https://www.capitalone.com/credit-cards/venture-x/",
+    "best_use": "Premium transferable travel miles",
+    "annual_fee_cents": 39500,
+    "reward_rates": {
+      "other": 2
+    },
+    "benefits": [
+      "$395 annual fee",
+      "2x miles on all purchases",
+      "10x hotels and rental cars via Capital One Travel",
+      "5x flights via Capital One Travel",
+      "$300 annual Capital One Travel credit",
+      "10,000 anniversary miles",
+      "Verify current terms with Capital One"
+    ],
+    "transferable_points": true,
+    "travel_scope": "both",
+    "minimum_credit_tier": "excellent",
+    "rewards_type": "travel",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "conservative-2026-09-23-v1",
+    "terms_unknown": false,
+    "source_name": "Capital One product snapshot",
+    "source_url": "https://www.capitalone.com/credit-cards/venture-x/",
+    "source_disclaimer": "Issuer snapshot captured 2026-09-23; independently review before public launch. Conservative model: one cent per point; no bonuses, statement credits, portal multipliers, capped-category uplift, or housing rewards. Verify current issuer terms.",
+    "source_published_at": "2026-09-22T20:00:00-04:00",
+    "catalog_version_created_at": "2026-09-26T14:15:24.900142-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-chase-freedom-flex",
+      "name": "Chase Freedom Flex\u00ae Credit Card",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://creditcards.chase.com/cash-back-credit-cards/freedom/flex",
+      "last_verified": "2026-07-24",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Cash Back rewards",
+      "reward_rates": [
+        "1% \u2014 1% cash back on all other purchases",
+        "5% \u2014 Quarterly bonus categories after activation \u00b7 cap: {\n            \"amount\": 1500,\n            \"currency\": \"USD\",\n            \"period\": \"quarter\"\n          }",
+        "5% \u2014 Travel purchased through Chase Travel",
+        "3% \u2014 Dining at restaurants, including takeout and eligible delivery services",
+        "3% \u2014 Drugstore purchases",
+        "2% \u2014 Lyft purchases through September 30, 2027"
+      ],
+      "benefits": [
+        "Zero Liability Protection \u2014 You won't be held responsible for unauthorized charges made with your card or account information.",
+        "Purchase Protection \u2014 Covers eligible new purchases for 120 days from the date of purchase against damage or theft up to $500 per item. Specific limitations apply to New York residents (coverage period is 90 days). \u00b7 coverage limit: $500 per item \u00b7 duration: 120 days (90 days for New York residents)",
+        "Extended Warranty Protection \u2014 Extends the time period of the manufacturer's U.S. warranty by an additional year, on eligible warranties of three years or less, up to four years from the date of purchase.",
+        "Trip Cancellation and Interruption Insurance \u2014 You can be reimbursed up to $1,500 per covered traveler and $6,000 per trip for your pre-paid, non-refundable passenger fares, if your trip is canceled or cut short by sickness, severe weather or other covered situations.",
+        "Auto Rental Coverage \u2014 Decline the rental company's collision insurance and charge the entire rental cost to your card. Coverage provides reimbursement for theft and collision damage for most rental vehicles. In the U.S., coverage is secondary to your personal insurance.",
+        "Travel and Emergency Assistance \u2014 If you run into a problem while traveling away from home, this benefit provides legal and medical referrals and access to other travel and emergency assistance services. You will be responsible for the cost of any goods or services obtained.",
+        "24/7 Fraud Monitoring \u2014 Chase helps safeguard your credit card purchases using sophisticated fraud monitoring. They monitor for fraud 24/7 and can text, email or call you if there are unusual purchases on your credit card.",
+        "DoorDash DashPass \u2014 Get 6 months of complimentary access to DashPass, a membership for both DoorDash and Caviar, which unlocks $0 delivery fees and lower service fees on eligible orders. After that, you are automatically enrolled in DashPass at the current monthly rate. Activate by December 31, 2027.",
+        "DoorDash Non-Restaurant Order Discount \u2014 DashPass members get up to $10 off one qualifying non-restaurant DoorDash order each calendar quarter through December 31, 2027."
+      ],
+      "rewards": {
+        "currency": "cash_back",
+        "currency_label": "Cash Back rewards",
+        "rate_type": "cashback_percent",
+        "base_rate": {
+          "points_per_dollar": 1,
+          "description": "1% cash back on all other purchases"
+        },
+        "categories": [
+          {
+            "label": "Quarterly bonus categories after activation",
+            "points_per_dollar": 5,
+            "cap": {
+              "amount": 1500,
+              "currency": "USD",
+              "period": "quarter"
+            }
+          },
+          {
+            "label": "Travel purchased through Chase Travel",
+            "points_per_dollar": 5,
+            "cap": null
+          },
+          {
+            "label": "Dining at restaurants, including takeout and eligible delivery services",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Drugstore purchases",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Lyft purchases through September 30, 2027",
+            "points_per_dollar": 2,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "Cash Back rewards do not expire as long as your account is open. There is no minimum to redeem for cash back. $1 in Cash Back rewards equals 100 points."
+      },
+      "welcome_offer": {
+        "amount": 20000,
+        "unit": "points",
+        "spend_required": 500,
+        "spend_currency": "USD",
+        "months": 3,
+        "description": "Earn a $200 bonus (20,000 bonus points, redeemable for $200 cash back) after you spend $500 on purchases in the first 3 months from account opening.",
+        "as_of": "2026-07-24"
+      },
+      "travel_perks": {
+        "lounge_access": null,
+        "tsa_precheck_credit": null,
+        "global_entry_credit": null,
+        "free_checked_bags": null,
+        "hotel_status": null,
+        "other": [
+          "Trip Cancellation and Interruption Insurance",
+          "Travel and Emergency Assistance"
+        ]
+      },
+      "source_annual_fee": 0,
+      "sources": [
+        "https://creditcards.chase.com/cash-back-credit-cards/freedom/flex",
+        "https://sites.chase.com/services/creatives/pricingandterms.html/content/dam/pricingandterms/LGC60938.html"
+      ],
+      "notes": "network_tier world_elite is referenced via the Mastercard trademark notice on the product page ('World Elite Mastercard are registered trademarks') but the page does not explicitly state the card's tier. No credit score band is published.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000010",
+    "slug": "freedom-flex",
+    "issuer": "Chase",
+    "network": "Mastercard",
+    "name": "Freedom Flex",
+    "summary": "Sourced 2026-09-23 from https://creditcards.chase.com/cash-back-credit-cards/freedom/flex",
+    "best_use": "Rotating quarterly cash back plus dining",
+    "annual_fee_cents": 0,
+    "reward_rates": {
+      "dining": 3,
+      "drugstores": 3,
+      "other": 1
+    },
+    "benefits": [
+      "$0 annual fee",
+      "5% rotating categories up to $1,500/quarter when activated",
+      "3% dining and drugstores",
+      "5% Chase Travel",
+      "1% everything else",
+      "Verify current terms with Chase"
+    ],
+    "transferable_points": false,
+    "travel_scope": "both",
+    "minimum_credit_tier": "good",
+    "rewards_type": "cash_back",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "conservative-2026-09-23-v1",
+    "terms_unknown": false,
+    "source_name": "Chase product snapshot",
+    "source_url": "https://creditcards.chase.com/cash-back-credit-cards/freedom/flex",
+    "source_disclaimer": "Issuer snapshot captured 2026-09-23; independently review before public launch. Conservative model: one cent per point; no bonuses, statement credits, portal multipliers, capped-category uplift, or housing rewards. Verify current issuer terms.",
+    "source_published_at": "2026-09-22T20:00:00-04:00",
+    "catalog_version_created_at": "2026-09-26T14:15:24.900142-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-chase-freedom-rise",
+      "name": "Chase Freedom Rise Credit Card",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://creditcards.chase.com/cash-back-credit-cards/freedom/rise",
+      "last_verified": "2026-07-25",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Cash Back rewards (tracked as points; each $1 in Cash Back = 100 points)",
+      "reward_rates": [
+        "1.5% \u2014 1.5% Cash Back on all purchases.",
+        "3% \u2014 Dining at restaurants incl. takeout & eligible delivery (new cardmembers, first 6 months) \u00b7 cap: {\n            \"amount\": 6000,\n            \"currency\": \"USD\",\n            \"period\": \"first_6_months\"\n          }",
+        "2% \u2014 Lyft rideshare, bike/scooter, and membership purchased in the Lyft app (through 09/30/2027)"
+      ],
+      "benefits": [
+        "$25 Statement Credit for Automatic Payments \u2014 $25 statement credit after you set up automatic payments during the first 3 months from account opening and remain enrolled for at least 90 consecutive days."
+      ],
+      "rewards": {
+        "currency": "cash_back",
+        "currency_label": "Cash Back rewards (tracked as points; each $1 in Cash Back = 100 points)",
+        "rate_type": "cashback_percent",
+        "base_rate": {
+          "points_per_dollar": 1.5,
+          "description": "1.5% Cash Back on all purchases."
+        },
+        "categories": [
+          {
+            "label": "Dining at restaurants incl. takeout & eligible delivery (new cardmembers, first 6 months)",
+            "points_per_dollar": 3,
+            "cap": {
+              "amount": 6000,
+              "currency": "USD",
+              "period": "first_6_months"
+            }
+          },
+          {
+            "label": "Lyft rideshare, bike/scooter, and membership purchased in the Lyft app (through 09/30/2027)",
+            "points_per_dollar": 2,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "Cash Back rewards tracked as points; each $1 in Cash Back = 100 points."
+      },
+      "welcome_offer": {
+        "amount": 25,
+        "unit": "USD",
+        "spend_required": null,
+        "spend_currency": "USD",
+        "months": 3,
+        "description": "$25 statement credit after setting up automatic payments during the first 3 months from account opening and remaining enrolled for at least 90 consecutive days.",
+        "as_of": "2026-07-24"
+      },
+      "travel_perks": {
+        "lounge_access": null,
+        "tsa_precheck_credit": null,
+        "global_entry_credit": null,
+        "free_checked_bags": null,
+        "hotel_status": null,
+        "other": []
+      },
+      "source_annual_fee": 0,
+      "sources": [
+        "https://creditcards.chase.com/cash-back-credit-cards/freedom/rise",
+        "https://sites.chase.com/services/creatives/pricingandterms.html/content/dam/pricingandterms/LGC64795.html"
+      ],
+      "notes": "Verified from official Chase product page and pricing & terms page. Chase Freedom Rise is a Visa card (T&C: applicants receive a Visa Signature or Platinum card); network corrected from mastercard/world. Annual fee $0, purchase APR 18.24%-27.74% variable, cash advance APR 28.49%, penalty APR up to 29.99%, foreign transaction fee confirmed 3% (the earlier 'no FX fee' reading was a mis-scrape). Rewards: 3% dining accelerator (new cardmembers, first 6 months, up to $6,000) and 2% Lyft (through 09/30/2027) modeled as rewards categories; 1.5% base on all purchases. $25 statement credit for auto-payment enrollment.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000009",
+    "slug": "freedom-rise",
+    "issuer": "Chase",
+    "network": "Visa",
+    "name": "Freedom Rise",
+    "summary": "Sourced 2026-09-23 from https://creditcards.chase.com/cash-back-credit-cards/freedom/rise",
+    "best_use": "Build credit with flat cash back",
+    "annual_fee_cents": 0,
+    "reward_rates": {
+      "other": 1.5
+    },
+    "benefits": [
+      "$0 annual fee",
+      "1.5% cash back on all purchases",
+      "Verify current terms with Chase"
+    ],
+    "transferable_points": false,
+    "travel_scope": "both",
+    "minimum_credit_tier": "building",
+    "rewards_type": "cash_back",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "conservative-2026-09-23-v1",
+    "terms_unknown": false,
+    "source_name": "Chase product snapshot",
+    "source_url": "https://creditcards.chase.com/cash-back-credit-cards/freedom/rise",
+    "source_disclaimer": "Issuer snapshot captured 2026-09-23; independently review before public launch. Conservative model: one cent per point; no bonuses, statement credits, portal multipliers, capped-category uplift, or housing rewards. Verify current issuer terms.",
+    "source_published_at": "2026-09-22T20:00:00-04:00",
+    "catalog_version_created_at": "2026-09-26T14:15:24.900142-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-chase-freedom-unlimited",
+      "name": "Chase Freedom Unlimited\u00ae Credit Card",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited",
+      "last_verified": "2026-07-24",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Cash Back rewards tracked as Ultimate Rewards points",
+      "reward_rates": [
+        "1.5% \u2014 Unlimited 1.5% cash back on all other purchases",
+        "5% \u2014 Travel purchased through Chase Travel",
+        "3% \u2014 Dining at restaurants, including takeout and eligible delivery services",
+        "3% \u2014 Drugstore purchases",
+        "2% \u2014 Qualifying Lyft purchases through 09/30/2027"
+      ],
+      "benefits": [
+        "Zero Liability Protection \u2014 You won't be held responsible for unauthorized charges made with your card or account information.",
+        "Purchase Protection \u2014 Covers eligible new purchases for 120 days from the date of purchase against damage or theft up to $500 per item. Specific limitations apply to New York residents (coverage period is 90 days). \u00b7 coverage limit: $500 per item \u00b7 duration: 120 days (90 days for New York residents)",
+        "Extended Warranty Protection \u2014 Extends the time period of the manufacturer's U.S. warranty by an additional year, on eligible warranties of three years or less, up to four years from the date of purchase.",
+        "Trip Cancellation and Interruption Insurance \u2014 You can be reimbursed up to $1,500 per covered traveler and $6,000 per trip for your pre-paid, non-refundable passenger fares, if your trip is canceled or cut short by sickness, severe weather or other covered situations.",
+        "Auto Rental Coverage \u2014 Decline the rental company's collision insurance and charge the entire rental cost to your card. Coverage provides reimbursement for theft and collision damage for most rental vehicles. In the U.S., coverage is secondary to your personal insurance.",
+        "Travel and Emergency Assistance \u2014 If you run into a problem while traveling away from home, this benefit provides legal and medical referrals and access to other travel and emergency assistance services. You will be responsible for the cost of any goods or services obtained.",
+        "24/7 Fraud Monitoring \u2014 Chase helps safeguard your credit card purchases using sophisticated fraud monitoring. They monitor for fraud 24/7 and can text, email or call you if there are unusual purchases on your credit card.",
+        "DoorDash DashPass \u2014 Get 6 months of complimentary access to DashPass, a membership for both DoorDash and Caviar, which unlocks $0 delivery fees and lower service fees on eligible orders. After that, you are automatically enrolled in DashPass at the current monthly rate. Activate by December 31, 2027.",
+        "DoorDash Non-Restaurant Order Discount \u2014 DashPass members get up to $10 off one qualifying non-restaurant DoorDash order each calendar quarter through December 31, 2027.",
+        "Spend Instantly \u2014 After approval, receive instant access to your card by adding it to a digital wallet, like Apple Pay\u00ae, Google Pay\u2122 or Samsung Pay."
+      ],
+      "rewards": {
+        "currency": "ultimate_rewards",
+        "currency_label": "Cash Back rewards tracked as Ultimate Rewards points",
+        "rate_type": "cashback_percent",
+        "base_rate": {
+          "points_per_dollar": 1.5,
+          "description": "Unlimited 1.5% cash back on all other purchases"
+        },
+        "categories": [
+          {
+            "label": "Travel purchased through Chase Travel",
+            "points_per_dollar": 5,
+            "cap": null
+          },
+          {
+            "label": "Dining at restaurants, including takeout and eligible delivery services",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Drugstore purchases",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Qualifying Lyft purchases through 09/30/2027",
+            "points_per_dollar": 2,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "Cash Back rewards do not expire as long as your account is open. There is no minimum to redeem for cash back."
+      },
+      "welcome_offer": {
+        "amount": 20000,
+        "unit": "points",
+        "spend_required": 500,
+        "spend_currency": "USD",
+        "months": 3,
+        "description": "Earn a $200 bonus (20,000 bonus points, redeemable for $200 cash back) after you spend $500 on purchases in the first 3 months from account opening.",
+        "as_of": "2026-07-24"
+      },
+      "travel_perks": {
+        "lounge_access": null,
+        "tsa_precheck_credit": null,
+        "global_entry_credit": null,
+        "free_checked_bags": null,
+        "hotel_status": null,
+        "other": [
+          "Trip Cancellation and Interruption Insurance",
+          "Travel and Emergency Assistance"
+        ]
+      },
+      "source_annual_fee": 0,
+      "sources": [
+        "https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited",
+        "https://sites.chase.com/services/creatives/pricingandterms.html/content/dam/pricingandterms/LGC61498.html"
+      ],
+      "notes": "network_tier normalized to canonical 'signature'; Chase pricing terms state applicants may receive a Visa Signature OR Platinum card with different costs and/or benefits. No public credit score band was verified. Reward rates use the whole-number convention (1.5 = 1.5%).",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000011",
+    "slug": "freedom-unlimited",
+    "issuer": "Chase",
+    "network": "Visa",
+    "name": "Freedom Unlimited",
+    "summary": "Sourced 2026-09-23 from https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited",
+    "best_use": "Everyday catch-all cash back",
+    "annual_fee_cents": 0,
+    "reward_rates": {
+      "dining": 3,
+      "drugstores": 3,
+      "other": 1.5
+    },
+    "benefits": [
+      "$0 annual fee",
+      "1.5% on all other purchases",
+      "3% dining and drugstores",
+      "5% Chase Travel",
+      "Verify current terms with Chase"
+    ],
+    "transferable_points": false,
+    "travel_scope": "both",
+    "minimum_credit_tier": "good",
+    "rewards_type": "cash_back",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "conservative-2026-09-23-v1",
+    "terms_unknown": false,
+    "source_name": "Chase product snapshot",
+    "source_url": "https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited",
+    "source_disclaimer": "Issuer snapshot captured 2026-09-23; independently review before public launch. Conservative model: one cent per point; no bonuses, statement credits, portal multipliers, capped-category uplift, or housing rewards. Verify current issuer terms.",
+    "source_published_at": "2026-09-22T20:00:00-04:00",
+    "catalog_version_created_at": "2026-09-26T14:15:24.900142-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-chase-sapphire-preferred",
+      "name": "Chase Sapphire Preferred\u00ae Card",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://creditcards.chase.com/rewards-credit-cards/sapphire/preferred",
+      "last_verified": "2026-07-24",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Ultimate Rewards points",
+      "reward_rates": [
+        "1x \u2014 1x on other purchases",
+        "5x \u2014 Travel booked through Chase Travel",
+        "3x \u2014 Dining including eligible delivery services",
+        "3x \u2014 Select streaming services",
+        "3x \u2014 Online grocery purchases (excluding Target, Walmart, wholesale clubs)",
+        "2x \u2014 Other travel"
+      ],
+      "benefits": [
+        "Trip Cancellation/Interruption Insurance \u2014 Coverage for eligible prepaid trip costs when a covered reason cancels or interrupts travel. \u00b7 conditions: Must charge eligible trip costs to the card; see Guide to Benefits.",
+        "Baggage Delay Insurance \u2014 Reimbursement for essential purchases when baggage is delayed.",
+        "Primary Auto Rental Collision Damage Waiver \u2014 Primary CDW on eligible rentals when you decline the rental company's collision coverage and pay with the card.",
+        "DoorDash DashPass \u2014 Complimentary DashPass subscription for a promotional period; terms apply."
+      ],
+      "rewards": {
+        "currency": "ultimate_rewards",
+        "currency_label": "Ultimate Rewards points",
+        "rate_type": "points_multiplier",
+        "base_rate": {
+          "points_per_dollar": 1,
+          "description": "1x on other purchases"
+        },
+        "categories": [
+          {
+            "label": "Travel booked through Chase Travel",
+            "points_per_dollar": 5,
+            "cap": null
+          },
+          {
+            "label": "Dining including eligible delivery services",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Select streaming services",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Online grocery purchases (excluding Target, Walmart, wholesale clubs)",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Other travel",
+            "points_per_dollar": 2,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "Points transfer to travel partners; Chase Travel portal redemption rates vary."
+      },
+      "welcome_offer": {
+        "amount": 75000,
+        "unit": "points",
+        "spend_required": 5000,
+        "spend_currency": "USD",
+        "months": 3,
+        "description": "Earn 75,000 Ultimate Rewards points after spending $5,000 in the first 3 months (marketing also shows a struck-through higher amount); offer ends soon / varies \u2014 verify on Chase.",
+        "as_of": "2026-07-24"
+      },
+      "travel_perks": {
+        "lounge_access": null,
+        "tsa_precheck_credit": null,
+        "global_entry_credit": null,
+        "free_checked_bags": null,
+        "hotel_status": null,
+        "other": [
+          "No foreign transaction fees"
+        ]
+      },
+      "source_annual_fee": 95,
+      "sources": [
+        "https://creditcards.chase.com/rewards-credit-cards/sapphire/preferred",
+        "https://www.chase.com/personal/credit-cards/sapphire/preferred"
+      ],
+      "notes": "Signup bonus refreshed 2026-07-24 from Chase official product page (75k after $5k/3mo). Cross-checked against credit-card-bonuses-api as a discovery clue only; official Chase page remains Source.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000012",
+    "slug": "sapphire-preferred",
+    "issuer": "Chase",
+    "network": "Visa",
+    "name": "Sapphire Preferred",
+    "summary": "Sourced 2026-09-23 from https://creditcards.chase.com/rewards-credit-cards/sapphire and Chase 2026 preferred update",
+    "best_use": "Transferable travel points starter",
+    "annual_fee_cents": 9500,
+    "reward_rates": {
+      "dining": 3,
+      "other": 1,
+      "travel": 2
+    },
+    "benefits": [
+      "Up to $100 Chase Travel hotel credit each account anniversary year; eligible hotel stays must be purchased through Chase Travel",
+      "Up to $120 Global Entry, TSA PreCheck or NEXUS application-fee credit every four years; charge the eligible fee to the card",
+      "Transfer points to participating airline and hotel partners",
+      "Primary rental-car coverage; exclusions and limits apply",
+      "Trip cancellation, interruption and delay coverage; terms apply",
+      "Verify current terms with Chase; conditional credits are not included in reward estimates"
+    ],
+    "transferable_points": true,
+    "travel_scope": "both",
+    "minimum_credit_tier": "good",
+    "rewards_type": "travel",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "benefit-display-2026-10-13-v1",
+    "terms_unknown": false,
+    "source_name": "Chase Sapphire Preferred benefit snapshot 2026-10-13",
+    "source_url": "https://creditcards.chase.com/rewards-credit-cards/sapphire/preferred",
+    "source_disclaimer": "Benefits read from the issuer 2026-10-13. Verify current terms; eligibility restrictions apply. Scoring rates retain the prior conservative model. Conditional credits and bonuses are excluded from estimated value.",
+    "source_published_at": "2026-10-12T20:00:00-04:00",
+    "catalog_version_created_at": "2026-10-13T13:53:30.553024-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-chase-sapphire-reserve",
+      "name": "Chase Sapphire Reserve\u00ae Credit Card",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://creditcards.chase.com/rewards-credit-cards/sapphire/reserve",
+      "last_verified": "2026-07-23",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Ultimate Rewards points",
+      "reward_rates": [
+        "1x \u2014 1x on all other purchases",
+        "8x \u2014 Purchases through Chase Travel, including The Edit",
+        "4x \u2014 Flights booked direct",
+        "4x \u2014 Hotels booked direct",
+        "3x \u2014 Dining worldwide"
+      ],
+      "benefits": [
+        "$300 Annual Travel Credit \u2014 Up to $300 in statement credits for travel purchases each account anniversary year. Qualifying purchases that receive the credit do not earn points.",
+        "The Edit hotel statement credits \u2014 Up to $250 statement credit per prepaid The Edit booking (two-night minimum), up to $500 annually. Qualifying purchases do not earn points.",
+        "Chase Sapphire Lounge / Priority Pass access \u2014 Complimentary access to Chase Sapphire Lounges by The Club and 1,300+ Priority Pass lounges with up to two guests; enrollment and space availability rules apply. Select Air Canada Maple Leaf Lounges/Caf\u00e9s access with eligible boarding pass.",
+        "Global Entry, TSA PreCheck, or NEXUS fee credit \u2014 One statement credit of up to $120 every four years for Global Entry, TSA PreCheck, or NEXUS application fee charged to the card.",
+        "$300 Sapphire Exclusive Tables dining credit \u2014 Up to $150 statement credits Jan\u2013Jun and again Jul\u2013Dec (max $300/year) when dining at restaurants in the Sapphire Exclusive Tables program on OpenTable.",
+        "Primary Auto Rental Collision Damage Waiver \u2014 Primary CDW reimbursement up to $75,000 for theft/collision on most eligible rentals when you decline the rental company's collision coverage and pay with the card. Restrictions apply; NY residents may have secondary coverage inside the U.S. \u00b7 conditions: See Chase Guide to Benefits. \u00b7 coverage amount: 75000 \u00b7 coverage currency: USD",
+        "Trip Cancellation and Interruption Insurance \u2014 Reimbursement up to $10,000 per covered traveler / $20,000 per trip for prepaid non-refundable travel expenses for covered reasons. \u00b7 conditions: See Guide to Benefits. \u00b7 coverage amount: 10000 \u00b7 coverage currency: USD",
+        "Baggage Delay Insurance \u2014 Reimburses up to $100/day for up to 5 days for essentials when baggage is delayed over 6 hours.",
+        "Lost Luggage Reimbursement \u2014 Reimbursement up to $3,000 per covered traveler for lost, damaged, or stolen checked/carry-on baggage on a covered trip."
+      ],
+      "rewards": {
+        "currency": "ultimate_rewards",
+        "currency_label": "Ultimate Rewards points",
+        "rate_type": "points_multiplier",
+        "base_rate": {
+          "points_per_dollar": 1,
+          "description": "1x on all other purchases"
+        },
+        "categories": [
+          {
+            "label": "Purchases through Chase Travel, including The Edit",
+            "points_per_dollar": 8,
+            "cap": null
+          },
+          {
+            "label": "Flights booked direct",
+            "points_per_dollar": 4,
+            "cap": null
+          },
+          {
+            "label": "Hotels booked direct",
+            "points_per_dollar": 4,
+            "cap": null
+          },
+          {
+            "label": "Dining worldwide",
+            "points_per_dollar": 3,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "Points transfer to travel partners; Chase Travel portal redemption rates vary. Purchases that qualify for certain statement credits may not earn points."
+      },
+      "welcome_offer": {
+        "amount": 100000,
+        "unit": "points",
+        "spend_required": 6000,
+        "spend_currency": "USD",
+        "months": 3,
+        "description": "Earn 100,000 Ultimate Rewards points after spending $6,000 in the first 3 months; offer varies and may be unavailable to prior holders.",
+        "as_of": "2026-07-23"
+      },
+      "travel_perks": {
+        "lounge_access": {
+          "program": "Chase Sapphire Lounge by The Club + Priority Pass Select",
+          "visits_per_year": null,
+          "notes": "Primary cardholder plus up to two guests; Priority Pass enrollment required for that network."
+        },
+        "tsa_precheck_credit": {
+          "amount": 120,
+          "currency": "USD",
+          "period": "every_4_years"
+        },
+        "global_entry_credit": {
+          "amount": 120,
+          "currency": "USD",
+          "period": "every_4_years"
+        },
+        "free_checked_bags": null,
+        "hotel_status": "IHG One Rewards Platinum Elite through 2027-12-31 (confirm current Chase terms)",
+        "other": [
+          "$300 annual travel credit",
+          "No foreign transaction fees",
+          "NEXUS fee credit alternative"
+        ]
+      },
+      "source_annual_fee": 795,
+      "sources": [
+        "https://creditcards.chase.com/rewards-credit-cards/sapphire/reserve",
+        "https://www.chase.com/personal/credit-cards/sapphire/reserve"
+      ],
+      "notes": "Premium Sapphire product; annual fee, credits, and lounge policies change \u2014 verify Pricing & Terms and Guide to Benefits before publishing comparisons.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000013",
+    "slug": "sapphire-reserve",
+    "issuer": "Chase",
+    "network": "Visa",
+    "name": "Sapphire Reserve",
+    "summary": "Sourced 2026-09-23 from https://creditcards.chase.com/rewards-credit-cards/sapphire/reserve",
+    "best_use": "Premium Chase travel hub",
+    "annual_fee_cents": 79500,
+    "reward_rates": {
+      "dining": 3,
+      "flights": 4,
+      "hotels": 4,
+      "other": 1
+    },
+    "benefits": [
+      "$795 annual fee",
+      "8x Chase Travel",
+      "4x flights and hotels booked direct",
+      "3x dining",
+      "$300 annual travel credit",
+      "Verify current terms with Chase"
+    ],
+    "transferable_points": true,
+    "travel_scope": "both",
+    "minimum_credit_tier": "excellent",
+    "rewards_type": "travel",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "conservative-2026-09-23-v1",
+    "terms_unknown": false,
+    "source_name": "Chase product snapshot",
+    "source_url": "https://creditcards.chase.com/rewards-credit-cards/sapphire/reserve",
+    "source_disclaimer": "Issuer snapshot captured 2026-09-23; independently review before public launch. Conservative model: one cent per point; no bonuses, statement credits, portal multipliers, capped-category uplift, or housing rewards. Verify current issuer terms.",
+    "source_published_at": "2026-09-22T20:00:00-04:00",
+    "catalog_version_created_at": "2026-09-26T14:15:24.900142-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-citi-double-cash",
+      "name": "Citi Double Cash\u00ae Card",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://www.citi.com/credit-cards/citi-double-cash-credit-card",
+      "last_verified": "2026-07-25",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Cash back",
+      "reward_rates": [
+        "2% \u2014 Unlimited 2% cash back: 1% when you buy plus an additional 1% as you pay",
+        "5% \u2014 Hotels, car rentals, and attractions booked through Citi Travel"
+      ],
+      "benefits": [
+        "Mastercard ID Theft Protection \u2014 ID theft protection program offered by Mastercard; terms apply."
+      ],
+      "rewards": {
+        "currency": "cash_back",
+        "currency_label": "Cash back",
+        "rate_type": "cashback_percent",
+        "base_rate": {
+          "points_per_dollar": 2,
+          "description": "Unlimited 2% cash back: 1% when you buy plus an additional 1% as you pay"
+        },
+        "categories": [
+          {
+            "label": "Hotels, car rentals, and attractions booked through Citi Travel",
+            "points_per_dollar": 5,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "No category enrollment; no stated earn caps. Citi Travel bookings earn 5% total (2% base plus an additional 3%). Cash back is earned as ThankYou Points."
+      },
+      "welcome_offer": {
+        "amount": null,
+        "unit": "USD",
+        "spend_required": null,
+        "spend_currency": "USD",
+        "months": null,
+        "description": "Cash back welcome bonus after a qualifying spend within the first months; amount, spend, and window are rendered as template variables on the official page and not disclosed there.",
+        "as_of": "2026-07-25"
+      },
+      "travel_perks": null,
+      "source_annual_fee": 0,
+      "sources": [
+        "https://www.citi.com/credit-cards/citi-double-cash-credit-card"
+      ],
+      "notes": "Classic 1%+1% (2% total) cash-back structure, plus 5% total on Citi Travel bookings. APR range and welcome-bonus amount/spend/months are rendered as template variables on the official page and are not disclosed there; left null pending re-verification against Citi Pricing Details.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000018",
+    "slug": "double-cash",
+    "issuer": "Citi",
+    "network": "Mastercard",
+    "name": "Double Cash",
+    "summary": "Sourced 2026-09-23 from https://www.citi.com/credit-cards/rewards-credit-cards",
+    "best_use": "Flat 2% cash back",
+    "annual_fee_cents": 0,
+    "reward_rates": {
+      "other": 2
+    },
+    "benefits": [
+      "No annual fee",
+      "Unlimited 2% cash back: 1% when you buy, 1% as you pay",
+      "Verify current terms with Citi"
+    ],
+    "transferable_points": false,
+    "travel_scope": "both",
+    "minimum_credit_tier": "good",
+    "rewards_type": "cash_back",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "conservative-2026-09-23-v1",
+    "terms_unknown": false,
+    "source_name": "Citi product snapshot",
+    "source_url": "https://www.citi.com/credit-cards/rewards-credit-cards",
+    "source_disclaimer": "Issuer snapshot captured 2026-09-23; independently review before public launch. Conservative model: one cent per point; no bonuses, statement credits, portal multipliers, capped-category uplift, or housing rewards. Verify current issuer terms.",
+    "source_published_at": "2026-09-22T20:00:00-04:00",
+    "catalog_version_created_at": "2026-09-26T14:15:24.900142-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-citi-strata",
+      "name": "Citi Strata Card",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://www.citi.com/credit-cards/citi-strata-credit-card",
+      "last_verified": "2026-10-22",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "ThankYou Points",
+      "reward_rates": [
+        "1x \u2014 1 point per dollar on all other purchases.",
+        "5x \u2014 Hotels, car rentals and attractions booked on cititravel.com",
+        "3x \u2014 Supermarkets",
+        "3x \u2014 Gas and EV charging stations and select transit",
+        "3x \u2014 One self-select category (fitness clubs, select streaming, live entertainment, cosmetic stores/barber shops/hair salons, or pet supply stores)",
+        "2x \u2014 Restaurants"
+      ],
+      "benefits": [],
+      "rewards": {
+        "currency": "thankyou_points",
+        "currency_label": "ThankYou Points",
+        "rate_type": "points_multiplier",
+        "base_rate": {
+          "points_per_dollar": 1,
+          "description": "1 point per dollar on all other purchases."
+        },
+        "categories": [
+          {
+            "label": "Hotels, car rentals and attractions booked on cititravel.com",
+            "points_per_dollar": 5,
+            "cap": null
+          },
+          {
+            "label": "Supermarkets",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Gas and EV charging stations and select transit",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "One self-select category (fitness clubs, select streaming, live entertainment, cosmetic stores/barber shops/hair salons, or pet supply stores)",
+            "points_per_dollar": 3,
+            "cap": null
+          },
+          {
+            "label": "Restaurants",
+            "points_per_dollar": 2,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "ThankYou Points can be redeemed for gift cards, cash back, shopping with points, Citi Travel bookings, or transferred to partners such as American Airlines, JetBlue and Virgin Atlantic."
+      },
+      "welcome_offer": {
+        "amount": 20000,
+        "unit": "points",
+        "spend_required": 1000,
+        "spend_currency": "USD",
+        "months": 3,
+        "description": "20,000 bonus points after spending $1,000 in the first 3 months.",
+        "as_of": "2026-10-22"
+      },
+      "travel_perks": null,
+      "source_annual_fee": 0,
+      "sources": [
+        "https://www.citi.com/credit-cards/citi-strata-credit-card"
+      ],
+      "notes": "The product page lists Mastercard ID Theft Protection, establishing the Mastercard network. Pricing comes from the Pricing Details block on the product page. network_tier is recorded as none because the official page does not name the network package.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000019",
+    "slug": "strata",
+    "issuer": "Citi",
+    "network": "Mastercard",
+    "name": "Strata",
+    "summary": "Sourced 2026-09-23 from https://www.citi.com/credit-cards/citi-strata-all-cards",
+    "best_use": "No-fee everyday ThankYou points",
+    "annual_fee_cents": 0,
+    "reward_rates": {
+      "dining": 2,
+      "gas": 3,
+      "groceries": 3,
+      "other": 1
+    },
+    "benefits": [
+      "$0 annual fee",
+      "3x supermarkets, gas/EV, transit, and one self-select category",
+      "2x restaurants",
+      "1x everything else",
+      "Verify current terms with Citi"
+    ],
+    "transferable_points": true,
+    "travel_scope": "both",
+    "minimum_credit_tier": "good",
+    "rewards_type": "hybrid",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "conservative-2026-09-23-v1",
+    "terms_unknown": false,
+    "source_name": "Citi product snapshot",
+    "source_url": "https://www.citi.com/credit-cards/citi-strata-all-cards",
+    "source_disclaimer": "Issuer snapshot captured 2026-09-23; independently review before public launch. Conservative model: one cent per point; no bonuses, statement credits, portal multipliers, capped-category uplift, or housing rewards. Verify current issuer terms.",
+    "source_published_at": "2026-09-22T20:00:00-04:00",
+    "catalog_version_created_at": "2026-09-26T14:15:24.900142-04:00"
+  },
+  {
+    "community_data": {
+      "id": "us-citi-strata-elite",
+      "name": "Citi Strata Elite\u2120",
+      "attribution": "OpenCard DB \u00b7 CC BY 4.0 \u00b7 adapted for display",
+      "source_url": "https://github.com/thedavidweng/opencard-db",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "issuer_url": "https://www.citi.com/credit-cards/citi-strata-elite-credit-card",
+      "last_verified": "2026-07-25",
+      "retrieved_at": "2026-10-27T03:21:41.546114841Z",
+      "snapshot_sha256": "3bd65d8237c4d3835656c45a5cb480319117a06abb4358e0b46db989966ac73d",
+      "currency_label": "Citi ThankYou Points",
+      "reward_rates": [
+        "1.5x \u2014 1.5 points per dollar spent on All Other Purchases.",
+        "12x \u2014 Hotels, Car Rentals & Attractions booked on cititravel.com",
+        "6x \u2014 Air Travel booked on cititravel.com",
+        "6x \u2014 Restaurants on Citi Nights (Friday & Saturday 6 PM - 6 AM ET)",
+        "3x \u2014 Restaurants (any other time)"
+      ],
+      "benefits": [
+        "Up to $300 Annual Hotel Benefit \u2014 Each calendar year, enjoy up to $300 off a hotel stay of 2 nights or more when booked through cititravel.com. The benefit is applied instantly at the time of booking.",
+        "Up to $200 Annual Splurge Credit \u2014 Every calendar year, earn up to $200 in statement credits on your choice of up to 2 of the following brands: 1stDibs, American Airlines (exclusions apply), Best Buy, Future Personal Training, and Live Nation (exclusions apply).",
+        "Up to $200 Annual Blacklane Credit \u2014 Every calendar year, earn up to $200 in statement credits when you book with Blacklane, a premium global chauffeur service. Earn up to $100 on Blacklane purchases January through June and up to $100 July through December.",
+        "Priority Pass Select membership \u2014 Enjoy complimentary access to 1,500+ airport lounges worldwide. Annual membership fee valued at $469.",
+        "American Airlines Admirals Club Lounge Access Passes \u2014 Every calendar year, receive 4 Admirals Club Citi Strata Elite Passes for access to nearly 50 Admirals Club lounges (over $300 in value).",
+        "Up to $120 Global Entry or TSA PreCheck Application Fee Credit \u2014 Receive a statement credit, up to $120 every four years, as reimbursement for your application fee for Global Entry or TSA PreCheck.",
+        "Travel and Shopping Protection \u2014 Trip Delay Protection, Enhanced Trip Cancellation and Trip Interruption Protection, Lost or Damaged Luggage, MasterRental Coverage (car rental insurance), and Extended Warranty and Purchase Assurance Plus.",
+        "Mastercard ID Theft Protection \u2014 The ID Theft Protection program offered by Mastercard helps eliminate the worry of identity theft by monitoring the information you choose to protect and alerting you if suspicious activity is found.",
+        "Citi Flex Pay \u2014 Buy now, pay later with Citi Flex Pay. Pay over time in fixed monthly payments and continue to earn points on purchases. Available on eligible purchases of $75 or more.",
+        "Citigold Relationship Credit \u2014 Qualifying Citigold clients receive a $145 Banking Relationship Annual Credit. Citigold Private Clients receive a $595 first year banking relationship credit and a $145 credit each year thereafter."
+      ],
+      "rewards": {
+        "currency": "points",
+        "currency_label": "Citi ThankYou Points",
+        "rate_type": "points_multiplier",
+        "base_rate": {
+          "points_per_dollar": 1.5,
+          "description": "1.5 points per dollar spent on All Other Purchases."
+        },
+        "categories": [
+          {
+            "label": "Hotels, Car Rentals & Attractions booked on cititravel.com",
+            "points_per_dollar": 12,
+            "cap": null
+          },
+          {
+            "label": "Air Travel booked on cititravel.com",
+            "points_per_dollar": 6,
+            "cap": null
+          },
+          {
+            "label": "Restaurants on Citi Nights (Friday & Saturday 6 PM - 6 AM ET)",
+            "points_per_dollar": 6,
+            "cap": null
+          },
+          {
+            "label": "Restaurants (any other time)",
+            "points_per_dollar": 3,
+            "cap": null
+          }
+        ],
+        "redemption_notes": "Redeem ThankYou Points via Citi Travel (flights, hotels, car rentals, attractions), points transfer to American Airlines, JetBlue, Virgin Atlantic, Cathay, Eva Air, Choice Hotels, The Leading Hotels of the World and others (min 1,000 points), gift cards/cash back at thankyou.com, shop with points at Amazon, PayPal, CVS and others."
+      },
+      "welcome_offer": {
+        "amount": null,
+        "unit": "points",
+        "spend_required": null,
+        "spend_currency": "USD",
+        "months": null,
+        "description": "Page shows 'Earn bonus points after spending $ in the first months' but numeric values are loaded dynamically and not present in fetched text.",
+        "as_of": "2026-07-24"
+      },
+      "travel_perks": {
+        "lounge_access": {
+          "notes": "Priority Pass Select membership (1,500+ lounges) + 4 Admirals Club passes/year"
+        },
+        "tsa_precheck_credit": null,
+        "global_entry_credit": null,
+        "free_checked_bags": null,
+        "hotel_status": null,
+        "other": [
+          "Up to $300 Annual Hotel Benefit via cititravel.com",
+          "Up to $200 Annual Blacklane Credit",
+          "Trip Delay/Cancellation/Interruption Protection",
+          "Lost or Damaged Luggage coverage",
+          "MasterRental Coverage"
+        ]
+      },
+      "source_annual_fee": 595,
+      "sources": [
+        "https://www.citi.com/credit-cards/citi-strata-elite-credit-card"
+      ],
+      "notes": "Rewards rates (12x Citi Travel hotels/cars/attractions, 6x Citi Travel air travel, 6x Citi Nights dining, 3x other dining, 1.5x base), benefits, $595 annual fee, World Elite Mastercard tier, and no foreign transaction fee were verified from the official Citi page and public disclosures. APR and signup-bonus amount/spend are dynamically loaded on the page and not present in fetched text; signup-bonus amount pending re-verification against the official page.",
+      "warning": "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."
+    },
+    "id": "20000000-0000-4000-8000-000000000020",
+    "slug": "strata-elite",
+    "issuer": "Citi",
+    "network": "Mastercard",
+    "name": "Strata Elite",
+    "summary": "Sourced 2026-09-23 from https://www.citi.com/credit-cards/citi-strata-elite-credit-card",
+    "best_use": "Premium Citi travel",
+    "annual_fee_cents": 59500,
+    "reward_rates": {
+      "dining": 3,
+      "other": 1.5
+    },
+    "benefits": [
+      "$595 annual fee",
+      "12x hotels/cars/attractions via Citi Travel",
+      "6x air via Citi Travel",
+      "3x restaurants",
+      "1.5x everything else",
+      "Hotel and lounge benefits",
+      "Verify current terms with Citi"
+    ],
+    "transferable_points": true,
+    "travel_scope": "both",
+    "minimum_credit_tier": "excellent",
+    "rewards_type": "travel",
+    "first_year_bonus_estimate_cents": 0,
+    "annual_benefit_estimate_cents": 0,
+    "dataset_version": "conservative-2026-09-23-v1",
+    "terms_unknown": false,
+    "source_name": "Citi product snapshot",
+    "source_url": "https://www.citi.com/credit-cards/citi-strata-elite-credit-card",
+    "source_disclaimer": "Issuer snapshot captured 2026-09-23; independently review before public launch. Conservative model: one cent per point; no bonuses, statement credits, portal multipliers, capped-category uplift, or housing rewards. Verify current issuer terms.",
+    "source_published_at": "2026-09-22T20:00:00-04:00",
+    "catalog_version_created_at": "2026-09-26T14:15:24.900142-04:00"
+  }
+]

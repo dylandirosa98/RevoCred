@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/app_models.dart';
+import 'chat_blocks_view.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/send_revo_message.dart';
 
 class RevoScreen extends ConsumerStatefulWidget {
   const RevoScreen({super.key});
@@ -16,6 +18,7 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
   final controller = TextEditingController();
   final scrollController = ScrollController();
   bool sending = false;
+  bool submitting = false;
   String? localError;
   int lastVisibleItemCount = -1;
   bool nearBottom = true;
@@ -71,7 +74,7 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
                     const SizedBox(height: 5),
                     Text(
                       !config.useMocks
-                          ? 'Explains your wallet, spend, and server ranking with DeepSeek V4.1 Flash. It does not pick cards.'
+                          ? 'Explains your cards, spending, strategy and ranking. RevoCred picks the cards; REVO explains them.'
                           : 'Explains your wallet and server ranking. It does not pick cards.',
                       style: TextStyle(color: product.muted),
                     ),
@@ -82,7 +85,7 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
                             .map(
                               (prompt) => _QuickPromptButton(
                                 label: Text(prompt),
-                                onPressed: sending
+                                onPressed: submitting
                                     ? null
                                     : () => _submit(prompt),
                               ),
@@ -131,7 +134,7 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
                     return _MessageDocument(
                       message: data.messages[index],
                       contextLabel: !config.useMocks
-                          ? 'Grounded in your wallet and server ranking via DeepSeek V4.1 Flash'
+                          ? 'Grounded in your wallet, strategy and ranking'
                           : 'Grounded in the demo wallet on screen',
                     );
                   },
@@ -170,42 +173,48 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
                   color: product.canvas,
                   border: Border(top: BorderSide(color: product.border)),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                child: Column(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        key: const ValueKey('revo-composer'),
-                        controller: controller,
-                        minLines: 1,
-                        maxLines: 4,
-                        maxLength: 1000,
-                        textInputAction: TextInputAction.newline,
-                        onTap: () => Future<void>.delayed(
-                          const Duration(milliseconds: 250),
-                          _scrollToLatest,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: const ValueKey('revo-composer'),
+                            controller: controller,
+                            minLines: 1,
+                            maxLines: 4,
+                            maxLength: 1000,
+                            textInputAction: TextInputAction.newline,
+                            onTap: () => Future<void>.delayed(
+                              const Duration(milliseconds: 250),
+                              _scrollToLatest,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: 'Ask about your wallet or next move',
+                              counterText: '',
+                            ),
+                          ),
                         ),
-                        decoration: const InputDecoration(
-                          hintText: 'Ask about your wallet or next move',
-                          counterText: '',
+                        const SizedBox(width: 10),
+                        IconButton.filled(
+                          key: const ValueKey('revo-send'),
+                          tooltip: 'Send message',
+                          onPressed: submitting
+                              ? null
+                              : () => _submit(controller.text),
+                          padding: const EdgeInsets.all(15),
+                          icon: sending
+                              ? const SizedBox(
+                                  width: 19,
+                                  height: 19,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.arrow_upward),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    IconButton.filled(
-                      key: const ValueKey('revo-send'),
-                      tooltip: 'Send message',
-                      onPressed: sending
-                          ? null
-                          : () => _submit(controller.text),
-                      padding: const EdgeInsets.all(15),
-                      icon: sending
-                          ? const SizedBox(
-                              width: 19,
-                              height: 19,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.arrow_upward),
+                      ],
                     ),
                   ],
                 ),
@@ -219,15 +228,27 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
 
   Future<void> _submit(String value) async {
     final prompt = value.trim();
-    if (prompt.isEmpty || sending) return;
-    controller.clear();
+    if (prompt.isEmpty || submitting) return;
     setState(() {
-      sending = true;
+      submitting = true;
       localError = null;
-      forceNextScroll = true;
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
     try {
-      await ref.read(appControllerProvider.notifier).sendMessage(prompt);
+      final sent = await sendRevoMessage(
+        context,
+        ref,
+        prompt,
+        onSending: () {
+          setState(() {
+            sending = true;
+            forceNextScroll = true;
+          });
+        },
+      );
+      if (mounted && sent && controller.text.trim() == prompt) {
+        controller.clear();
+      }
     } catch (_) {
       if (mounted) {
         setState(
@@ -236,7 +257,12 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => sending = false);
+      if (mounted) {
+        setState(() {
+          sending = false;
+          submitting = false;
+        });
+      }
     }
   }
 
@@ -337,7 +363,7 @@ class _MessageDocument extends StatelessWidget {
       ),
       ChatTreatment.editorial => BoxDecoration(
         color: product.surface,
-        border: Border(left: BorderSide(color: product.secondary, width: 3)),
+        border: Border(left: BorderSide(color: product.action, width: 3)),
       ),
       ChatTreatment.console => BoxDecoration(
         color: product.subtle.withValues(alpha: .55),
@@ -388,15 +414,16 @@ class _MessageDocument extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          SelectableText(
-            message.content,
-            style: TextStyle(
-              color: product.ink,
-              height: 1.6,
-              fontSize: product.chatTreatment == ChatTreatment.document
-                  ? 16
-                  : 14,
-            ),
+          ChatBlocksView(
+            blocks: message.blocks,
+            fallbackText: message.content,
+            ink: product.ink,
+            muted: product.muted,
+            accent: product.action,
+            surface: product.chatTreatment == ChatTreatment.bubbles
+                ? product.surface
+                : product.surface,
+            bodySize: product.chatTreatment == ChatTreatment.document ? 16 : 14,
           ),
           const SizedBox(height: 14),
           Row(
@@ -452,7 +479,7 @@ class _ThinkingAnswer extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Text(
-          'REVO is reviewing your wallet...',
+          'REVO is thinking',
           style: TextStyle(color: context.product.muted),
         ),
       ],

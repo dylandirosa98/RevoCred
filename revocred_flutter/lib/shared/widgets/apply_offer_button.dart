@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/affiliate_offer.dart';
+import '../../core/logic/strategy_digest.dart';
 import '../../core/state/affiliate_providers.dart';
 import '../../core/state/app_controller.dart';
 
@@ -19,6 +20,10 @@ class _ApplyOfferButtonState extends ConsumerState<ApplyOfferButton> {
 
   @override
   Widget build(BuildContext context) {
+    final data = ref.watch(appControllerProvider).data;
+    final strategyTarget = data == null
+        ? 'your recommended next move'
+        : strategyNextCardName(data) ?? 'your current wallet';
     final link = ref.watch(
       applicationForCardProvider((
         placement: widget.placement,
@@ -38,7 +43,7 @@ class _ApplyOfferButtonState extends ConsumerState<ApplyOfferButton> {
             )
           else
             Text(
-              'Exploring another option. Your strategy ${ref.watch(appControllerProvider).data?.strategyPlan?.code ?? ''} still prioritizes ${ref.watch(appControllerProvider).data?.profile.nextTarget ?? 'your recommended next move'}.',
+              'Exploring another option. Your strategy ${data?.strategyPlan?.code ?? ''} still prioritizes $strategyTarget.',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           const SizedBox(height: 8),

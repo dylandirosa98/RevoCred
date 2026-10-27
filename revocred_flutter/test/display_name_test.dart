@@ -69,12 +69,18 @@ void main() {
         monthlySpend: const {'dining': 100},
         rewardsGoal: 'cash_back',
         displayName: '  Dana  ',
+        idealCardCount: '2-3',
       );
       final json = answers.toRecommendationJson();
       expect(json['display_name'], 'Dana');
+      expect(json['ideal_card_count'], '2-3');
       expect(
         QuestionnaireAnswers.fromRecommendationJson(json).displayName,
         'Dana',
+      );
+      expect(
+        QuestionnaireAnswers.fromRecommendationJson(json).idealCardCount,
+        '2-3',
       );
       // An absent name must not send an empty override.
       expect(

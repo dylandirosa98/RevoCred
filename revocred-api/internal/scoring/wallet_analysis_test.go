@@ -46,6 +46,14 @@ func TestMetricsReturnsScoreAndYearlyValue(t *testing.T) {
 	}
 }
 
+func TestMetricsExposesOngoingBreakdownAndIgnoresInactive(t *testing.T) {
+	c := domain.CatalogCard{AnnualFeeCents: 1000, RewardRates: map[string]float64{"other": 2}}
+	got := Metrics([]domain.WalletCard{{Status: "active", Card: &c}, {Status: "inactive", Card: &c}}, map[string]int64{"everyday": 10000})
+	if got.OngoingValue.TotalCents != 1400 || got.OngoingValue.FeesCents != 1000 || got.YearlyValue != 14 {
+		t.Fatalf("%+v", got)
+	}
+}
+
 func TestMonthlySpendingFromCategoryCents(t *testing.T) {
 	got := MonthlySpendingFromCategoryCents(map[string]int64{
 		"rent":      150050,

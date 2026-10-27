@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/community_card_details.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/logic/card_search.dart';
+import '../../../core/logic/strategy_digest.dart';
 import '../../../core/models/app_models.dart';
 import '../../../core/models/affiliate_offer.dart';
 import '../../../shared/widgets/apply_offer_button.dart';
@@ -12,6 +14,8 @@ import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/content_layout.dart';
 import '../../../shared/widgets/credit_card_view.dart';
+import '../../../shared/widgets/issuer_mark.dart';
+import 'strategy_roadmap_view.dart';
 
 class StrategyScreen extends ConsumerStatefulWidget {
   const StrategyScreen({super.key});
@@ -36,190 +40,48 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
     final product = context.product;
     final results = searchCards(data.catalog, query).take(8).toList();
     final playbook = data.playbook;
-    final nextStep = playbook?.steps
-        .where((step) => step.status == 'next')
-        .firstOrNull;
-    final firstStep = nextStep == null
-        ? (playbook == null ? data.roadmap.firstOrNull : null)
-        : RoadmapStep(
-            id: 'next',
-            cardId: nextStep.name,
-            stage: 'Consider next',
-            note: nextStep.use,
-            estimatedValue: 0,
-          );
-    final firstCard = firstStep == null ? null : _cardFor(data, firstStep);
-    final popular = data.catalog
-        .where((card) => !card.isActive)
-        .take(4)
-        .toList();
+    final popular = strategyComparisonCards(data);
 
     return ContentLayout(
       maxWidth: 1040,
       children: [
-        Row(
-          children: [
-            const Expanded(child: SectionLabel('Strategy')),
-            StatusPill(
-              label: '${data.roadmap.length} ROADMAP STEPS',
-              color: product.action,
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Text('Your roadmap', style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 7),
-        Text(
-          playbook == null
-              ? 'A prioritized path built by the deterministic recommendation model.'
-              : '${playbook.code}: ${playbook.title}. Current eligibility and wallet value determine the next step.',
-          style: TextStyle(color: product.muted, fontSize: 15),
-        ),
-        const SizedBox(height: 16),
-        AppPanel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'YOUR RECOMMENDED STRATEGY',
-                style: TextStyle(
-                  color: product.action,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${data.strategyPlan?.code ?? ''} ${data.strategyPlan?.title ?? 'Build your personal plan'}',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                data.recommendedCardId == null
-                    ? 'No new card currently improves your modeled wallet. Keep your existing cards, or review your answers.'
-                    : 'Start with ${data.profile.nextTarget}. This is the highest-ranked eligible improvement for your spending and wallet. Explore other cards below, but add one only if it supports your plan.',
-              ),
-              TextButton(
-                onPressed: () => context.push('/questionnaire'),
-                child: const Text('Review my answers'),
-              ),
-              for (final reason in data.nextCardReasons)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text('• $reason'),
-                ),
-            ],
-          ),
-        ),
-        SizedBox(height: product.sectionGap),
-        _RoadmapSummary(
-          key: const ValueKey('strategy-summary'),
-          stepCount: data.roadmap.length,
-          walletCount: data.wallet.length,
-          nextStage: firstStep?.stage ?? 'Not available',
-          topValue: firstStep?.estimatedValue ?? 0,
-        ),
-        SizedBox(height: product.sectionGap),
-        if (firstStep != null) ...[
-          const SectionLabel('Next best move'),
-          const SizedBox(height: 10),
-          _PrimaryRecommendation(
-            key: const ValueKey('strategy-next-action'),
-            step: firstStep,
-            card: firstCard,
-            onDetails: firstCard == null ? null : () => _showDetails(firstCard),
-            onAskRevo: firstCard == null
-                ? null
-                : () {
-                    context.go('/revo');
-                    ref
-                        .read(appControllerProvider.notifier)
-                        .sendMessage(
-                          'Explain why ${firstCard.name} is my next roadmap step.',
-                        );
-                  },
-          ),
-        ] else
-          const AppPanel(
-            child: Text(
-              'No eligible improvement is currently available. Update your questionnaire or keep your current wallet.',
+        if (data.strategyPlan != null) ...[
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              key: const ValueKey('strategy-open-share-report'),
+              onPressed: () => context.push('/strategy-report'),
+              icon: const Icon(Icons.ios_share_outlined),
+              label: const Text('View & share report'),
             ),
           ),
-        const ApplyOfferButton(placement: ApplyPlacement.strategy),
-        if ((playbook?.steps.where((step) => step.status != 'next').length ??
-                0) >
-            0) ...[
-          SizedBox(height: product.sectionGap),
-          const SectionLabel('Playbook sequence'),
           const SizedBox(height: 12),
-          Column(
-            key: const ValueKey('strategy-timeline'),
-            children: [
-              for (final step in playbook!.steps.where(
-                (step) => step.status != 'next',
-              ))
-                _TimelineStep(
-                  position: playbook.steps.indexOf(step) + 1,
-                  last: step == playbook.steps.last,
-                  step: RoadmapStep(
-                    id: step.name,
-                    cardId: step.name,
-                    stage: switch (step.status) {
-                      'have' => 'Already in wallet',
-                      'unavailable' => 'Not currently recommended',
-                      _ => 'Later',
-                    },
-                    note: step.note.isEmpty ? step.use : step.note,
-                    estimatedValue: 0,
-                  ),
-                  card: _cardFor(
-                    data,
-                    RoadmapStep(
-                      id: step.name,
-                      cardId: step.name,
-                      stage: '',
-                      note: '',
-                      estimatedValue: 0,
-                    ),
-                  ),
-                  onDetails: () {
-                    final card = _cardFor(
-                      data,
-                      RoadmapStep(
-                        id: step.name,
-                        cardId: step.name,
-                        stage: '',
-                        note: '',
-                        estimatedValue: 0,
-                      ),
-                    );
-                    if (card != null) _showDetails(card);
-                  },
-                ),
-            ],
-          ),
-        ] else if (data.roadmap.length > 1) ...[
-          SizedBox(height: product.sectionGap),
-          const SectionLabel('Application timeline'),
-          const SizedBox(height: 12),
-          Column(
-            key: const ValueKey('strategy-timeline'),
-            children: [
-              for (var index = 1; index < data.roadmap.length; index++)
-                _TimelineStep(
-                  position: index + 1,
-                  last: index == data.roadmap.length - 1,
-                  step: data.roadmap[index],
-                  card: _cardFor(data, data.roadmap[index]),
-                  onDetails: () {
-                    final card = _cardFor(data, data.roadmap[index]);
-                    if (card != null) _showDetails(card);
-                  },
-                ),
-            ],
-          ),
         ],
+        if (data.strategyPlan != null)
+          StrategyRoadmapView(data: data, onCardDetails: _showDetails)
+        else
+          AppPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Build your personalized strategy',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 7),
+                const Text(
+                  'Complete the questionnaire to create your application roadmap.',
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () => context.push('/questionnaire'),
+                  child: const Text('Build my strategy'),
+                ),
+              ],
+            ),
+          ),
         SizedBox(height: product.sectionGap),
-        _ModelNotice(goal: data.profile.goal),
+        const ApplyOfferButton(placement: ApplyPlacement.strategy),
         SizedBox(height: product.sectionGap),
         if (playbook != null && playbook.unused.isNotEmpty) ...[
           SizedBox(height: product.sectionGap),
@@ -338,24 +200,6 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
     );
   }
 
-  CreditCard? _cardFor(AppData data, RoadmapStep step) =>
-      data.catalog
-          .where((card) => card.id == step.cardId || card.name == step.cardId)
-          .firstOrNull ??
-      data.wallet
-          .where((card) => card.id == step.cardId || card.name == step.cardId)
-          .firstOrNull ??
-      CreditCard(
-        id: step.cardId,
-        issuer: data.playbook?.ecosystem ?? '',
-        brand: data.playbook?.ecosystem ?? '',
-        name: step.cardId,
-        annualFee: 'See issuer',
-        bestUse: step.note,
-        multiplier: '',
-        benefits: const ['Playbook card. Verify current issuer terms.'],
-      );
-
   Future<void> _showDetails(CreditCard card) => showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -365,13 +209,14 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
   );
 }
 
+// Legacy presentation retained temporarily while the shared roadmap settles.
+// ignore: unused_element
 class _RoadmapSummary extends StatelessWidget {
   const _RoadmapSummary({
     required this.stepCount,
     required this.walletCount,
     required this.nextStage,
     required this.topValue,
-    super.key,
   });
 
   final int stepCount;
@@ -470,13 +315,13 @@ class _MetricDivider extends StatelessWidget {
       Container(width: 1, height: 48, color: color);
 }
 
+// ignore: unused_element
 class _PrimaryRecommendation extends StatelessWidget {
   const _PrimaryRecommendation({
     required this.step,
     required this.card,
     required this.onDetails,
     required this.onAskRevo,
-    super.key,
   });
 
   final RoadmapStep step;
@@ -649,6 +494,7 @@ class _PrimaryRecommendation extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _TimelineStep extends StatelessWidget {
   const _TimelineStep({
     required this.position,
@@ -711,7 +557,7 @@ class _TimelineStep extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (card != null) ...[
-                        CreditCardArt(card: card!, width: 82, height: 52),
+                        IssuerMark(issuer: card!.issuer, size: 44),
                         const SizedBox(width: 12),
                       ],
                       Expanded(
@@ -774,6 +620,7 @@ class _TimelineStep extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _ModelNotice extends StatelessWidget {
   const _ModelNotice({required this.goal});
   final String goal;
@@ -872,7 +719,7 @@ class _SearchResult extends StatelessWidget {
       key: ValueKey('search-result-${card.id}'),
       contentPadding: const EdgeInsets.symmetric(vertical: 5),
       onTap: onTap,
-      leading: CreditCardArt(card: card, width: 72, height: 45),
+      leading: IssuerMark(issuer: card.issuer, size: 44),
       title: Text(
         card.name,
         style: const TextStyle(fontWeight: FontWeight.w800),
@@ -895,6 +742,7 @@ class _PopularCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
+    key: ValueKey('strategy-comparison-${card.id}'),
     color: context.product.surface,
     borderRadius: BorderRadius.circular(context.product.radius),
     child: InkWell(
@@ -904,7 +752,7 @@ class _PopularCard extends StatelessWidget {
         padding: const EdgeInsets.all(13),
         child: Row(
           children: [
-            CreditCardArt(card: card, width: 82, height: 52),
+            IssuerMark(issuer: card.issuer, size: 44),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1058,6 +906,8 @@ class _CardDetailSheet extends ConsumerWidget {
                 const SizedBox(height: 8),
                 for (final item in card.benefits)
                   _DetailRow(icon: Icons.check_circle_outline, text: item),
+                if (card.communityData != null)
+                  CommunityCardDetails(data: card.communityData!),
                 const SizedBox(height: 18),
                 Container(
                   padding: const EdgeInsets.all(13),

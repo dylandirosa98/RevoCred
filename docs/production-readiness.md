@@ -13,9 +13,10 @@ hardening work. No production credentials or production deployment were used.
   create conservative catalog versions, forbid updates to versions/sources,
   and retain exact catalog snapshots with new recommendation runs.
 - Real-mode Flutter never substitutes demo recommendations or playbooks.
-- One conservative server model supplies wallet and incremental recommendation
-  value. Wallet changes recalculate the next action; profile, chat and playbook
-  share that result. Student cards require an explicit student selection.
+- The server supplies separate, explicit wallet and incremental recommendation
+  value models. Home includes reviewed conditional recurring benefits; application
+  rankings remain conservative rewards-minus-fees. Wallet changes recalculate the
+  next action. Student cards require an explicit student selection.
 - Password reset, confirmation resend, email/password updates, session events,
   JSON export and password-reauthenticated account deletion are wired into Flutter
   and the API. Web auth query strings are preserved; native callback schemes are
@@ -39,8 +40,11 @@ hardening work. No production credentials or production deployment were used.
 The server calculates rewards in integer cents, rounds per spending category,
 and values every point at **one cent**. Housing earns zero. Combined food uses
 the lower dining/grocery rate. Catalog modeled rates omit known portal-only and
-capped-category uplift; bonuses and statement credits are excluded entirely.
-Wallet value subtracts all active annual fees. Candidate value is improvement
+capped-category uplift. Home ongoing value adds reviewed relevant credits at a
+disclosed conditional 70% usage assumption and eligible anniversary rewards,
+then subtracts active annual fees; welcome bonuses remain excluded. See
+[ongoing value](ongoing-value.md) for exact evidence/eligibility limits.
+Application candidate value excludes these conditional benefits and is improvement
 over the current wallet after the candidate's fee; non-positive improvements
 are excluded. Custom card terms are user-supplied assumptions.
 

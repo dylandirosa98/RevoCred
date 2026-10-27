@@ -102,10 +102,20 @@ void main() {
       );
 
       for (var step = 0; step < 7; step++) {
+        if (step == 0) {
+          await tester.enterText(
+            find.byKey(const ValueKey('onboarding-first-name')),
+            'Taylor',
+          );
+          await tester.enterText(
+            find.byKey(const ValueKey('onboarding-last-name')),
+            'Morgan',
+          );
+        }
         final choice = switch (step) {
           0 => 'Adult and building a foundation',
           1 => 'I do not have any credit cards',
-          2 => r'Up to $100 per card',
+          2 => '2–4 cards',
           3 => 'Domestic and international',
           4 => 'Good',
           6 => 'Flexible travel points',
@@ -118,10 +128,13 @@ void main() {
           await tester.pumpAndSettle();
         }
         if (step == 5) {
-          await tester.enterText(
-            find.byKey(const ValueKey('spend-dining')),
-            '350',
+          final dining = find.descendant(
+            of: find.byKey(const ValueKey('spend-dining')),
+            matching: find.byType(Slider),
           );
+          tester.widget<Slider>(dining).onChanged!(350);
+          await tester.pump();
+          expect(find.text(r'$350'), findsOneWidget);
         }
         await tester.tap(find.byKey(const ValueKey('questionnaire-next')));
         await tester.pumpAndSettle();
@@ -132,7 +145,7 @@ void main() {
       );
       expect(find.byKey(const ValueKey('strategy-report')), findsOneWidget);
       expect(
-        find.text('Your Personalized Credit Card Strategy'),
+        find.byKey(const ValueKey('strategy-roadmap-view')),
         findsOneWidget,
       );
     },
@@ -211,6 +224,27 @@ void main() {
     expect(find.byKey(const ValueKey('revo-send')), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('REVO shows one thinking state per request', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      RevoCredBootstrap(
+        config: const AppConfig(useMocks: true),
+        repository: MockAppRepository(),
+        preferences: preferences,
+      ),
+    );
+    appRouter.go('/revo');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('What card should I use for groceries?'));
+    await tester.pump();
+
+    expect(find.text('REVO is thinking', skipOffstage: false), findsOneWidget);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('primary routes support larger mobile text', (tester) async {

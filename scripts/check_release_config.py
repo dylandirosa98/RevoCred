@@ -5,11 +5,17 @@ import json
 import os
 from urllib.parse import urlparse
 
+# Native builds return auth emails to the app's registered deep link
+# (AndroidManifest.xml / Info.plist), not to a hosted web page.
+MOBILE_AUTH_CALLBACK = "com.revocred.app://auth-callback/"
+
 
 def validate(env):
     if env.get("REVOCRED_USE_MOCKS") != "false" or env.get("REVOCRED_PRODUCTION") != "true":
         raise ValueError("Release requires REVOCRED_USE_MOCKS=false and REVOCRED_PRODUCTION=true")
     for key in ("REVOCRED_API_URL", "SUPABASE_URL", "REVOCRED_AUTH_REDIRECT_URL"):
+        if key == "REVOCRED_AUTH_REDIRECT_URL" and env.get(key) == MOBILE_AUTH_CALLBACK:
+            continue
         value = urlparse(env.get(key, ""))
         if value.scheme != "https" or not value.hostname or value.hostname in ("localhost", "127.0.0.1", "::1") or value.username or value.fragment:
             raise ValueError(key + " must be a public HTTPS URL without credentials or fragments")

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_models.dart';
+import '../models/chat_disclosure.dart';
 import 'app_repository.dart';
 
 class ApiAppRepository implements AppRepository {
@@ -181,6 +182,7 @@ class ApiAppRepository implements AppRepository {
     String email,
     String password, {
     String displayName = '',
+    bool notificationsOptIn = false,
   }) async {
     if (_supabase == null) return _configurationError();
     try {
@@ -188,7 +190,23 @@ class ApiAppRepository implements AppRepository {
         email: email,
         password: password,
         emailRedirectTo: authRedirectUrl,
+        data: {
+          'display_name': displayName.trim(),
+          'email_notifications_opt_in': notificationsOptIn,
+          'notification_preference_recorded_at': DateTime.now()
+              .toUtc()
+              .toIso8601String(),
+        },
       );
+      if (result.session != null && displayName.trim().isNotEmpty) {
+        // Sign-up collects the name, so persist it as soon as there is a
+        // session to authenticate the write with.
+        await _request(
+          'PUT',
+          '/v1/profile/display-name',
+          body: {'display_name': displayName.trim()},
+        );
+      }
       return AuthResult(
         success: true,
         message: result.session == null
@@ -216,6 +234,29 @@ class ApiAppRepository implements AppRepository {
       payload.cast<String, dynamic>(),
       messages: messagesPayload is List ? messagesPayload : const [],
       email: _emailProvider() ?? '',
+      // Supabase stores the name at account creation. Use it only when the API
+      // profile has no name yet, such as during the first post-sign-up refresh.
+      displayNameFallback:
+          _supabase?.auth.currentUser?.userMetadata?['display_name']
+              ?.toString() ??
+          '',
+    );
+  }
+
+  @override
+  Future<PurchaseGuide> loadPurchaseGuide({
+    String travelMode = 'general',
+    bool capsAvailable = true,
+  }) async {
+    final query = Uri(
+      queryParameters: {
+        'travel_mode': travelMode,
+        'caps_available': '$capsAvailable',
+      },
+    ).query;
+    final response = await _request('GET', '/v1/purchase-guide?$query');
+    return PurchaseGuide.fromJson(
+      (response['data'] as Map).cast<String, dynamic>(),
     );
   }
 
@@ -241,7 +282,12 @@ class ApiAppRepository implements AppRepository {
         'reward_rates': card.rates,
         'transferable_points': card.transferablePoints,
         'best_use': card.bestUse,
-        'benefits': ['User-supplied terms'],
+        'benefits': [
+          card.termsUnknown
+              ? 'Terms not supplied; excluded from scoring'
+              : 'User-supplied terms',
+        ],
+        'terms_unknown': card.termsUnknown,
       },
     );
   }
@@ -256,14 +302,33 @@ class ApiAppRepository implements AppRepository {
   }
 
   @override
-  Future<ChatMessage> sendMessage(String prompt) async {
+  Future<ChatDisclosure> loadChatDisclosure() async {
+    final json = await _request(
+      'GET',
+      '/v1/public/chat-disclosure',
+      anonymous: true,
+    );
+    final data = json['data'];
+    if (data is! Map) {
+      throw const FormatException('AI sharing notice is unavailable.');
+    }
+    return ChatDisclosure.fromJson(data.cast<String, dynamic>());
+  }
+
+  @override
+  Future<ChatMessage> sendMessage(
+    String prompt, {
+    String? aiConsentVersion,
+  }) async {
     final json = await _request(
       'POST',
       _accessTokenProvider() == null
           ? '/v1/public/explain'
           : '/v1/chat/messages',
-      body: {'content': prompt},
+      body: {'content': prompt, 'ai_consent_version': ?aiConsentVersion},
       anonymous: _accessTokenProvider() == null,
+      // The server allows chat 45 seconds, so wait a little longer than that.
+      timeout: const Duration(seconds: 55),
     );
     final payload = json['data'];
     if (payload is! List || payload.isEmpty) {
@@ -331,6 +396,7 @@ class ApiAppRepository implements AppRepository {
     Map<String, dynamic>? body,
     bool anonymous = false,
     bool absolute = false,
+    Duration timeout = const Duration(seconds: 35),
   }) async {
     if (baseUrl.trim().isEmpty) {
       throw StateError('Real mode requires REVOCRED_API_URL.');
@@ -357,7 +423,7 @@ class ApiAppRepository implements AppRepository {
         body: body == null ? null : jsonEncode(body),
       ),
       _ => throw ArgumentError.value(method, 'method'),
-    }.timeout(const Duration(seconds: 35));
+    }.timeout(timeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       if (response.statusCode == 401) {
         await _supabase?.auth.signOut(scope: SignOutScope.local);

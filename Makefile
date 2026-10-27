@@ -1,6 +1,9 @@
 FLUTTER ?= $(HOME)/.local/share/flutter/bin/flutter
 DART ?= $(HOME)/.local/share/flutter/bin/dart
 DOCKER_COMPOSE ?= docker-compose
+IOS_CONFIG ?= .env.ios.json
+IOS_BUILD_NUMBER ?=
+IOS_EXPORT_OPTIONS ?= .local/ios/ExportOptions.plist
 
 .PHONY: check flutter-format flutter-analyze flutter-test flutter-web flutter-web-real api-test api-vet api-sqlc-vet api-run api-run-local local-setup local-e2e docker-up docker-down database-test release-check security-check verify-local local-preview local-stop browser-smoke setup-opencode-go
 
@@ -18,16 +21,47 @@ release-check:
 security-check:
 	cd revocred-api && go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
+.PHONY: ios-release-check ios-release
+ios-release-check:
+	python3 scripts/ios_release.py --check --config "$(IOS_CONFIG)"
+
+# Builds locally on macOS; never uploads or submits for review.
+ios-release: check
+	FLUTTER="$(FLUTTER)" python3 scripts/ios_release.py --config "$(IOS_CONFIG)" --build-number "$(IOS_BUILD_NUMBER)" --export-options "$(IOS_EXPORT_OPTIONS)"
+
 .PHONY: verify-local
 verify-local:
 	python3 scripts/verify_local_stack.py
 
-.PHONY: local-preview local-stop
+.PHONY: local-preview local-stop share-preview share-stop share-report
 local-preview:
 	python3 scripts/local_preview.py
 
 local-stop:
 	python3 scripts/local_preview.py stop
+
+# Public quick-tunnel preview. Writes only the gitignored .env.share files so
+# the loopback local-preview/verify-local gates keep working.
+share-report:
+	python3 scripts/share_tunnel.py
+
+share-preview:
+	python3 scripts/share_tunnel.py --apply
+	python3 scripts/share_preview.py
+
+share-stop:
+	python3 scripts/share_preview.py stop
+
+# Local-only, explicit refresh of public card descriptions. The running API also
+# checks every 24 hours and retains the last-known-good DB snapshot on failure.
+.PHONY: card-data-refresh card-data-status
+card-data-refresh:
+	@test -f revocred-api/.env.local || (echo 'Run make local-setup first' && exit 1)
+	set -a && . revocred-api/.env.local && set +a && cd revocred-api && go run ./cmd/carddata --refresh
+
+card-data-status:
+	@test -f revocred-api/.env.local || (echo 'Run make local-setup first' && exit 1)
+	set -a && . revocred-api/.env.local && set +a && cd revocred-api && go run ./cmd/carddata
 
 .PHONY: setup-opencode-go
 setup-opencode-go:

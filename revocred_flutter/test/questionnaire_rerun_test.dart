@@ -44,6 +44,8 @@ void main() {
       creditTier: 'good',
       monthlySpend: const {'dining': 400},
       rewardsGoal: 'travel',
+      idealCardCount: '2-3',
+      displayName: 'Alex Member',
     );
 
     final controller = ProviderContainer(
@@ -71,7 +73,7 @@ void main() {
       isLoading: false,
       data: AppData(
         profile: const UserProfile(
-          name: 'Member',
+          name: 'Alex Member',
           strategy: 'S04',
           goal: 'Travel',
           topSpendCategories: 'dining',

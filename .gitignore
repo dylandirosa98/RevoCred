@@ -8,3 +8,9 @@ backups/
 .local/
 **/__pycache__/
 .idea/
+.railway/node_modules/
+**/*.p12
+**/*.p8
+**/*.mobileprovision
+**/*.ipa
+**/*.xcarchive/

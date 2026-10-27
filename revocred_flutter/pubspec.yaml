@@ -42,6 +42,7 @@ dependencies:
   pdf: ^3.13.1
   printing: ^5.15.1
   url_launcher: ^6.3.2
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -67,11 +68,17 @@ flutter:
 
   assets:
     - assets/images/revocred_mark_v2.png
+    - assets/images/cards/
 
   fonts:
     - family: SpaceGrotesk
       fonts:
         - asset: assets/fonts/SpaceGrotesk.ttf
+        - asset: assets/fonts/SpaceGrotesk-Bold.ttf
+          weight: 700
+    - family: Anton
+      fonts:
+        - asset: assets/fonts/Anton-Regular.ttf
     - family: Fraunces
       fonts:
         - asset: assets/fonts/Fraunces.ttf

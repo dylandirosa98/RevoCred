@@ -2,8 +2,33 @@ package strategy
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
+
+func TestScheduleDoesNotTurnCoveredOrUnavailableRolesIntoApplications(t *testing.T) {
+	p := Playbook{Steps: []PlaybookStep{
+		{Name: "Owned substitute", Status: "have"},
+		{Name: "Filtered card", Status: "unavailable"},
+		{Name: "Next", Status: "next"},
+		{Name: "Future", Status: "later"},
+	}}
+	Schedule(&p)
+	if p.Steps[0].Timing != "Already covered" || p.Steps[1].Timing != "Do not apply now" {
+		t.Fatalf("non-applications got application timing: %+v", p.Steps)
+	}
+	if !strings.Contains(p.Steps[2].TimingNote, "eligibility timing is unknown") {
+		t.Fatal("next must disclose missing history")
+	}
+	if !strings.Contains(p.Steps[3].Timing, "after the previous application") || !strings.Contains(p.Steps[3].TimingNote, "Planning estimate only") {
+		t.Fatal("future timing must be conditional and relative, not a fabricated date")
+	}
+	p.Steps[2].Status = "have"
+	Schedule(&p)
+	if p.Steps[2].Timing != "Already covered" {
+		t.Fatal("stale application timing survived ownership change")
+	}
+}
 
 func TestBuildPlaybookMarksOwnedCardsAndNextApply(t *testing.T) {
 	got := Build("S04", []string{"Chase Freedom Unlimited", "Amex Gold"}, nil)
@@ -15,6 +40,9 @@ func TestBuildPlaybookMarksOwnedCardsAndNextApply(t *testing.T) {
 	}
 	if got.Steps[0].Status != "have" || got.Steps[0].Name != "Freedom Unlimited" {
 		t.Fatalf("first step = %+v", got.Steps[0])
+	}
+	if got.Steps[0].CoveredBy != "Chase Freedom Unlimited" {
+		t.Fatalf("owned coverage = %q", got.Steps[0].CoveredBy)
 	}
 	if got.Steps[1].Status != "next" || got.Steps[1].Name != "Freedom Flex" {
 		t.Fatalf("next step = %+v", got.Steps[1])
@@ -40,6 +68,16 @@ func TestBuildPlaybookAcceptsFamilySubstitutes(t *testing.T) {
 	}
 	if got.Steps[0].Note == "" {
 		t.Fatal("expected substitute note")
+	}
+	if got.Steps[0].CoveredBy != "Savor" {
+		t.Fatalf("covered by = %q", got.Steps[0].CoveredBy)
+	}
+}
+
+func TestBuildPlaybookDoesNotSuggestUnownedSubstitutes(t *testing.T) {
+	got := Build("S03", nil, nil)
+	if got.Steps[0].Name != "SavorOne" || got.Steps[0].Status != "next" || got.Steps[0].CoveredBy != "" {
+		t.Fatalf("unowned substitute leaked into roadmap: %+v", got.Steps[0])
 	}
 }
 

@@ -5,15 +5,40 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/logic/wallet_score.dart';
-import '../../../core/logic/yearly_value.dart';
+import '../../../core/logic/ongoing_value.dart';
+import 'ongoing_value_breakdown.dart';
+import '../../../core/logic/strategy_digest.dart';
 import '../../../core/models/app_models.dart';
 import '../../../core/models/affiliate_offer.dart';
 import '../../../shared/widgets/apply_offer_button.dart';
+
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_logo.dart';
+import '../../../shared/widgets/category_icon.dart';
 import '../../../shared/widgets/content_layout.dart';
 import '../../../shared/widgets/credit_card_view.dart';
+import '../../../shared/widgets/send_revo_message.dart';
+import 'purchase_recommendations_sheet.dart';
+
+OngoingValue _ongoingValue(AppData data) =>
+    data.ongoingValue ??
+    estimateOngoingValue(
+      data.wallet,
+      data.monthlySpend,
+      data.questionnaireAnswers?.travelScope ?? '',
+    );
+
+class _HomeValueBreakdown extends ConsumerWidget {
+  const _HomeValueBreakdown();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(appControllerProvider).data;
+    return data == null
+        ? const SizedBox.shrink()
+        : OngoingValueBreakdown(value: _ongoingValue(data));
+  }
+}
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -26,10 +51,7 @@ class HomeScreen extends ConsumerWidget {
     final config = ref.watch(appConfigProvider);
     final capabilities = walletCapabilities(data.wallet);
     final localWalletScore = scoreWallet(capabilities);
-    final localEstimatedValue = yearlyValue(
-      MonthlySpending.fromQuestionnaire(data.monthlySpend),
-      bestRates(capabilities),
-    );
+    final localEstimatedValue = (_ongoingValue(data).totalCents / 100).round();
     final score = displayWalletScore(
       useLocal:
           config.useMocks ||
@@ -42,6 +64,7 @@ class HomeScreen extends ConsumerWidget {
             (!appState.isAuthenticated && !data.isPersonalPreview)
         ? localEstimatedValue
         : data.projectedYearlyValue;
+    final nextTarget = strategyNextCardName(data) ?? 'your current wallet';
     if (product.heroTreatment == HeroTreatment.wallet) {
       return _WalletFlowHome(
         name: data.profile.firstName,
@@ -49,7 +72,7 @@ class HomeScreen extends ConsumerWidget {
         cards: data.wallet,
         estimatedValue: estimatedValue,
         projectedValue: estimatedValue,
-        nextTarget: data.profile.nextTarget,
+        nextTarget: nextTarget,
       );
     }
     if (product.heroTreatment == HeroTreatment.walletStudio) {
@@ -60,7 +83,7 @@ class HomeScreen extends ConsumerWidget {
         estimatedValue: estimatedValue,
         projectedValue: estimatedValue,
         score: score,
-        nextTarget: data.profile.nextTarget,
+        nextTarget: nextTarget,
       );
     }
     if (product.heroTreatment == HeroTreatment.decision) {
@@ -68,14 +91,16 @@ class HomeScreen extends ConsumerWidget {
         name: data.profile.firstName,
         initials: data.profile.initials,
         cards: data.wallet,
+        purchaseGuide: data.purchaseGuide,
+        onLoadGuide: (mode, caps) => ref
+            .read(appRepositoryProvider)
+            .loadPurchaseGuide(travelMode: mode, capsAvailable: caps),
         estimatedValue: estimatedValue,
         projectedValue: estimatedValue,
         score: score,
-        nextTarget: data.profile.nextTarget,
-        onAskRevo: (prompt) {
-          context.go('/revo');
-          ref.read(appControllerProvider.notifier).sendMessage(prompt);
-        },
+        nextTarget: nextTarget,
+        onAskRevo: (prompt) =>
+            sendRevoMessage(context, ref, prompt, openChat: true),
       );
     }
     return ContentLayout(
@@ -110,7 +135,7 @@ class HomeScreen extends ConsumerWidget {
             final action = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _NextAction(cardName: data.profile.nextTarget),
+                _NextAction(cardName: nextTarget),
                 const ApplyOfferButton(
                   placement: ApplyPlacement.recommendation,
                 ),
@@ -141,10 +166,8 @@ class HomeScreen extends ConsumerWidget {
         const SizedBox(height: 10),
         WalletCardStack(
           cards: data.wallet,
-          onAskRevo: (prompt) {
-            context.go('/revo');
-            ref.read(appControllerProvider.notifier).sendMessage(prompt);
-          },
+          onAskRevo: (prompt) =>
+              sendRevoMessage(context, ref, prompt, openChat: true),
         ),
         SizedBox(height: product.sectionGap),
         const SectionLabel('Attention queue'),
@@ -178,6 +201,8 @@ class HomeScreen extends ConsumerWidget {
 class _DecisionFlowHome extends StatefulWidget {
   const _DecisionFlowHome({
     required this.cards,
+    required this.purchaseGuide,
+    required this.onLoadGuide,
     this.name = '',
     this.initials = '',
     required this.estimatedValue,
@@ -190,6 +215,8 @@ class _DecisionFlowHome extends StatefulWidget {
   final String name;
   final String initials;
   final List<CreditCard> cards;
+  final PurchaseGuide? purchaseGuide;
+  final Future<PurchaseGuide> Function(String, bool) onLoadGuide;
   final int estimatedValue;
   final int projectedValue;
   final int score;
@@ -202,6 +229,23 @@ class _DecisionFlowHome extends StatefulWidget {
 
 class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
   String category = 'Dining';
+  final Map<String, PurchaseGuide> _categoryOverrides = {};
+  PurchaseGuide? get _guide =>
+      _categoryOverrides[_categorySlug(category)] ?? widget.purchaseGuide;
+  PurchaseCategory? get _categoryGuide => _guide
+      ?.category(_categorySlug(category))
+      ?.forWallet(widget.cards.map((c) => c.id).toSet());
+  PurchaseOption? get _pick => _categoryGuide?.options.firstOrNull;
+
+  @override
+  void didUpdateWidget(covariant _DecisionFlowHome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.purchaseGuide != widget.purchaseGuide ||
+        oldWidget.cards.map((c) => c.id).join('|') !=
+            widget.cards.map((c) => c.id).join('|')) {
+      _categoryOverrides.clear();
+    }
+  }
 
   static const primaryCategories = [
     ('Dining', '🍽️'),
@@ -226,48 +270,8 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
   ];
 
   CreditCard? get recommendedCard {
-    if (widget.cards.isEmpty) return null;
-    final terms = switch (category) {
-      'Dining' => const ['dining', 'restaurant'],
-      'Groceries' => const ['grocery', 'groceries', 'supermarket'],
-      'Travel' => const ['travel', 'flight', 'hotel'],
-      'Gas' => const ['gas', 'fuel'],
-      'Transit' => const ['transit', 'rideshare', 'train', 'commute'],
-      'Online shopping' => const ['online', 'amazon', 'shopping'],
-      'Rent' => const ['rent', 'housing'],
-      'Streaming' => const ['streaming', 'subscription'],
-      'Entertainment' => const ['entertainment', 'concert', 'movie'],
-      'Drugstores' => const ['drugstore', 'pharmacy'],
-      'Wholesale clubs' => const ['wholesale', 'club'],
-      'Utilities' => const ['utilities', 'electric', 'utility'],
-      'Phone & internet' => const ['phone', 'internet', 'wireless'],
-      'Home improvement' => const ['home improvement', 'hardware'],
-      'Office supplies' => const ['office', 'shipping'],
-      _ => const ['everyday', 'everything', 'all purchases'],
-    };
-    final match = widget.cards.where((card) {
-      final text = '${card.bestUse} ${card.multiplier}'.toLowerCase();
-      return terms.any(text.contains);
-    });
-    if (match.isNotEmpty) return match.first;
-    final fallback = switch (category) {
-      'Travel' => 1,
-      'Gas' => 2,
-      'Transit' => 1,
-      'Online shopping' => widget.cards.length - 1,
-      'Rent' => widget.cards.length - 1,
-      'Streaming' => 2,
-      'Entertainment' => 2,
-      'Drugstores' => 0,
-      'Wholesale clubs' => 0,
-      'Utilities' => widget.cards.length - 1,
-      'Phone & internet' => widget.cards.length - 1,
-      'Home improvement' => 2,
-      'Office supplies' => 1,
-      'General purchases' => widget.cards.length - 1,
-      _ => 0,
-    };
-    return widget.cards[fallback.clamp(0, widget.cards.length - 1)];
+    final id = _pick?.cardId;
+    return widget.cards.where((c) => c.id == id).firstOrNull;
   }
 
   @override
@@ -288,7 +292,7 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                 name: widget.name,
                 initials: widget.initials,
                 onProfile: () => context.go('/profile'),
-                onSearch: () => context.go('/strategy'),
+                onSearch: () => context.go('/cards?search=1'),
                 onAlerts: () => _showAlerts(context),
               ),
               const SizedBox(height: 27),
@@ -334,7 +338,7 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                                 label: item.$1,
                                 emoji: item.$2,
                                 selected: category == item.$1,
-                                onTap: () => setState(() => category = item.$1),
+                                onTap: () => _selectCategory(item.$1),
                               ),
                             ),
                         ],
@@ -376,21 +380,32 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
               Row(
                 children: [
                   const Expanded(child: _WalletSectionHeader(label: 'Use now')),
-                  Text(
-                    'Best for $category',
-                    key: const ValueKey('decision-category-result'),
-                    style: TextStyle(
-                      color: product.action,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                  Flexible(
+                    child: Text(
+                      _categoryGuide?.tied == true
+                          ? 'Tied best for $category'
+                          : 'Best known for $category',
+                      key: const ValueKey('decision-category-result'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        color: product.action,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 11),
               if (card == null)
-                const AppPanel(
-                  child: Text('Add a card to get a recommendation.'),
+                AppPanel(
+                  child: Text(
+                    widget.cards.isEmpty
+                        ? 'Add a card to get a recommendation.'
+                        : 'No supported earning rule is available for this purchase. Open the category to review details.',
+                  ),
                 )
               else ...[
                 AnimatedSwitcher(
@@ -400,12 +415,14 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                     key: ValueKey('decision-card-${card.id}'),
                     card: card,
                     category: category,
+                    earnLabel: _pick!.earnLabel,
                   ),
                 ),
                 const SizedBox(height: 12),
                 _DecisionReason(
                   card: card,
                   category: category,
+                  option: _pick!,
                   onWhy: () => _showWhy(context, card),
                   onAsk: () => widget.onAskRevo(
                     'Why should I use ${card.name} for $category?',
@@ -417,7 +434,7 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                 children: [
                   Expanded(
                     child: _DecisionMetric(
-                      label: 'Projected yearly value',
+                      label: 'Estimated ongoing yearly value',
                       value:
                           '\$${_WalletFlowHome._spacedAmount(widget.estimatedValue)}',
                       detail: '\$${widget.projectedValue} cash equivalent',
@@ -433,6 +450,7 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                   ),
                 ],
               ),
+              const _HomeValueBreakdown(),
               const SizedBox(height: 27),
               _WalletSectionHeader(
                 label: 'Your wallet',
@@ -471,15 +489,16 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
   }
 
   void _showWhy(BuildContext context, CreditCard card) {
+    final pick = _pick;
+    if (pick == null) return;
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: context.product.surface,
+      isScrollControlled: true,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -487,11 +506,17 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 10),
-              Text(card.bestUse, style: const TextStyle(height: 1.5)),
+              Text('${pick.earnLabel} — ${pick.reason}'),
+              for (final condition in pick.conditions)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(condition),
+                ),
               const SizedBox(height: 12),
+              Text(_categoryGuide?.assumptions ?? ''),
+              const SizedBox(height: 8),
               Text(
-                '${card.multiplier}. Annual fee ${card.annualFee}. Confirm current issuer terms before relying on this demo recommendation.',
-                style: TextStyle(color: context.product.muted, height: 1.5),
+                '${pick.source}${pick.lastVerified.isEmpty ? '' : ' · source verified ${pick.lastVerified}'}',
               ),
             ],
           ),
@@ -518,8 +543,34 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
           _MoreCategorySheet(categories: moreCategories, selected: category),
     );
     if (selection != null && mounted) {
-      setState(() => category = selection);
+      await _selectCategory(selection);
     }
+  }
+
+  Future<void> _selectCategory(String selection) async {
+    setState(() => category = selection);
+    final walletKey = widget.cards.map((c) => c.id).join('|');
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.product.canvas,
+      showDragHandle: true,
+      builder: (context) => PurchaseRecommendationsSheet(
+        categoryId: _categorySlug(selection),
+        categoryLabel: selection,
+        wallet: widget.cards,
+        initialGuide: _guide,
+        load: (mode, caps) async {
+          final guide = await widget.onLoadGuide(mode, caps);
+          if (mounted && walletKey == widget.cards.map((c) => c.id).join('|')) {
+            setState(
+              () => _categoryOverrides[_categorySlug(selection)] = guide,
+            );
+          }
+          return guide;
+        },
+      ),
+    );
   }
 
   static String _categorySlug(String value) => value
@@ -545,7 +596,7 @@ class _DecisionCategory extends StatelessWidget {
 
   static double heightFor(BuildContext context) {
     final scale = MediaQuery.textScalerOf(context).scale(1);
-    return 72 + (scale - 1).clamp(0, 1) * 42;
+    return 80 + (scale - 1).clamp(0, 1) * 42;
   }
 
   @override
@@ -567,11 +618,7 @@ class _DecisionCategory extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    emoji,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 19, height: 1),
-                  ),
+                  CategoryIcon(category: label),
                   const SizedBox(height: 6),
                   Text(
                     label,
@@ -669,10 +716,16 @@ class _MoreCategorySheet extends StatelessWidget {
 }
 
 class _DecisionCard extends StatelessWidget {
-  const _DecisionCard({required this.card, required this.category, super.key});
+  const _DecisionCard({
+    required this.card,
+    required this.category,
+    required this.earnLabel,
+    super.key,
+  });
 
   final CreditCard card;
   final String category;
+  final String earnLabel;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -786,7 +839,7 @@ class _DecisionCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            card.multiplier,
+                            earnLabel,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -821,12 +874,14 @@ class _DecisionReason extends StatelessWidget {
   const _DecisionReason({
     required this.card,
     required this.category,
+    required this.option,
     required this.onWhy,
     required this.onAsk,
   });
 
   final CreditCard card;
   final String category;
+  final PurchaseOption option;
   final VoidCallback onWhy;
   final VoidCallback onAsk;
 
@@ -843,7 +898,9 @@ class _DecisionReason extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            card.bestUse,
+            option.conditions.isEmpty
+                ? option.reason
+                : '${option.reason}. ${option.conditions.first}',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -1063,7 +1120,7 @@ class _WalletStudioHome extends StatelessWidget {
                   _StudioHeaderAction(
                     tooltip: 'Search cards',
                     icon: Icons.search,
-                    onTap: () => context.go('/strategy'),
+                    onTap: () => context.go('/cards?search=1'),
                   ),
                   const SizedBox(width: 8),
                   _StudioHeaderAction(
@@ -1102,6 +1159,7 @@ class _WalletStudioHome extends StatelessWidget {
                 cardCount: cards.length,
                 score: score,
               ),
+              const _HomeValueBreakdown(),
               const SizedBox(height: 27),
               _WalletSectionHeader(
                 label: 'Your cards',
@@ -1297,7 +1355,7 @@ class _StudioValuePanel extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         Text(
-          '\$$projectedValue cash-equivalent value plus demo points estimate',
+          'Estimated ongoing yearly value · conditional benefits',
           style: TextStyle(
             color: Colors.white.withValues(alpha: .6),
             fontSize: 10,
@@ -1777,14 +1835,14 @@ class _WalletFlowHome extends StatelessWidget {
                 name: name,
                 initials: initials,
                 onProfile: () => context.go('/profile'),
-                onSearch: () => context.go('/strategy'),
+                onSearch: () => context.go('/cards?search=1'),
                 onAlerts: () => ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Your strategy is up to date.')),
                 ),
               ),
               const SizedBox(height: 28),
               Text(
-                'Estimated yearly value',
+                'Estimated ongoing yearly value',
                 style: TextStyle(color: product.muted, fontSize: 13),
               ),
               const SizedBox(height: 3),
@@ -1799,6 +1857,7 @@ class _WalletFlowHome extends StatelessWidget {
                   letterSpacing: -1.5,
                 ),
               ),
+              const _HomeValueBreakdown(),
               const SizedBox(height: 30),
               _WalletSectionHeader(
                 label: 'Cards',
@@ -2430,11 +2489,11 @@ class _ValueHero extends StatelessWidget {
     final eyebrow = switch (treatment) {
       HeroTreatment.market => '●  WALLET PERFORMANCE',
       HeroTreatment.editorial => 'The RevoCred Review  /  Portfolio',
-      HeroTreatment.terminal => 'VALUE_ENGINE::FIRST_YEAR_ESTIMATE',
-      HeroTreatment.wallet => 'Estimated yearly value',
+      HeroTreatment.terminal => 'VALUE_ENGINE::ONGOING_YEARLY_ESTIMATE',
+      HeroTreatment.wallet => 'Estimated ongoing yearly value',
       HeroTreatment.walletStudio => 'Projected rewards value',
       HeroTreatment.decision => 'Best card right now',
-      HeroTreatment.balanced => 'Estimated first-year value',
+      HeroTreatment.balanced => 'Estimated ongoing yearly value',
     };
     return Container(
       padding: EdgeInsets.all(
@@ -2489,9 +2548,10 @@ class _ValueHero extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Demo estimate, not guaranteed',
+            'Ongoing estimate, not guaranteed · welcome bonuses excluded',
             style: TextStyle(color: product.muted, fontSize: 12),
           ),
+          const _HomeValueBreakdown(),
           if (treatment == HeroTreatment.market) ...[
             const SizedBox(height: 18),
             SizedBox(

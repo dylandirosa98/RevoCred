@@ -1,4 +1,5 @@
 import '../models/app_models.dart';
+import '../models/chat_disclosure.dart';
 
 class AuthResult {
   const AuthResult({required this.success, this.message});
@@ -25,13 +26,19 @@ abstract interface class AppRepository {
     String email,
     String password, {
     String displayName = '',
+    bool notificationsOptIn = false,
   });
   Future<void> signOut();
   Future<AppData> loadAppData();
+  Future<PurchaseGuide> loadPurchaseGuide({
+    String travelMode = 'general',
+    bool capsAvailable = true,
+  });
   Future<void> addCard(String cardId);
   Future<void> addCustomCard(CustomCardDraft card);
   Future<void> removeCard(String walletCardId);
-  Future<ChatMessage> sendMessage(String prompt);
+  Future<ChatDisclosure> loadChatDisclosure();
+  Future<ChatMessage> sendMessage(String prompt, {String? aiConsentVersion});
   Future<DemoRecommendation?> saveQuestionnaire(QuestionnaireAnswers answers);
   Future<void> switchStrategy(String code);
   Future<void> updateDisplayName(String name);

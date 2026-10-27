@@ -2,7 +2,7 @@
 
 RevoCred is being rebuilt as a responsive Flutter application with a Go API.
 The original React Native package remains in the repository as the visual and
-functional prototype.
+functional reference.
 
 ## Packages
 
@@ -97,6 +97,10 @@ and publish conservative, source-linked issuer snapshots. These still need
 current issuer review before public launch.
 
 ## Production Readiness
+
+For native iOS release configuration, Mac signing and the upload checklist, see
+[TestFlight](docs/testflight.md). Known review blockers and unverified acceptance
+gates are tracked in [iOS review readiness](docs/ios-review-readiness.md).
 
 See [the readiness checklist](docs/production-readiness.md) for implemented
 hardening and external launch requirements, and [operations](docs/operations.md)

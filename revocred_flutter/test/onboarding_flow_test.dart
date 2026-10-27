@@ -27,6 +27,8 @@ const answers = QuestionnaireAnswers(
     'other': 200,
   },
   rewardsGoal: 'cash_back',
+  idealCardCount: '2-3',
+  displayName: 'Avery Chen',
 );
 
 Map<String, dynamic> planJson({bool saved = false}) => {
@@ -75,6 +77,7 @@ class PreviewRepository extends MockAppRepository {
     String email,
     String password, {
     String displayName = '',
+    bool notificationsOptIn = false,
   }) async {
     this.email = email;
     return const AuthResult(success: true, message: 'Confirm email.');
@@ -142,6 +145,8 @@ void main() {
       expect(repo.saves, 1);
       expect(repo.saved!.existingCardIds, ['owned']);
       expect(repo.saved!.monthlySpend['groceries'], 450);
+      expect(repo.saved!.idealCardCount, '2-3');
+      expect(repo.saved!.displayName, 'Avery Chen');
       expect(
         container.read(appControllerProvider).data!.wallet.single.id,
         'owned',

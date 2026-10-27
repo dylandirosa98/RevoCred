@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/models/app_models.dart';
+import '../../core/logic/card_art.dart';
 import '../../core/theme/app_theme.dart';
 import 'content_layout.dart';
+import 'community_card_details.dart';
 
 class CreditCardArt extends StatelessWidget {
   const CreditCardArt({
@@ -22,122 +24,29 @@ class CreditCardArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _cardColor(card.id);
-    final treatment = context.product.panelTreatment;
-    final foreground =
-        ThemeData.estimateBrightnessForColor(color) == Brightness.light
-        ? const Color(0xFF101522)
-        : Colors.white;
-    return Container(
-      width: width,
-      height: height,
-      padding: EdgeInsets.all(height < 70 ? 10 : 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color, Color.lerp(color, const Color(0xFF080B14), .34)!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: .2)),
-        borderRadius: BorderRadius.circular(switch (treatment) {
-          PanelTreatment.flat => 22,
-          PanelTreatment.paper => 5,
-          PanelTreatment.technical => 2,
-          PanelTreatment.wallet => 14,
-          PanelTreatment.outlined => 18,
-        }),
-        boxShadow: preferred && treatment != PanelTreatment.technical
-            ? [
-                BoxShadow(
-                  color: const Color(0xFF05070C).withValues(
-                    alpha: treatment == PanelTreatment.flat ? .34 : .14,
-                  ),
-                  blurRadius: treatment == PanelTreatment.paper ? 18 : 12,
-                  offset: const Offset(0, 6),
-                ),
-              ]
-            : null,
-      ),
-      child: MediaQuery.withClampedTextScaling(
-        maxScaleFactor: 1.2,
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0,
-              left: 0,
-              child: Container(
-                width: height < 70 ? 20 : 28,
-                height: height < 70 ? 14 : 20,
-                decoration: BoxDecoration(
-                  color: foreground.withValues(alpha: .2),
-                  border: Border.all(color: foreground.withValues(alpha: .35)),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              right: 0,
-              child: Text(
-                card.brand,
-                style: TextStyle(
-                  color: foreground.withValues(alpha: .78),
-                  fontSize: height < 70 ? 8 : 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ),
-            if (preferred && height >= 90)
-              Positioned(
-                top: 0,
-                left: 40,
-                child: Row(
-                  children: [
-                    Icon(Icons.star, size: 10, color: foreground),
-                    const SizedBox(width: 4),
-                    Text(
-                      'PREFERRED',
-                      style: TextStyle(
-                        color: foreground,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: .8,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    card.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: foreground,
-                      fontWeight: FontWeight.w800,
-                      fontSize: height < 70 ? 10 : 16,
-                    ),
-                  ),
-                  if (height >= 90)
-                    Text(
-                      '••••  ${card.id.hashCode.abs().toString().padLeft(4, '0').substring(0, 4)}',
-                      style: TextStyle(
-                        color: foreground.withValues(alpha: .68),
-                        fontSize: 10,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
-                ],
-              ),
+    return Semantics(
+      image: true,
+      label: '${card.name}, stylized card illustration',
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(width * .04),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: preferred ? .24 : .12),
+              blurRadius: preferred ? 12 : 5,
+              offset: const Offset(0, 3),
             ),
           ],
+        ),
+        child: Image.asset(
+          cardArtAsset(card),
+          width: width,
+          height: height,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          excludeFromSemantics: true,
         ),
       ),
     );
@@ -273,18 +182,55 @@ class _WalletCardStackState extends State<WalletCardStack> {
                         selected.bestUse,
                         style: TextStyle(color: product.muted),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 18),
+                      const SectionLabel('Reward multipliers'),
+                      const SizedBox(height: 9),
                       Wrap(
-                        spacing: 16,
+                        spacing: 8,
                         runSpacing: 8,
-                        children: [
-                          StatusPill(label: selected.multiplier),
-                          StatusPill(
-                            label: 'FEE ${selected.annualFee}',
-                            color: product.warning,
-                          ),
-                        ],
+                        children:
+                            (selected.pointMultipliers.isEmpty
+                                    ? [selected.multiplier]
+                                    : selected.pointMultipliers)
+                                .map((rate) => StatusPill(label: rate))
+                                .toList(),
                       ),
+                      const SizedBox(height: 18),
+                      _WalletDetailRow(
+                        icon: Icons.payments_outlined,
+                        label: 'Annual fee',
+                        value: selected.annualFee,
+                        valueColor: selected.annualFee == r'$0'
+                            ? product.success
+                            : product.warning,
+                      ),
+                      const SizedBox(height: 16),
+                      const SectionLabel('Credits & benefits'),
+                      const SizedBox(height: 9),
+                      if (selected.benefits.isEmpty)
+                        Text(
+                          'No benefit details are available for this card yet.',
+                          style: TextStyle(color: product.muted),
+                        )
+                      else
+                        for (final benefit in selected.benefits)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 7),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.check_circle_outline,
+                                  size: 17,
+                                  color: product.success,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(benefit)),
+                              ],
+                            ),
+                          ),
+                      if (selected.communityData != null)
+                        CommunityCardDetails(data: selected.communityData!),
                       if (widget.onAskRevo != null) ...[
                         const SizedBox(height: 14),
                         OutlinedButton.icon(
@@ -319,15 +265,29 @@ class _WalletCardStackState extends State<WalletCardStack> {
   }
 }
 
-Color _cardColor(String id) {
-  if (id.contains('amex')) return const Color(0xFFC89A3D);
-  if (id.contains('venture')) return const Color(0xFF1B2E57);
-  if (id.contains('sapphire')) return const Color(0xFF1E4E9D);
-  if (id.contains('freedom-flex')) return const Color(0xFF6A3DB6);
-  if (id.contains('freedom')) return const Color(0xFF2E59CA);
-  if (id.contains('savor')) return const Color(0xFFA33845);
-  if (id.contains('bilt')) return const Color(0xFF302E53);
-  if (id.contains('citi')) return const Color(0xFF245FAE);
-  if (id.contains('discover')) return const Color(0xFFE37D2F);
-  return const Color(0xFF27445E);
+class _WalletDetailRow extends StatelessWidget {
+  const _WalletDetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, size: 18, color: context.product.muted),
+      const SizedBox(width: 8),
+      Expanded(child: Text(label)),
+      Text(
+        value,
+        style: TextStyle(fontWeight: FontWeight.w800, color: valueColor),
+      ),
+    ],
+  );
 }

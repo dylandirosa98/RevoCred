@@ -101,7 +101,9 @@ void main() {
       '3',
     );
     await tester.enterText(find.byKey(const ValueKey('index-card-fee')), '95');
-    await tester.tap(find.byKey(const ValueKey('index-card-save-terms')));
+    final saveTerms = find.byKey(const ValueKey('index-card-save-terms'));
+    await tester.ensureVisible(saveTerms);
+    await tester.tap(saveTerms);
     await tester.pumpAndSettle();
     // ignore: avoid_print
     // The printed line above proves the accepted choice carries the edits.

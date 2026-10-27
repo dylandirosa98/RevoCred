@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/revocred/revocred-api/internal/domain"
@@ -14,6 +15,37 @@ import (
 // card out of scoring, and supplying terms brings it in.
 func testReferenceIndex(t *testing.T, ctx context.Context, repo *Postgres, a, b string) {
 	t.Helper()
+	amex, err := repo.SearchReferenceCards(ctx, "amex", 20)
+	if err != nil || len(amex) != 13 {
+		t.Fatalf("expanded Amex identity search: got %d rows, error %v", len(amex), err)
+	}
+	partial := 0
+	for _, card := range amex {
+		if card.TermsStatus == "partial" {
+			partial++
+			if card.CatalogCardID != "" || len(card.RewardRates) != 0 || card.AnnualFeeCents != 0 || card.SourceURL == "" {
+				t.Fatalf("identity-only Amex product invented terms: %+v", card)
+			}
+		}
+	}
+	if partial != 11 {
+		t.Fatalf("want 11 new identity-only Amex products, got %d", partial)
+	}
+	catalog, err := repo.ListCatalog(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, card := range catalog {
+		if card.Name == "Amex Gold" || card.Name == "Sapphire Preferred" {
+			benefits := strings.Join(card.Benefits, " ")
+			if !strings.Contains(benefits, "$100") || card.AnnualBenefitValue != 0 {
+				t.Fatalf("sourced credits missing or counted as guaranteed value: %+v", card)
+			}
+			if card.Name == "Amex Gold" && (!strings.Contains(benefits, "Dunkin") || !strings.Contains(benefits, "Resy")) {
+				t.Fatal("Gold credits missing")
+			}
+		}
+	}
 	index, err := repo.SearchReferenceCards(ctx, "freedom", 20)
 	if err != nil {
 		t.Fatal(err)

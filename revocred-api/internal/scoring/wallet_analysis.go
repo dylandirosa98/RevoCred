@@ -37,7 +37,7 @@ func AnalyzeWallet(cards []domain.WalletCard) Wallet {
 	return wallet
 }
 
-func Metrics(cards []domain.WalletCard, categorySpendCents map[string]int64) domain.WalletMetrics {
+func Metrics(cards []domain.WalletCard, categorySpendCents map[string]int64, travelScopes ...string) domain.WalletMetrics {
 	wallet := AnalyzeWallet(cards)
 	score := Score(wallet)
 	active := []domain.CatalogCard{}
@@ -46,12 +46,18 @@ func Metrics(cards []domain.WalletCard, categorySpendCents map[string]int64) dom
 			active = append(active, *item.Card)
 		}
 	}
+	scope := ""
+	if len(travelScopes) > 0 {
+		scope = travelScopes[0]
+	}
+	ongoing := valuation.Ongoing(categorySpendCents, active, scope)
 	return domain.WalletMetrics{
-		Score:       score.Score,
-		Rating:      score.Rating,
-		Additions:   score.Additions,
-		Penalties:   score.Penalties,
-		YearlyValue: int(math.Round(float64(valuation.Net(categorySpendCents, active)) / 100)),
+		OngoingValue: ongoing,
+		Score:        score.Score,
+		Rating:       score.Rating,
+		Additions:    score.Additions,
+		Penalties:    score.Penalties,
+		YearlyValue:  int(math.Round(float64(ongoing.TotalCents) / 100)),
 	}
 }
 

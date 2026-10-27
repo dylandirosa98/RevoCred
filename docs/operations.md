@@ -1,11 +1,13 @@
 # Deployment and operations
 
-## OpenCode Go (optional REVO explainer)
+## OpenCode Go (developer testing only)
 
 REVO never queries Postgres as an LLM and never receives a database password
 or service-role key. The API loads **this authenticated user's** wallet, spend,
-strategy, playbook, metrics, and server ranking, then asks DeepSeek V4.1 Flash
-to explain those facts. Card selection stays server-owned.
+strategy, playbook, metrics, and server ranking. After per-message permission,
+developer testing can ask DeepSeek V4.1 Flash through OpenCode Go to explain
+those facts. Basic replies do not call external AI. Card selection stays
+server-owned. Use synthetic data for testing.
 
 ```sh
 make setup-opencode-go
@@ -13,8 +15,15 @@ make local-stop && make local-preview
 ```
 
 The wizard writes `OPENCODE_GO_API_KEY` to gitignored `revocred-api/.env.local`
-(mode 600). OpenCode Go is sold for coding-agent traffic; confirm your
-subscription terms cover this product use before enabling it in production.
+(mode 600). OpenCode Go is sold for coding-agent traffic; testing still needs
+to comply with its terms. It is not the production provider for this app.
+
+Development supports OpenAI-compatible settings through `AI_API_KEY`,
+`AI_BASE_URL`, `AI_MODEL` and optional `AI_REASONING_EFFORT`, taking precedence
+over `OPENCODE_GO_*`. Production requires explicit OpenAI settings and rejects
+the testing fallbacks. Its Compose file also no longer maps legacy testing
+variables into production `AI_*` variables. See
+[railway.md](railway.md#revo-ai-provider).
 
 ## Local development
 
@@ -39,12 +48,16 @@ GRANT revocred_runtime TO revocred_app;
 -- In psql use \password revocred_app to set its private password interactively.
 ```
 
-The runtime URL must use `sslmode=verify-full` and the provider's trusted CA.
+The runtime URL must use `sslmode=verify-full` and the provider's trusted CA
+(supply a CA outside the system bundle as PEM text in `DATABASE_CA_CERT`).
 Pooler usernames must follow the provider's custom-role format. Never embed an
 owner login or service-role key in Flutter. Keep `revocred` out of Supabase's
 exposed Data API schemas.
 
 ## Production deployment
+
+The hosted API runs on Railway; follow [railway.md](railway.md). The Compose
+steps below remain for self-hosting.
 
 1. Complete `production-readiness.md` in staging.
 2. Supply `APP_DOMAIN`, `API_DOMAIN`, `TLS_EMAIL`, `SUPABASE_URL`, public
@@ -57,7 +70,8 @@ exposed Data API schemas.
    feed a production build.
 3. Run `make release-check` with `REVOCRED_PRODUCTION=true`,
    `REVOCRED_USE_MOCKS=false`, `REVOCRED_API_URL=https://<API_DOMAIN>` and
-   `REVOCRED_AUTH_REDIRECT_URL=https://<APP_DOMAIN>/`.
+   `REVOCRED_AUTH_REDIRECT_URL=https://<APP_DOMAIN>/` (store builds use
+   `com.revocred.app://auth-callback/`).
 4. Verify a backup; apply migrations once with the migration login.
 5. Run the Compose command from step 2.
 6. Verify HTTPS, readiness, authentication, recommendations, export and recovery.
@@ -82,7 +96,8 @@ collection/retention and incident routing; the app cannot provision them.
 
 The in-process limiter allows 600 requests/minute per remote peer, 120 reads and
 30 writes/minute per authenticated user. Memory is bounded. Forwarded IP headers
-are untrusted; behind Caddy its traffic shares the peer limit. Before multiple
+are untrusted unless `CLIENT_IP_HEADER` names a header set by a trusted edge
+(Railway: `X-Real-IP`); behind Caddy its traffic shares the peer limit. Before multiple
 replicas or higher traffic, add edge limits and a shared quota backend. Restarts
 reset in-memory limits/counters; database quotas and retention persist.
 

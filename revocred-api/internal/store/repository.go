@@ -34,5 +34,5 @@ type Repository interface {
 	DeleteWalletCard(ctx context.Context, userID, walletCardID string) error
 	SaveRecommendation(ctx context.Context, userID string, input domain.RecommendationInput, result domain.RecommendationResult) (domain.RecommendationResult, error)
 	ListMessages(ctx context.Context, userID string, limit int) ([]domain.ChatMessage, error)
-	AppendChatExchange(ctx context.Context, userID, prompt, reply string) ([]domain.ChatMessage, error)
+	AppendChatExchange(ctx context.Context, userID, prompt, reply string, blocks json.RawMessage) ([]domain.ChatMessage, error)
 }

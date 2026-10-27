@@ -186,24 +186,18 @@ AppData createDemoAppData() => AppData(
   roadmap: const [
     RoadmapStep(
       id: 'step-1',
-      cardId: 'sapphire-preferred',
-      stage: 'Apply now',
-      note: 'Add transferable points and travel protections.',
-      estimatedValue: 610,
+      cardId: 'freedom-flex',
+      stage: 'Consider next',
+      note: 'Add rotating categories and strengthen the Chase foundation.',
+      estimatedValue: 330,
     ),
     RoadmapStep(
       id: 'step-2',
-      cardId: 'bilt',
-      stage: 'In 6 months',
-      note: 'Add rent rewards after spacing applications.',
-      estimatedValue: 420,
-    ),
-    RoadmapStep(
-      id: 'step-3',
-      cardId: 'citi-strata',
-      stage: 'In 12 months',
-      note: 'Round out everyday categories with no annual fee.',
-      estimatedValue: 330,
+      cardId: 'sapphire-preferred',
+      stage: 'Consider later',
+      note:
+          'Unlock transfer partners when it becomes the most useful addition.',
+      estimatedValue: 610,
     ),
   ],
   messages: [

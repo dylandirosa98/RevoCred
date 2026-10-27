@@ -13,10 +13,13 @@ type Preferences struct {
 }
 
 type PlaybookStep struct {
-	Name   string `json:"name"`
-	Use    string `json:"use"`
-	Status string `json:"status"`
-	Note   string `json:"note,omitempty"`
+	Name       string `json:"name"`
+	Use        string `json:"use"`
+	Status     string `json:"status"`
+	Note       string `json:"note,omitempty"`
+	CoveredBy  string `json:"covered_by,omitempty"`
+	Timing     string `json:"timing,omitempty"`
+	TimingNote string `json:"timing_note,omitempty"`
 }
 
 type UnusedCard struct {
@@ -102,9 +105,10 @@ func Build(code string, walletNames []string, prefs *Preferences) Playbook {
 		step := PlaybookStep{Name: name, Use: cardUse[name], Status: "later"}
 		if match, substitute := matchWallet(name, owned); match != "" {
 			step.Status = "have"
+			step.CoveredBy = match
 			usedKeys[normalize(match)] = true
 			if substitute {
-				step.Note = "Your " + match + " covers this playbook slot."
+				step.Note = "Keep your " + match + "; it covers the " + name + " role in this strategy."
 			}
 		} else if !foundNext {
 			step.Status = "next"
@@ -126,7 +130,31 @@ func Build(code string, walletNames []string, prefs *Preferences) Playbook {
 			Note:   "Keep it if you want, but do not use it as a primary card in this playbook.",
 		})
 	}
+	Schedule(&playbook)
 	return playbook
+}
+
+// Schedule describes a conditional application sequence, not an eligibility
+// date. We do not collect opening dates, inquiries, or issuer-rule history.
+// Covered and unavailable roles must never advance the application clock.
+func Schedule(playbook *Playbook) {
+	for i := range playbook.Steps {
+		step := &playbook.Steps[i]
+		switch step.Status {
+		case "have":
+			step.Timing = "Already covered"
+			step.TimingNote = "No new application needed."
+		case "unavailable":
+			step.Timing = "Do not apply now"
+			step.TimingNote = "Reassess after your profile or spending changes; no reliable wait estimate."
+		case "next":
+			step.Timing = "Consider now, after checks"
+			step.TimingNote = "Verify recent applications, account age, issuer rules and budget first. Opening dates and inquiry history were not collected; eligibility timing is unknown."
+		case "later":
+			step.Timing = "Wait approximately 3-6 months after the previous application"
+			step.TimingNote = "Planning estimate only. Re-run recommendations after the previous card; proceed only if it still adds value and issuer rules permit."
+		}
+	}
 }
 
 func alternativesFor(current Definition, prefs *Preferences) []Alternative {

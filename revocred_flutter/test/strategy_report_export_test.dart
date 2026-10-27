@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:revocred_flutter/core/data/demo_seed.dart';
 import 'package:revocred_flutter/core/models/affiliate_offer.dart';
 import 'package:revocred_flutter/core/services/strategy_report_export.dart';
+import 'package:revocred_flutter/core/logic/playbook.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -11,6 +14,51 @@ void main() {
 
     expect(bytes.length, greaterThan(5000));
     expect(String.fromCharCodes(bytes.take(4)), '%PDF');
+    expect(
+      RegExp(r'/Type\s*/Page\b').allMatches(String.fromCharCodes(bytes)).length,
+      1,
+    );
+    final previewPath = Platform.environment['REVOCRED_REPORT_PREVIEW'];
+    if (previewPath != null) await File(previewPath).writeAsBytes(bytes);
+  });
+
+  test('larger personalized strategies remain a single portrait page', () async {
+    final base = createDemoAppData();
+    for (final count in [1, 4, 7, 12]) {
+      final data = base.copyWith(
+        playbook: PlaybookAssignment(
+          code: 'S04',
+          title: 'Personal strategy',
+          ecosystem: 'Chase',
+          steps: List.generate(
+            count,
+            (i) => PlaybookStep(
+              name: 'Personalized card ${i + 1}',
+              use: 'Everyday rewards',
+              status: i == 0 ? 'next' : 'later',
+              timing: i == 0
+                  ? 'Consider now, after checks'
+                  : 'Wait approximately 3-6 months after the previous application',
+              timingNote:
+                  'Planning estimate only. Verify issuer rules and account history.',
+            ),
+          ),
+          unused: const [],
+          alternatives: const [],
+        ),
+      );
+      final bytes = await buildStrategyReportPdf(data);
+      final previewPath = Platform.environment['REVOCRED_REPORT_PREVIEW'];
+      if (previewPath != null) {
+        await File('$previewPath-$count.pdf').writeAsBytes(bytes);
+      }
+      expect(
+        RegExp(
+          r'/Type\s*/Page\b',
+        ).allMatches(String.fromCharCodes(bytes)).length,
+        1,
+      );
+    }
   });
 
   test(

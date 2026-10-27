@@ -9,6 +9,7 @@ void main() {
     );
     expect(got?.nextCard, 'Freedom Flex');
     expect(got?.steps.first.status, 'have');
+    expect(got?.steps.first.coveredBy, 'Freedom Unlimited');
     expect(got?.unused.single.name, 'Amex Gold');
     expect(got?.alternatives, isNotEmpty);
   });
@@ -16,6 +17,15 @@ void main() {
   test('Savor substitutes for SavorOne', () {
     final got = buildPlaybook(code: 'S03', walletNames: const ['Savor']);
     expect(got?.steps.first.status, 'have');
+    expect(got?.steps.first.coveredBy, 'Savor');
     expect(got?.nextCard, 'Quicksilver');
+  });
+
+  test('does not mention a substitute the member does not own', () {
+    final got = buildPlaybook(code: 'S03', walletNames: const []);
+    expect(got?.steps.first.name, 'SavorOne');
+    expect(got?.steps.first.status, 'next');
+    expect(got?.steps.first.coveredBy, isEmpty);
+    expect(got?.steps.first.note, isEmpty);
   });
 }

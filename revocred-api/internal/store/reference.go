@@ -16,19 +16,50 @@ func (p *Postgres) SearchReferenceCards(ctx context.Context, query string, limit
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
-	pattern := "%" + strings.ToLower(strings.TrimSpace(query)) + "%"
+	tokens := SearchTokens(query)
+	phrase := strings.Join(tokens, " ")
+	// Every token must start a word somewhere in issuer, name or slug, so
+	// "discover miles" and "amex gold" both work while "att" does not match
+	// "Hyatt". Punctuation is ignored on both sides,
+	// which is why "us bank" finds "U.S. Bank" and "att" finds "AT&T".
 	rows, err := p.pool.Query(ctx, `
+WITH candidates AS (
+    SELECT r.*, regexp_replace(regexp_replace(lower(r.issuer || ' ' || r.name || ' ' || r.slug),
+               '[.''&®™]', '', 'g'), '[^a-z0-9+]+', ' ', 'g') AS haystack,
+           regexp_replace(regexp_replace(lower(r.name), '[.''&®™]', '', 'g'), '[^a-z0-9+]+', ' ', 'g') AS plain_name,
+           trim(regexp_replace(regexp_replace(lower(r.issuer), '[.''&®™]', '', 'g'), '[^a-z0-9+]+', ' ', 'g')) AS plain_issuer
+    FROM revocred.card_reference_index r
+    WHERE r.is_active
+), ranked AS (
+    SELECT r.*,
+           r.plain_name ~ '(aadvantage|amazon|atmos|best buy|bjs|choice privileges|costco|delta|hilton|home depot|hyatt|kohls|macys|marriott|one key|rei|southwest|spirit|t mobile|united)' AS partner_card,
+           CASE
+             WHEN r.plain_name ~ '(custom cash|double cash|venture x|sapphire preferred|platinum|gold)' THEN 1
+             WHEN r.plain_name ~ '(strata premier|venture|sapphire reserve|blue cash preferred|active cash)' THEN 2
+             WHEN r.plain_name ~ '(strata elite|savor|freedom unlimited|blue cash everyday|autograph journey)' THEN 3
+             WHEN r.plain_name ~ '(quicksilver|freedom flex|green|autograph|discover it cash back)' THEN 4
+             ELSE 100
+           END AS core_rank
+    FROM candidates r
+)
 SELECT r.id::text, r.slug, r.issuer, r.name, r.network, r.rewards_type, r.annual_fee_cents,
        r.reward_rates, r.terms_status, r.source_url, r.source_captured_on::text, r.disclaimer,
        COALESCE(c.id::text, '')
-FROM revocred.card_reference_index r
+FROM ranked r
 LEFT JOIN revocred.catalog_cards c
        ON c.owner_user_id IS NULL AND c.data_kind = 'issuer_snapshot'
       AND lower(c.name) = lower(r.name) AND lower(c.issuer) = lower(r.issuer)
-WHERE r.is_active
-  AND ($1 = '%%' OR lower(r.name) LIKE $1 OR lower(r.issuer) LIKE $1 OR lower(r.slug) LIKE $1)
-ORDER BY (lower(r.issuer) = lower($2)) DESC, r.issuer, r.name
-LIMIT $3`, pattern, strings.TrimSpace(query), limit)
+WHERE NOT EXISTS (
+    SELECT 1 FROM unnest($1::text[]) AS token WHERE position(' ' || token IN ' ' || r.haystack) = 0
+)
+ORDER BY (r.plain_name = $2) DESC,
+         (r.plain_name LIKE $2 || '%') DESC,
+         (r.plain_issuer = $2 AND NOT r.partner_card) DESC,
+         CASE WHEN r.plain_issuer = $2 THEN r.core_rank ELSE 100 END,
+         (position($2 IN r.haystack) > 0) DESC,
+         (r.terms_status = 'verified') DESC,
+         r.issuer, r.name
+LIMIT $3`, tokens, phrase, limit)
 	if err != nil {
 		return nil, fmt.Errorf("search reference cards: %w", err)
 	}
@@ -42,6 +73,45 @@ LIMIT $3`, pattern, strings.TrimSpace(query), limit)
 		cards = append(cards, card)
 	}
 	return cards, rows.Err()
+}
+
+// issuerAliases maps what people type to the issuer names the index stores.
+var issuerAliases = map[string]string{
+	"amex":     "american express",
+	"capone":   "capital one",
+	"cap one":  "capital one",
+	"c1":       "capital one",
+	"bofa":     "bank of america",
+	"boa":      "bank of america",
+	"wf":       "wells fargo",
+	"usbank":   "us bank",
+	"usb":      "us bank",
+	"citibank": "citi",
+}
+
+// SearchTokens normalises a search query the same way the SQL normalises card
+// text: lowercase, dots, apostrophes and ampersands dropped, other punctuation
+// treated as a space, and known issuer nicknames expanded.
+func SearchTokens(query string) []string {
+	normalized := strings.ToLower(query)
+	normalized = strings.NewReplacer(".", "", "'", "", "’", "", "&", "", "®", "", "™", "").Replace(normalized)
+	var b strings.Builder
+	for _, r := range normalized {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '+' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune(' ')
+		}
+	}
+	normalized = " " + strings.Join(strings.Fields(b.String()), " ") + " "
+	for alias, issuer := range issuerAliases {
+		normalized = strings.ReplaceAll(normalized, " "+alias+" ", " "+issuer+" ")
+	}
+	tokens := strings.Fields(normalized)
+	if tokens == nil {
+		tokens = []string{}
+	}
+	return tokens
 }
 
 func (p *Postgres) referenceCardsByID(ctx context.Context, ids []string) (map[string]domain.ReferenceCard, error) {
@@ -166,26 +236,31 @@ func (p *Postgres) resolveOnboardingCards(ctx context.Context, userID string, pi
 	return ids, nil
 }
 
-// Substitutions returns approved replacements for strategy cards, keyed by the
-// card the strategy would otherwise have used.
-func (p *Postgres) Substitutions(ctx context.Context) (map[string]domain.Substitution, error) {
+// Substitutions returns approved replacements keyed by the strategy card's
+// display name. They are candidates only; Bootstrap uses one exclusively when
+// that replacement is already present in the member's wallet.
+func (p *Postgres) Substitutions(ctx context.Context) (map[string][]domain.Substitution, error) {
 	rows, err := p.pool.Query(ctx, `
-SELECT s.strategy_card_id::text, c.id::text, c.name
+SELECT target.name, replacement.id::text, replacement.name
 FROM revocred.card_substitutions s
-JOIN revocred.catalog_cards c ON c.id = s.substitute_card_id
-WHERE s.approved AND c.is_active AND c.owner_user_id IS NULL AND c.data_kind='issuer_snapshot'`)
+JOIN revocred.catalog_cards target ON target.id = s.strategy_card_id
+JOIN revocred.catalog_cards replacement ON replacement.id = s.substitute_card_id
+WHERE s.approved
+  AND target.is_active AND target.owner_user_id IS NULL AND target.data_kind='issuer_snapshot'
+  AND replacement.is_active AND replacement.owner_user_id IS NULL AND replacement.data_kind='issuer_snapshot'
+ORDER BY target.name, replacement.name`)
 	if err != nil {
 		return nil, fmt.Errorf("load substitutions: %w", err)
 	}
 	defer rows.Close()
-	result := map[string]domain.Substitution{}
+	result := map[string][]domain.Substitution{}
 	for rows.Next() {
-		var strategyID string
+		var strategyName string
 		var substitute domain.Substitution
-		if err := rows.Scan(&strategyID, &substitute.CardID, &substitute.Name); err != nil {
+		if err := rows.Scan(&strategyName, &substitute.CardID, &substitute.Name); err != nil {
 			return nil, fmt.Errorf("scan substitution: %w", err)
 		}
-		result[strategyID] = substitute
+		result[strategyName] = append(result[strategyName], substitute)
 	}
 	return result, rows.Err()
 }

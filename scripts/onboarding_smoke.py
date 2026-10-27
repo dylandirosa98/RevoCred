@@ -10,7 +10,7 @@ import time
 
 from playwright.sync_api import sync_playwright, expect
 
-from browser_smoke import enable_accessibility, fill_field
+from browser_smoke import enable_accessibility, fill_field, set_spending_sliders
 from local_e2e import ROOT, load_env, request
 
 # A shared tunnel run overrides all three so the same assertions cover the
@@ -21,7 +21,9 @@ WEB = os.environ.get('REVOCRED_SHARE_WEB', 'http://127.0.0.1:8083')
 def answer(page, text):
     # Flutter exposes each choice as a semantics button whose label is the
     # option text repeated once, so match the leading label only.
-    page.get_by_role('button', name=re.compile('^' + re.escape(text))).click()
+    page.get_by_role('button', name=re.compile('^' + re.escape(text))).evaluate(
+        '(element) => element.click()')
+    page.wait_for_timeout(300)
 
 
 def select_card(page, text):
@@ -29,8 +31,13 @@ def select_card(page, text):
 
 
 def next_step(page):
-    page.get_by_role('button', name='Next', exact=True).click()
-    page.wait_for_timeout(250)
+    # Flutter can leave a slider semantics node over the fixed footer while a
+    # thumb is focused, so activate the already-enabled footer button directly.
+    button = page.get_by_role('button', name='Next', exact=True)
+    expect(button).to_be_enabled()
+    button.evaluate(
+        '(element) => element.click()')
+    page.wait_for_timeout(700)
 
 
 def main():
@@ -60,15 +67,20 @@ def main():
             # 2. Nothing is pre-answered: Next stays disabled until each choice is made.
             next_button = page.get_by_role('button', name='Next', exact=True)
             assert next_button.is_disabled(), 'Next was enabled before any answer'
+            fill_field(page, 0, 'Dana')
+            fill_field(page, 1, 'Okafor')
             answer(page, 'Adult and building a foundation')
             expect(next_button).to_be_enabled()
 
             next_step(page)
             expect(page.get_by_text('Which cards do you already have?')).to_be_visible()
+            fill_field(page, 0, 'amex')
+            expect(page.get_by_role('group', name=re.compile('^American Express Blue Cash Everyday'))).to_be_visible(timeout=20000)
+            fill_field(page, 0, '')
             select_card(page, 'Sapphire Preferred')
             expect(page.get_by_role('checkbox', name=re.compile('^Sapphire Preferred')).first).to_be_checked()
             next_step(page)
-            answer(page, r'Up to $100 per card')
+            answer(page, '2–4 cards')
             next_step(page)
             answer(page, 'Domestic and international')
             next_step(page)
@@ -76,11 +88,7 @@ def main():
             next_step(page)
             expect(page.get_by_text('Estimate your monthly spending')).to_be_visible()
             page.wait_for_timeout(400)
-            for field, amount in (('dining', '400'), ('groceries', '500'),
-                                  ('gas', '120'), ('travel', '250'),
-                                  ('streaming', '30'), ('other', '300')):
-                fill_field(page, ['dining', 'groceries', 'gas', 'travel',
-                                  'streaming', 'other'].index(field), amount)
+            set_spending_sliders(page, [400, 500, 100, 250, 50, 300])
             next_step(page)
             expect(page.get_by_text('What is your primary rewards goal?')).to_be_visible()
             answer(page, 'Flexible travel points')
@@ -88,10 +96,11 @@ def main():
 
             # 3. A personal plan is shown without an account, and it is not demo data.
             expect(page).to_have_url(re.compile(r'.*#/strategy-report$'), timeout=30000)
-            expect(page.get_by_text('Your personal strategy preview')).to_be_visible()
+            expect(page.get_by_text('Your personal strategy preview')).to_have_count(0)
+            expect(page.get_by_role('button', name='Create an account to save my plan')).to_have_count(0)
             report = page.inner_text('body')
             assert re.search(r'S0[1-9] STRATEGY', report), 'strategy code missing from preview'
-            next_move = re.search(r'Recommended next: (.+)', report)
+            next_move = re.search(r'Consider next: ([^\n—]+)', report)
             assert next_move, 'preview does not name a recommended next move'
             recommended = next_move.group(1).strip()
             assert recommended != 'Sapphire Preferred', \
@@ -100,19 +109,28 @@ def main():
             # for the disclosure rather than assuming it rendered immediately.
             expect(page.get_by_text(re.compile('Official issuer link'))).to_be_visible(timeout=30000)
             report = page.inner_text('body')
-            roadmap = report.split('APPLICATION ROADMAP')[1].split('RECOMMENDED NEXT MOVE')[0]
-            for line in roadmap.splitlines():
-                if 'Sapphire Preferred' in line:
-                    assert 'Already in wallet' in roadmap, \
-                        'an owned card was presented as a roadmap step to apply for'
+            # An owned card can be outside the selected playbook, so its name in
+            # the profile summary does not imply it has a roadmap column.
+            assert '1 cards currently in your wallet' in report, \
+                'the preview lost the selected owned card'
             assert 'Official issuer link' in report, 'official-link disclosure missing'
             assert 'commission' not in report.lower().split('current wallet annual value')[0].split('official issuer link')[0], \
                 'an affiliate disclosure appeared without a partner link'
 
             # 4. Saving requires an account, and the draft survives the round trip.
-            page.get_by_role('button', name='Create an account to save my plan').click()
+            assert page.get_by_role('button', name='Back to settings', exact=True).count() == 0
+            page.get_by_role('button', name='Finish account', exact=True).click()
             expect(page).to_have_url(re.compile(r'.*#/welcome'), timeout=30000)
-            expect(page.get_by_text('Build your strategy', exact=True)).to_be_visible()
+            page.get_by_role('button', name='Back', exact=True).click()
+            expect(page).to_have_url(re.compile(r'.*#/strategy-report$'), timeout=30000)
+            expect(page.get_by_text('YOUR WALLET SCORE')).to_be_visible()
+            page.get_by_role('button', name='Finish account', exact=True).click()
+            expect(page).to_have_url(re.compile(r'.*#/welcome'), timeout=30000)
+            page.go_back()
+            expect(page).to_have_url(re.compile(r'.*#/strategy-report$'), timeout=30000)
+            expect(page.get_by_text('YOUR WALLET SCORE')).to_be_visible()
+            page.get_by_role('button', name='Finish account', exact=True).click()
+            expect(page.get_by_text('Finish creating your account', exact=True)).to_be_visible()
             # Let the animated form swap finish so Flutter attaches its input
             # channel before values are injected.
             page.wait_for_timeout(600)
@@ -121,11 +139,17 @@ def main():
             fill_field(page, 0, 'Dana Okafor')
             fill_field(page, 1, email)
             fill_field(page, 2, password)
+            preference = page.get_by_role('checkbox', name=re.compile('Email me RevoCred updates'))
+            expect(preference).not_to_be_checked()
+            preference.evaluate('(element) => element.click()')
+            expect(preference).to_be_checked()
             expect(page.get_by_role('textbox').nth(1)).to_have_value(email)
             page.get_by_role('button', name='Create account', exact=True).click()
 
             # 5. The plan is saved: same strategy, and the owned card is in the wallet.
             expect(page).to_have_url(re.compile(r'.*#/(home|questionnaire)$'), timeout=30000)
+            _, signed_in = request(auth + '/auth/v1/token?grant_type=password', 'POST', {'email': email, 'password': password}, public)
+            assert signed_in['user']['user_metadata']['email_notifications_opt_in'] is True, 'notification consent was not persisted'
             page.goto(WEB + '/#/strategy-report')
             enable_accessibility(page)
             expect(page.get_by_text(re.compile(r'S0[1-9] STRATEGY'))).to_be_visible(timeout=30000)
@@ -136,11 +160,11 @@ def main():
                 'a saved plan still asks for an account'
             assert recommended in saved_report, \
                 f'saved plan lost the next move: {recommended}'
-            assert re.search(r'Recommended next: ' + re.escape(recommended), saved_report), \
+            assert re.search(r'Consider next: ' + re.escape(recommended), saved_report), \
                 'saved plan does not restate the same recommended move'
             page.goto(WEB + '/#/strategy')
             enable_accessibility(page)
-            expect(page.get_by_text('YOUR RECOMMENDED STRATEGY')).to_be_visible(timeout=30000)
+            expect(page.get_by_text("Dana’s Personalized Credit Card Strategy")).to_be_visible(timeout=30000)
             page.goto(WEB + '/#/cards')
             enable_accessibility(page)
             expect(page.get_by_text('Sapphire Preferred').first).to_be_visible(timeout=30000)
@@ -156,6 +180,11 @@ def main():
             enable_accessibility(page)
             page.get_by_role('button', name='Log out', exact=True).click()
             expect(page).to_have_url(re.compile(r'.*#/welcome$'), timeout=30000)
+            for path in ('home', 'cards', 'strategy', 'revo', 'profile', 'account', 'strategy-report'):
+                page.goto(WEB + '/#/' + path)
+                enable_accessibility(page)
+                expect(page).to_have_url(re.compile(r'.*#/welcome$'), timeout=30000)
+                assert 'Dana' not in page.inner_text('body'), 'private name visible after logout'
             page.goto(WEB + '/#/questionnaire')
             enable_accessibility(page)
             expect(page.get_by_text('What adult life stage fits best?')).to_be_visible(timeout=30000)

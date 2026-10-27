@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/state/app_controller.dart';
+import '../../../core/logic/strategy_digest.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/content_layout.dart';
 import '../../../shared/widgets/theme_switcher.dart';
@@ -19,11 +20,13 @@ class ProfileScreen extends ConsumerWidget {
     final product = context.product;
     final rows = {
       'Email': profile.email,
-      'Credit card strategy': profile.strategy,
+      'Strategy number':
+          data.strategyPlan?.code ?? data.playbook?.code ?? profile.strategy,
       'Goal': profile.goal,
       'Setup': '${data.wallet.length} active cards',
       'Top spend categories': profile.topSpendCategories,
-      'Next application target': profile.nextTarget,
+      'Next application target':
+          strategyNextCardName(data) ?? 'No application recommended',
     };
     return ContentLayout(
       maxWidth: 860,
@@ -75,42 +78,15 @@ class ProfileScreen extends ConsumerWidget {
           ),
         ),
         SizedBox(height: product.sectionGap),
+        const SectionLabel('Account summary'),
+        const SizedBox(height: 10),
         AppPanel(
           child: Column(
             children: [
-              for (final row in rows.entries)
-                _ProfileRow(label: row.key, value: row.value),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        const SectionLabel('Switch strategy'),
-        const SizedBox(height: 10),
-        AppPanel(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final code in const [
-                'S01',
-                'S02',
-                'S03',
-                'S04',
-                'S05',
-                'S06',
-                'S07',
-                'S08',
-                'S09',
-              ])
-                ChoiceChip(
-                  key: ValueKey('switch-strategy-$code'),
-                  label: Text(code),
-                  selected:
-                      (data.playbook?.code ?? data.profile.strategy) == code,
-                  onSelected: (_) => ref
-                      .read(appControllerProvider.notifier)
-                      .switchStrategy(code),
-                ),
+              for (final row in rows.entries.indexed) ...[
+                if (row.$1 > 0) Divider(height: 1, color: product.border),
+                _ProfileRow(label: row.$2.key, value: row.$2.value),
+              ],
             ],
           ),
         ),

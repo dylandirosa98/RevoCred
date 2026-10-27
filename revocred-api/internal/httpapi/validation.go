@@ -58,7 +58,7 @@ func validateCustomCard(input domain.CreateCustomCard) map[string]string {
 	if input.AnnualFeeCents < 0 || input.AnnualFeeCents > 1_000_000 {
 		errors["annual_fee_cents"] = "must be between 0 and 1000000"
 	}
-	if len(input.RewardRates) == 0 {
+	if len(input.RewardRates) == 0 && !input.TermsUnknown {
 		errors["reward_rates"] = "must include at least one category"
 	}
 	for category, rate := range input.RewardRates {
@@ -112,6 +112,11 @@ func validateRecommendation(input domain.RecommendationInput) map[string]string 
 	}
 	if input.FeeToleranceCents < 0 || input.FeeToleranceCents > 1_000_000 {
 		errors["fee_tolerance_cents"] = "must be between 0 and 1000000"
+	}
+	// Empty remains valid for clients and questionnaire rows created before the
+	// wallet-size question was introduced.
+	if !oneOf(input.IdealCardCount, "", "1-2", "2-4", "2-3", "3-4", "4+") {
+		errors["ideal_card_count"] = "must be 1-2, 2-4, or 4+ (older 2-3 and 3-4 selections remain supported)"
 	}
 	if !oneOf(input.TravelScope, "none", "domestic", "international", "both") {
 		errors["travel_scope"] = "must be none, domestic, international, or both"

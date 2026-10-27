@@ -32,6 +32,34 @@ class _SessionRepository extends MockAppRepository {
 }
 
 void main() {
+  test('new login does not join a refresh from the previous session', () async {
+    final repository = _SessionRepository();
+    final oldResult = Completer<AppData>();
+    repository.pending = oldResult;
+    final container = ProviderContainer(
+      overrides: [
+        appConfigProvider.overrideWithValue(const AppConfig(useMocks: false)),
+        appRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await repository.events.close();
+    });
+    final controller = container.read(appControllerProvider.notifier);
+    final oldRefresh = controller.refresh();
+    repository.events.add(const AccountSession(authenticated: false));
+    await Future<void>.delayed(Duration.zero);
+    repository.pending = null;
+    repository.events.add(const AccountSession(authenticated: true));
+    await Future<void>.delayed(Duration.zero);
+    await controller.refresh();
+    expect(container.read(appControllerProvider).isAuthenticated, isTrue);
+    expect(container.read(appControllerProvider).isLoading, isFalse);
+    oldResult.complete(createDemoAppData());
+    await oldRefresh;
+    expect(container.read(appControllerProvider).isAuthenticated, isTrue);
+  });
   test('real mode never falls back to demo when no card is eligible', () async {
     final container = ProviderContainer(
       overrides: [

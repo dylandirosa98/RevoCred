@@ -9,8 +9,13 @@ import '../../../shared/widgets/app_logo.dart';
 import '../../../shared/widgets/credit_card_view.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({this.savePlan = false, super.key});
+  const AuthScreen({
+    this.savePlan = false,
+    this.returnToReport = false,
+    super.key,
+  });
   final bool savePlan;
+  final bool returnToReport;
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
@@ -23,12 +28,33 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool showForm = false;
   bool signingUp = true;
   bool obscurePassword = true;
+  bool notificationsOptIn = false;
   String? message;
 
   @override
   void initState() {
     super.initState();
     showForm = widget.savePlan;
+    // Strategy creation already asks for first and last name. Carry that into
+    // account creation so saving a guest plan never asks for the same detail
+    // twice, while still leaving the field editable before submission.
+    // AuthScreen can also be embedded by previews/tests before the repository
+    // provider is installed. Prefill opportunistically without making the
+    // account form depend on that optional context.
+    try {
+      final controller = ref.read(appControllerProvider.notifier);
+      final savedName =
+          ref
+              .read(appControllerProvider)
+              .data
+              ?.questionnaireAnswers
+              ?.displayName ??
+          controller.draftStore.displayName ??
+          '';
+      if (savedName.trim().isNotEmpty) name.text = savedName.trim();
+    } catch (_) {
+      // The field remains editable and empty when no app repository exists.
+    }
   }
 
   @override
@@ -60,11 +86,21 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         name: name,
                         submitting: submitting,
                         obscurePassword: obscurePassword,
+                        finishingAccount: widget.returnToReport,
+                        notificationsOptIn: notificationsOptIn,
+                        onNotificationsChanged: (value) =>
+                            setState(() => notificationsOptIn = value),
                         message: message,
-                        onBack: () => setState(() {
-                          showForm = false;
-                          message = null;
-                        }),
+                        onBack: () {
+                          if (widget.returnToReport) {
+                            context.go('/strategy-report');
+                            return;
+                          }
+                          setState(() {
+                            showForm = false;
+                            message = null;
+                          });
+                        },
                         onTogglePassword: () =>
                             setState(() => obscurePassword = !obscurePassword),
                         onSubmit: () => _submit(signUp: signingUp),
@@ -142,6 +178,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               email.text.trim(),
               password.text,
               displayName: displayName,
+              notificationsOptIn: notificationsOptIn,
             )
           : await controller.signIn(email.text.trim(), password.text);
       if (mounted) {
@@ -451,6 +488,9 @@ class _AuthFormPage extends StatelessWidget {
     required this.onTogglePassword,
     required this.onSubmit,
     required this.onSwitchMode,
+    required this.finishingAccount,
+    required this.notificationsOptIn,
+    required this.onNotificationsChanged,
     this.message,
     super.key,
   });
@@ -466,6 +506,9 @@ class _AuthFormPage extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
   final VoidCallback onSwitchMode;
+  final bool finishingAccount;
+  final bool notificationsOptIn;
+  final ValueChanged<bool> onNotificationsChanged;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -516,7 +559,11 @@ class _AuthFormPage extends StatelessWidget {
       ),
       const SizedBox(height: 34),
       Text(
-        signingUp ? 'Build your strategy' : 'Welcome back',
+        signingUp
+            ? (finishingAccount
+                  ? 'Finish creating your account'
+                  : 'Build your strategy')
+            : 'Welcome back',
         style: TextStyle(
           color: context.product.ink,
           fontFamily: context.product.headingFontFamily,
@@ -545,8 +592,9 @@ class _AuthFormPage extends StatelessWidget {
           onSubmitted: (_) => FocusScope.of(context).nextFocus(),
           maxLength: 60,
           decoration: const InputDecoration(
-            labelText: 'First name or full name',
-            helperText: 'Used for your greeting. Never shown publicly.',
+            labelText: 'Full name',
+            helperText:
+                'Used for your strategy and greeting. Never shown publicly.',
           ),
         ),
         const SizedBox(height: 12),
@@ -592,6 +640,26 @@ class _AuthFormPage extends StatelessWidget {
             color: _isError(message!)
                 ? context.product.danger
                 : context.product.muted,
+          ),
+        ),
+      ],
+      if (signingUp) ...[
+        const SizedBox(height: 16),
+        CheckboxListTile(
+          key: const ValueKey('auth-notifications-opt-in'),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: notificationsOptIn,
+          onChanged: submitting
+              ? null
+              : (value) => onNotificationsChanged(value ?? false),
+          title: const Text(
+            'Email me RevoCred updates',
+            style: TextStyle(fontSize: 14),
+          ),
+          subtitle: const Text(
+            'Optional. You can create an account without opting in.',
+            style: TextStyle(fontSize: 12),
           ),
         ),
       ],

@@ -92,7 +92,7 @@ func (f *fakeRepository) SaveRecommendation(_ context.Context, _ string, input d
 func (f *fakeRepository) ListMessages(context.Context, string, int) ([]domain.ChatMessage, error) {
 	return []domain.ChatMessage{}, nil
 }
-func (f *fakeRepository) AppendChatExchange(context.Context, string, string, string) ([]domain.ChatMessage, error) {
+func (f *fakeRepository) AppendChatExchange(context.Context, string, string, string, json.RawMessage) ([]domain.ChatMessage, error) {
 	return []domain.ChatMessage{}, nil
 }
 
@@ -105,8 +105,9 @@ func (fakeRecommender) Recommend(domain.RecommendationInput, []domain.CatalogCar
 type fakeChatProvider struct{}
 
 func (fakeChatProvider) Mode() string { return "deterministic" }
-func (fakeChatProvider) Reply(context.Context, string, chat.Context) (string, error) {
-	return "reply", nil
+func (fakeChatProvider) Reply(_ context.Context, _ string, grounded chat.Context) (chat.Reply, error) {
+	blocks := chat.ParseReply("### Heading\n- one\n- two", chat.Snapshot(grounded))
+	return chat.Reply{Blocks: blocks, Text: chat.RenderText(blocks)}, nil
 }
 
 func testHandler(authenticator auth.Authenticator) http.Handler {
