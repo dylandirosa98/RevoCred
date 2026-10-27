@@ -34,6 +34,11 @@ jobs:
           ref: 6b182d2c7585eba26d4edce0f97630effd256c33
           path: .flutter-sdk
           persist-credentials: false
+      - name: Restore version tag for exact pinned Flutter revision
+        run: |
+          git -C .flutter-sdk fetch --depth=1 origin tag 3.44.9
+          test "$(git -C .flutter-sdk rev-parse '3.44.9^{commit}')" = '6b182d2c7585eba26d4edce0f97630effd256c33'
+          test "$(git -C .flutter-sdk rev-parse HEAD)" = '6b182d2c7585eba26d4edce0f97630effd256c33'
       - name: Initialize fixture evidence (even if setup fails)
         run: python3 scripts/ios_ci.py --preflight-only
       - name: Select installed Xcode 26+ and require iOS 26+ SDK

@@ -19,6 +19,11 @@ jobs:
           repository: flutter/flutter
           ref: 6b182d2c7585eba26d4edce0f97630effd256c33
           path: .flutter-sdk
+      - name: Restore version tag for exact pinned Flutter revision
+        run: |
+          git -C .flutter-sdk fetch --depth=1 origin tag 3.44.9
+          test "$(git -C .flutter-sdk rev-parse '3.44.9^{commit}')" = '6b182d2c7585eba26d4edce0f97630effd256c33'
+          test "$(git -C .flutter-sdk rev-parse HEAD)" = '6b182d2c7585eba26d4edce0f97630effd256c33'
       - run: echo "$GITHUB_WORKSPACE/.flutter-sdk/bin" >> "$GITHUB_PATH"
       - run: flutter pub get --enforce-lockfile
         working-directory: revocred_flutter
