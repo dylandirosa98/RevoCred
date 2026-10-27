@@ -9,6 +9,20 @@ import ios_release
 
 
 class IOSCITest(unittest.TestCase):
+    def test_bootstraps_flutter_before_machine_version_inspection(self):
+        order = []
+        def run(command, *args, **kwargs):
+            order.append(command)
+        def inspect(flutter):
+            self.assertIn([flutter, '--version'], order)
+            raise ValueError('stop after inspected bootstrap')
+        with patch.object(ios_ci, 'require_apple_toolchain'), \
+                patch.object(ios_ci, 'flutter_executable', return_value='flutter'), \
+                patch.object(ios_ci, 'run', side_effect=run), \
+                patch.object(ios_ci, 'require_flutter_revision', side_effect=inspect):
+            with self.assertRaises(ValueError):
+                ios_ci.native_build(Path('.'), Path('fixture'), {})
+
     def test_fixture_is_explicit_and_rejected_for_distribution(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'compile-fixture.json'

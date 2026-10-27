@@ -104,6 +104,10 @@ def smoke(device, app, output):
 def native_build(output, config, result):
     require_apple_toolchain()
     flutter = flutter_executable()
+    # A fresh SDK prints bootstrap/pub output before its first machine JSON.
+    # Initialize separately so version inspection reads clean JSON and failures
+    # retain a bounded fixture-only diagnostic artifact.
+    run([flutter, '--version'], output, 'flutter-bootstrap', timeout=300)
     require_flutter_revision(flutter)
     run(['xcodebuild', '-version'], output, 'xcode-version', timeout=30)
     run(['xcrun', '--sdk', 'iphoneos', '--show-sdk-version'], output, 'ios-sdk', timeout=30)
