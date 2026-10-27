@@ -16,6 +16,19 @@ def run(*args, **kwargs):
     return subprocess.run(args, check=True, **kwargs)
 
 
+def wait_for_database(name):
+    # The image's init server accepts Unix-socket connections before shutting
+    # down for the final server. Only the final server accepts TCP connections.
+    for _ in range(60):
+        result = subprocess.run(
+            ['docker', 'exec', name, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres'],
+            capture_output=True)
+        if result.returncode == 0:
+            return
+        time.sleep(1)
+    raise RuntimeError('test database did not become ready')
+
+
 def main():
     name = "revocred-test-" + secrets.token_hex(5)
     password = secrets.token_urlsafe(24)
@@ -23,13 +36,7 @@ def main():
         run("docker", "run", "--detach", "--name", name, "--publish", "127.0.0.1::5432",
             "--env", "POSTGRES_DB=revocred_test", "--env", "POSTGRES_PASSWORD=" + password,
             "postgres:15-alpine", stdout=subprocess.DEVNULL)
-        for _ in range(60):
-            result = subprocess.run(["docker", "exec", name, "pg_isready", "-U", "postgres"], capture_output=True)
-            if result.returncode == 0:
-                break
-            time.sleep(1)
-        else:
-            raise RuntimeError("test database did not become ready")
+        wait_for_database(name)
         port = subprocess.check_output(["docker", "port", name, "5432/tcp"], text=True).strip().split(":")[-1]
         url = f"postgresql://postgres:{password}@127.0.0.1:{port}/revocred_test?sslmode=disable"
         run("docker", "exec", name, "psql", "-U", "postgres", "-d", "revocred_test", "-v", "ON_ERROR_STOP=1", "-c",
