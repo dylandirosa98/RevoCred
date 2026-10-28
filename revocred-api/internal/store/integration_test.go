@@ -53,7 +53,7 @@ func TestPostgresIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cards) != 14 {
+	if len(cards) != 15 {
 		t.Fatalf("catalog count=%d", len(cards))
 	}
 	for _, c := range cards {

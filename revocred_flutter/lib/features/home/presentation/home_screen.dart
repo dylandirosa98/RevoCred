@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/logic/wallet_score.dart';
+import '../../../core/logic/card_art.dart';
 import '../../../core/logic/ongoing_value.dart';
 import 'ongoing_value_breakdown.dart';
 import '../../../core/logic/strategy_digest.dart';
@@ -467,7 +468,6 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                   separatorBuilder: (_, _) => const SizedBox(width: 11),
                   itemBuilder: (context, index) => _StudioCard(
                     card: widget.cards[index],
-                    index: index,
                     preferred: widget.cards[index].id == card?.id,
                     onTap: () => context.go('/cards'),
                   ),
@@ -741,10 +741,10 @@ class _DecisionCard extends StatelessWidget {
           child: Container(
             padding: EdgeInsets.all(width < 330 ? 18 : 24),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF17151C), Color(0xFF44365D)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+              color: Colors.black,
+              image: DecorationImage(
+                image: AssetImage(cardArtAsset(card)),
+                fit: BoxFit.cover,
               ),
               borderRadius: BorderRadius.circular(22),
               boxShadow: [
@@ -757,18 +757,18 @@ class _DecisionCard extends StatelessWidget {
             ),
             child: Stack(
               children: [
-                Positioned(
-                  right: -50,
-                  top: -70,
-                  child: Transform.rotate(
-                    angle: -.28,
-                    child: Container(
-                      width: width * .62,
-                      height: width * .42,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: .065),
-                        borderRadius: BorderRadius.circular(48),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.black.withValues(alpha: .08),
+                          Colors.black.withValues(alpha: .66),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                       ),
+                      borderRadius: BorderRadius.circular(22),
                     ),
                   ),
                 ),
@@ -1176,7 +1176,6 @@ class _WalletStudioHome extends StatelessWidget {
                   separatorBuilder: (_, _) => const SizedBox(width: 11),
                   itemBuilder: (context, index) => _StudioCard(
                     card: cards[index],
-                    index: index,
                     preferred: index == 0,
                     onTap: () => context.go('/cards'),
                   ),
@@ -1409,29 +1408,20 @@ class _StudioMetric extends StatelessWidget {
 class _StudioCard extends StatelessWidget {
   const _StudioCard({
     required this.card,
-    required this.index,
     required this.preferred,
     required this.onTap,
   });
 
   static const width = 184.0;
-  static const height = width / 1.586;
+  static const height = 158.0;
 
   final CreditCard card;
-  final int index;
   final bool preferred;
   final VoidCallback onTap;
 
-  static const palettes = [
-    [Color(0xFF17161B), Color(0xFF35313D)],
-    [Color(0xFF7256D5), Color(0xFFA78CF1)],
-    [Color(0xFF214E62), Color(0xFF3DA7A2)],
-    [Color(0xFF813E53), Color(0xFFE06C76)],
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final colors = palettes[index % palettes.length];
+    final product = context.product;
     return Semantics(
       button: true,
       label: 'Open ${card.name}',
@@ -1441,115 +1431,101 @@ class _StudioCard extends StatelessWidget {
         child: SizedBox(
           key: ValueKey('wallet-studio-card-${card.id}'),
           width: width,
-          height: height,
           child: Ink(
-            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: colors,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: product.surface,
               borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: product.border),
               boxShadow: [
                 BoxShadow(
-                  color: colors.first.withValues(alpha: .2),
+                  color: const Color(0xFF241C36).withValues(alpha: .12),
                   blurRadius: 14,
                   offset: const Offset(0, 6),
                 ),
               ],
             ),
-            child: Stack(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Positioned(
-                  right: -35,
-                  top: -48,
-                  child: Transform.rotate(
-                    angle: -.25,
-                    child: Container(
-                      width: 120,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: .07),
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                    ),
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(15),
+                  ),
+                  child: Image.asset(
+                    cardArtAsset(card),
+                    width: width,
+                    height: 52,
+                    fit: BoxFit.cover,
+                    excludeFromSemantics: true,
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 28,
-                          height: 22,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: .15),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: .25),
-                            ),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
                             _issuerMonogram(card.issuer),
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: product.muted,
                               fontSize: 8,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                        ),
-                        const Spacer(),
-                        if (preferred)
-                          Text(
-                            'PREFERRED',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: .72),
-                              fontSize: 7,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: .6,
+                          const Spacer(),
+                          if (preferred)
+                            Text(
+                              'PREFERRED',
+                              style: TextStyle(
+                                color: product.action,
+                                fontSize: 7,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: .6,
+                              ),
                             ),
-                          ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Text(
-                      card.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            card.multiplier,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: .72),
-                              fontSize: 8,
+                      const SizedBox(height: 4),
+                      Text(
+                        card.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: product.ink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              card.multiplier,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: product.muted,
+                                fontSize: 9,
+                              ),
                             ),
                           ),
-                        ),
-                        Text(
-                          'FEE ${card.annualFee}',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: .68),
-                            fontSize: 7,
-                            fontWeight: FontWeight.w600,
+                          Text(
+                            'FEE ${card.annualFee}',
+                            style: TextStyle(
+                              color: product.muted,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1562,7 +1538,7 @@ class _StudioCard extends StatelessWidget {
   static String _issuerMonogram(String issuer) {
     final words = issuer
         .trim()
-        .split(RegExp(r'\s+'))
+        .split(RegExp(r'\\s+'))
         .where((word) => word.isNotEmpty)
         .toList();
     if (words.isEmpty) return 'RC';
@@ -1866,7 +1842,7 @@ class _WalletFlowHome extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               SizedBox(
-                height: 126,
+                height: 168,
                 child: ListView.separated(
                   key: const ValueKey('wallet-flow-cards'),
                   scrollDirection: Axis.horizontal,
@@ -1874,7 +1850,6 @@ class _WalletFlowHome extends StatelessWidget {
                   separatorBuilder: (_, _) => const SizedBox(width: 10),
                   itemBuilder: (context, index) => _WalletPreviewCard(
                     card: cards[index],
-                    index: index,
                     value: math.max(1, estimatedValue ~/ cards.length),
                     onTap: () => context.go('/cards'),
                   ),
@@ -2068,26 +2043,17 @@ class _WalletSectionHeader extends StatelessWidget {
 class _WalletPreviewCard extends StatelessWidget {
   const _WalletPreviewCard({
     required this.card,
-    required this.index,
     required this.value,
     required this.onTap,
   });
 
   final CreditCard card;
-  final int index;
   final int value;
   final VoidCallback onTap;
 
-  static const palettes = [
-    [Color(0xFF28272B), Color(0xFF121214)],
-    [Color(0xFFB49CFF), Color(0xFF8974F1)],
-    [Color(0xFFFFB16B), Color(0xFFF07868)],
-    [Color(0xFF68CFD9), Color(0xFF548ED7)],
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final colors = palettes[index % palettes.length];
+    final product = context.product;
     return Semantics(
       button: true,
       label: 'Open ${card.name}',
@@ -2096,84 +2062,71 @@ class _WalletPreviewCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(13),
         child: Ink(
           width: 164,
-          padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: colors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: product.surface,
             borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: product.border),
           ),
-          child: Stack(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Positioned(
-                right: -22,
-                top: -28,
-                child: Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .06),
-                    shape: BoxShape.circle,
-                  ),
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(13),
+                ),
+                child: Image.asset(
+                  cardArtAsset(card),
+                  width: 164,
+                  height: 64,
+                  fit: BoxFit.cover,
+                  excludeFromSemantics: true,
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    card.brand.toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    card.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: .82),
-                      fontSize: 9,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '\$${_WalletFlowHome._spacedAmount(value)}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: .4,
-                    ),
-                  ),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          card.multiplier,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: .72),
-                            fontSize: 8,
-                          ),
-                        ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(13, 9, 13, 11),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      card.brand.toUpperCase(),
+                      style: TextStyle(
+                        color: product.muted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
                       ),
-                      Text(
-                        '•• ${card.id.hashCode.abs().toString().padLeft(4, '0').substring(0, 4)}',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: .72),
-                          fontSize: 8,
-                        ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      card.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: product.ink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '\$${_WalletFlowHome._spacedAmount(value)}',
+                      style: TextStyle(
+                        color: product.ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: .4,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      card.multiplier,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: product.muted, fontSize: 9),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

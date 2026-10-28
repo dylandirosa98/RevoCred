@@ -76,7 +76,7 @@ license if changing provider or importing a different artifact.
 
 - `go test -race ./internal/carddata ./internal/store ./internal/chat`
 - `make database-test`: disposable PostgreSQL, actual runtime-role persistence,
-  restart/cache reload, 14 exact mappings, wallet enrichment, unchanged scoring
+  restart/cache reload, 15 exact mappings, wallet enrichment, unchanged scoring
   inputs and recommendation results.
 - `make check`: formatter/analyzer, complete Flutter and Go suites, SQL vet.
 - `test/community_card_data_test.dart`: model isolation, copy preservation, and

@@ -51,7 +51,7 @@ def main():
         run("docker", "exec", "-i", name, "pg_restore", "-U", "postgres", "--exit-on-error", "-d", "revocred_restore", input=dump)
         count = subprocess.check_output(["docker", "exec", name, "psql", "-U", "postgres", "-d", "revocred_restore", "-Atc",
             "SELECT count(*) FROM revocred.catalog_cards WHERE is_active AND data_kind='issuer_snapshot'"], text=True).strip()
-        if count != "14":
+        if count != "15":
             raise AssertionError("restored catalog count mismatch: " + count)
         print("Database verification passed: migrations, runtime-role isolation, account lifecycle, immutable snapshots, and backup restore.")
     finally:

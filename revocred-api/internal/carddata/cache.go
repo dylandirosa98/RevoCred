@@ -39,6 +39,8 @@ func validIssuerURL(value, product string) bool {
 		bank = "chase.com"
 	case strings.HasPrefix(product, "us-citi-"):
 		bank = "citi.com"
+	case strings.HasPrefix(product, "us-discover-"):
+		bank = "discover.com"
 	default:
 		return false
 	}
@@ -64,6 +66,7 @@ var bindings = map[string]string{
 	"20000000-0000-4000-8000-000000000018": "us-citi-double-cash",
 	"20000000-0000-4000-8000-000000000019": "us-citi-strata",
 	"20000000-0000-4000-8000-000000000020": "us-citi-strata-elite",
+	"20000000-0000-4000-8000-000000000021": "us-discover-it-cash-back",
 }
 
 type Category struct {

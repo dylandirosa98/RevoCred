@@ -16,7 +16,7 @@ func TestReviewedCatalogCoverageAndBudgetOverlap(t *testing.T) {
 	if err = json.Unmarshal(raw, &cards); err != nil {
 		t.Fatal(err)
 	}
-	if len(cards) != 14 {
+	if len(cards) != 15 {
 		t.Fatalf("catalog coverage=%d", len(cards))
 	}
 	for _, c := range cards {

@@ -50,7 +50,7 @@ there is no safe universal dollar parser.
 
 The simplest fail-closed adapter is the reviewed allowlist
 `revocred-api/internal/valuation/benefits.json`: 75 evidence/exclusion records,
-covering all 14 catalog products, with 15 monetized recurring benefit rules.
+covering all 15 catalog products, with 15 monetized recurring benefit rules.
 Amounts were explicitly reviewed, **not extracted automatically from prose**.
 Valued rules require exact catalog UUID + exact OpenCard product ID + exact
 reviewed benefit text. Changed/removed text or missing community data yields
@@ -119,7 +119,7 @@ TDD: initial Go ongoing test failed with undefined `Ongoing`, then passed after
 implementation. The breakdown/widget and mock tests likewise failed for missing
 implementations before passing. Regression tests cover no-fee value, Venture X,
 incompatible/no travel budget, missing/changed evidence, anniversary reward,
-custom/unknown/inactive cards, duplicate/overlapping budget, all 14 source
+custom/unknown/inactive cards, duplicate/overlapping budget, all 15 source
 bindings, ignored marketing perks, unchanged application rankings and chat facts.
 
 Real commands/results (logs under `.local/`):

@@ -82,6 +82,16 @@ func TestFetchUsesExactMappingsAndPreservesConditionalRewards(t *testing.T) {
 	if c.Get("user-owned-custom-card") != nil {
 		t.Fatal("custom cards must not be enriched by name")
 	}
+	discover := c.Get("20000000-0000-4000-8000-000000000021")
+	if discover == nil {
+		t.Fatal("Discover it Cash Back was not mapped")
+	}
+	if discover.ID != "us-discover-it-cash-back" {
+		t.Fatalf("wrong record: %+v", discover)
+	}
+	if !strings.Contains(strings.Join(discover.RewardRates, " "), "1%") {
+		t.Fatal("missing base cash-back rate")
+	}
 	if saved.saves != 1 || reserve.Attribution == "" || reserve.LicenseURL == "" || reserve.SnapshotSHA256 == "" {
 		t.Fatal("cache persistence or provenance missing")
 	}

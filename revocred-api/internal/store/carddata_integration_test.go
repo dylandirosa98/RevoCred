@@ -71,7 +71,7 @@ func TestCommunityCardDataIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(after) != 14 {
+	if len(after) != 15 {
 		t.Fatalf("recommendation catalog changed size: %d", len(after))
 	}
 	matched := 0
@@ -83,8 +83,8 @@ func TestCommunityCardDataIntegration(t *testing.T) {
 			t.Fatal("community feed modified issuer/scoring inputs")
 		}
 	}
-	if matched != 14 {
-		t.Fatalf("mapped %d cards, expected 14", matched)
+	if matched != 15 {
+		t.Fatalf("mapped %d cards, expected 15", matched)
 	}
 	input := domain.RecommendationInput{MonthlyCategorySpend: map[string]int64{"other": 100000}, FeeToleranceCents: 100000, CreditTier: "excellent", RewardsGoal: "travel", TravelScope: "both"}
 	a := recommendation.New().Recommend(input, before)

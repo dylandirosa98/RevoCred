@@ -57,4 +57,7 @@ var categoryReviewed = map[string]map[string]rule{
 		"Restaurants on Citi Nights (Friday & Saturday 6 PM - 6 AM ET)": conditional("Only eligible restaurant transactions during Citi Nights: Friday/Saturday 6 PM–6 AM Eastern. Confirm transaction eligibility; not a universal dining rate.", "dining"),
 		"Restaurants (any other time)":                                  regular("dining"),
 	},
+	"us-discover-it-cash-back": {
+		"Rotating quarterly categories (activation required)": conditional("Current-quarter category eligibility and activation are not known. Do not assume a specific category qualifies. $1,500 quarterly combined spending cap applies.", "groceries", "gas", "online-shopping", "wholesale-clubs", "general-purchases"),
+	},
 }
