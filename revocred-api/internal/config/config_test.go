@@ -113,7 +113,11 @@ func TestProductionAIRejectsTestingCredentialsAndRoutes(t *testing.T) {
 	t.Setenv("AI_MODEL", "configured-production-model")
 	t.Setenv("AI_BASE_URL", "https://opencode.ai/zen/go/v1")
 	if _, err := Load(); err == nil {
-		t.Fatal("production accepted a testing AI endpoint")
+		t.Fatal("production sent an OpenAI key to the OpenCode endpoint")
+	}
+	t.Setenv("AI_BASE_URL", "https://other-provider.example/v1")
+	if _, err := Load(); err == nil {
+		t.Fatal("production accepted an unknown AI endpoint")
 	}
 	t.Setenv("AI_BASE_URL", "https://api.openai.com/v1")
 	if _, err := Load(); err != nil {
@@ -129,5 +133,26 @@ func TestProductionAIRejectsTestingCredentialsAndRoutes(t *testing.T) {
 	t.Setenv("OPENCODE_GO_MODEL", "deepseek-v4.1-flash")
 	if _, err := Load(); err == nil {
 		t.Fatal("production inherited the testing model")
+	}
+}
+
+func TestProductionAIAllowsExplicitOpenCodeGo(t *testing.T) {
+	setMobileProductionEnv(t)
+	for _, key := range []string{"OPENCODE_GO_API_KEY", "OPENCODE_GO_BASE_URL", "OPENCODE_GO_MODEL"} {
+		t.Setenv(key, "")
+	}
+	t.Setenv("AI_API_KEY", "oc-explicit-testing-key")
+	t.Setenv("AI_BASE_URL", "https://opencode.ai/zen/go/v1/")
+	t.Setenv("AI_MODEL", "deepseek-v4.1-flash")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AIBaseURL != "https://opencode.ai/zen/go/v1" || cfg.AIModel != "deepseek-v4.1-flash" {
+		t.Fatalf("AI settings: %+v", cfg)
+	}
+	t.Setenv("AI_MODEL", "")
+	if _, err := Load(); err == nil {
+		t.Fatal("production accepted OpenCode Go without an explicit model")
 	}
 }

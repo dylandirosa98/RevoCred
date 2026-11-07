@@ -109,11 +109,19 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
 	}
 	if cfg.Environment == "production" {
-		// Production is OpenAI-only. Never inherit a developer's legacy Go key
-		// or silently route production prompts through a testing subscription.
-		if cfg.AIAPIKey != "" && (!strings.HasPrefix(strings.TrimSpace(os.Getenv("AI_API_KEY")), "sk-") ||
-			strings.TrimRight(strings.TrimSpace(os.Getenv("AI_BASE_URL")), "/") != "https://api.openai.com/v1" || strings.TrimSpace(os.Getenv("AI_MODEL")) == "") {
-			return Config{}, errors.New("production AI requires explicit AI_API_KEY, AI_BASE_URL=https://api.openai.com/v1 and AI_MODEL; OPENCODE_GO_* is testing-only")
+		// Production AI must be chosen explicitly through AI_*: never inherit a
+		// developer's legacy OPENCODE_GO_* settings. OpenAI is the release
+		// provider; the OpenCode Go endpoint is allowed only as a deliberate
+		// testing choice, and the sharing notice labels it as testing.
+		if cfg.AIAPIKey != "" {
+			key := strings.TrimSpace(os.Getenv("AI_API_KEY"))
+			base := strings.TrimRight(strings.TrimSpace(os.Getenv("AI_BASE_URL")), "/")
+			model := strings.TrimSpace(os.Getenv("AI_MODEL"))
+			openAI := base == "https://api.openai.com/v1" && strings.HasPrefix(key, "sk-")
+			openCodeGo := base == "https://opencode.ai/zen/go/v1" && key != "" && !strings.HasPrefix(key, "sk-")
+			if model == "" || !(openAI || openCodeGo) {
+				return Config{}, errors.New("production AI requires explicit AI_API_KEY, AI_MODEL and AI_BASE_URL (https://api.openai.com/v1 with an sk- key, or https://opencode.ai/zen/go/v1 for testing); OPENCODE_GO_* is never inherited")
+			}
 		}
 		if len(cfg.MetricsToken) < 32 {
 			return Config{}, errors.New("production requires METRICS_TOKEN of at least 32 characters")

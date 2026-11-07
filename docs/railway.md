@@ -68,14 +68,20 @@ Data migrations are forward-only; see [operations.md](operations.md#rollback-and
 
 ## REVO AI provider
 
-**Production uses OpenAI. OpenCode Go/DeepSeek and the developer's personal key
-are testing-only.** For `APP_ENV=production`, enabling external AI requires an
-explicit `AI_API_KEY` (OpenAI `sk-…`), `AI_BASE_URL=https://api.openai.com/v1`,
-and `AI_MODEL`. Production refuses inherited `OPENCODE_GO_*` settings or any
-other endpoint. If no AI key is configured at all, REVO remains deterministic.
-Store the client's production key only in server-side Railway secrets, never
-in Flutter/iOS configuration. Provision separate production/staging projects,
-keys, budgets and monitoring; do not copy the developer's local `.env`.
+**OpenAI is the release provider.** For `APP_ENV=production`, external AI must
+be set explicitly through `AI_API_KEY`, `AI_BASE_URL` and `AI_MODEL`; inherited
+`OPENCODE_GO_*` settings are never used. Two endpoints are accepted:
+
+- `https://api.openai.com/v1` with an OpenAI `sk-…` key (release).
+- `https://opencode.ai/zen/go/v1` with an OpenCode Go key and a `deepseek-…`
+  model, as a deliberate testing choice before an OpenAI key exists. The
+  in-app sharing notice names it "OpenCode Go and DeepSeek (testing)". Check
+  OpenCode Go's terms and usage limits before real members use it, and switch
+  to OpenAI before App Store submission.
+
+If no AI key is configured at all, REVO remains deterministic.
+Store the key only in server-side Railway secrets, never in Flutter/iOS
+configuration.
 
 Development still supports `OPENCODE_GO_*` as fallbacks to `AI_*`. For OpenAI
 the API sends `max_completion_tokens` and `store=false`,
