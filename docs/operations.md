@@ -25,6 +25,28 @@ the testing fallbacks. Its Compose file also no longer maps legacy testing
 variables into production `AI_*` variables. See
 [railway.md](railway.md#revo-ai-provider).
 
+### REVO chat
+
+- **AI permission** is saved per account (`GET/PUT/DELETE /v1/chat/consent`)
+  against the sharing-notice version. Changing the AI endpoint, model, search
+  provider or notice wording changes the version, so members are asked again
+  and stale permission falls back to basic answers. Guests pass
+  `ai_consent_version` per message.
+- **Modes:** every saved reply records `mode` (`ai` or `basic`). Provider
+  outages fall back to a labelled basic answer.
+- **Daily cap:** `CHAT_DAILY_AI_LIMIT` (default 60) external-AI replies per
+  user per rolling 24 hours; over the cap the API returns 429
+  `chat_daily_limit`.
+- **Streaming:** `POST /v1/chat/messages` and `/v1/public/explain` answer as
+  server-sent events (`status`, then `done` or `error`) when the client sends
+  `Accept: text/event-stream`. A client disconnect cancels the model and saves
+  nothing. Proxies must not buffer `text/event-stream` (the API sets
+  `X-Accel-Buffering: no`).
+- **History:** `DELETE /v1/chat/messages` clears a member's chat; feedback is
+  `POST /v1/chat/messages/{id}/feedback`. Both are included in account export
+  and removed by account deletion.
+- **Web search** uses the Brave Search API when `SEARCH_API_KEY` is set.
+
 ## Local development
 
 Use `make local-setup`, then `make local-preview` for a managed release build

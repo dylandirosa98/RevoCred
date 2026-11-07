@@ -37,7 +37,11 @@ class OnboardingDraftStore {
       return data == null
           ? null
           : QuestionnaireAnswers.fromRecommendationJson(
-              (data['answers'] as Map).cast<String, dynamic>(),
+              {
+                ...(data['answers'] as Map).cast<String, dynamic>(),
+                if (data['display_name'] != null)
+                  'display_name': data['display_name'],
+              },
               cardLabels:
                   (data['card_labels'] as Map?)?.cast<String, dynamic>() ??
                   const {},
@@ -73,8 +77,15 @@ class OnboardingDraftStore {
   }
 
   Future<void> bind(String email) async {
-    final value = answers;
-    if (value != null) await save(value, email: email);
+    final value = _value;
+    if (value == null) return;
+    final normalized = email.trim().toLowerCase();
+    // A confirmation handoff belongs to its original account, not whichever
+    // account next signs in on this device.
+    if (value['email'] != null && value['email'] != normalized) return;
+    value['email'] = normalized;
+    _memory = jsonEncode(value);
+    await preferences?.setString(_key, _memory!);
   }
 
   Future<void> clear() async {

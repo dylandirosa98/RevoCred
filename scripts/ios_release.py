@@ -18,6 +18,12 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "revocred_flutter"
 FLUTTER_REVISION = "6b182d2c7585eba26d4edce0f97630effd256c33"
 PUBLIC_KEYS = frozenset((
+    "REVOCRED_LEGAL_ENTITY",
+    "REVOCRED_SUPPORT_EMAIL",
+    "REVOCRED_LEGAL_JURISDICTION",
+    "REVOCRED_LEGAL_EFFECTIVE_DATE",
+    "REVOCRED_PRIVACY_URL",
+    "REVOCRED_TERMS_URL",
     "REVOCRED_USE_MOCKS", "REVOCRED_PRODUCTION", "REVOCRED_API_URL",
     "SUPABASE_URL", "SUPABASE_ANON_KEY", "REVOCRED_AUTH_REDIRECT_URL",
 ))
@@ -30,7 +36,7 @@ def load_config(path, *, allow_fixture=False):
     except (OSError, ValueError):
         raise ValueError("Cannot read public iOS JSON configuration.") from None
     if not isinstance(config, dict) or set(config) != PUBLIC_KEYS:
-        raise ValueError("iOS configuration must contain exactly the six public example keys.")
+        raise ValueError("iOS configuration must contain exactly the public example keys.")
     if not all(isinstance(value, str) for value in config.values()):
         raise ValueError("All iOS configuration values must be strings, including booleans.")
     validate(config)
@@ -39,7 +45,7 @@ def load_config(path, *, allow_fixture=False):
     if not allow_fixture:
         reserved = ("localhost", "local", "test", "invalid", "example", "example.com",
                     "example.org", "example.net", "trycloudflare.com", "ngrok.io", "ngrok-free.app")
-        for name in ("REVOCRED_API_URL", "SUPABASE_URL"):
+        for name in ("REVOCRED_API_URL", "SUPABASE_URL", "REVOCRED_PRIVACY_URL", "REVOCRED_TERMS_URL"):
             host = (urlparse(config[name]).hostname or "").lower().rstrip(".")
             try:
                 # Stable public DNS is required, not even a public numeric address.

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -47,12 +48,66 @@ func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedCon
 	normalized := strings.ToLower(prompt)
 	facts := Snapshot(groundedContext)
 	finish := func(blocks []Block) (Reply, error) {
-		return Reply{Blocks: blocks, Text: RenderText(blocks)}, nil
+		blocks = append([]Block{{Type: "note", Text: "Basic answer — AI is off, so this comes straight from your plan."}}, blocks...)
+		return Reply{Basic: true, Blocks: blocks, Text: RenderText(blocks)}, nil
+	}
+	if strings.Contains(normalized, "score") {
+		return finish([]Block{{Type: "paragraph", Text: fmt.Sprintf("Your wallet score is %d. It measures reward coverage and optimization, not creditworthiness. The saved plan does not provide an exact score breakdown.", facts.WalletScore)}})
+	}
+	if strings.Contains(normalized, "fees") || strings.Contains(normalized, "total annual") {
+		total := 0
+		unknown := false
+		for _, w := range groundedContext.Wallet {
+			if w.Status == "active" && w.Card != nil {
+				if w.Card.TermsUnknown {
+					unknown = true
+				} else {
+					total += w.Card.AnnualFeeCents
+				}
+			}
+		}
+		text := fmt.Sprintf("Known active-wallet annual fees total $%.2f.", float64(total)/100)
+		if unknown {
+			text += " Cards with unknown terms are excluded."
+		}
+		return finish([]Block{{Type: "paragraph", Text: text}})
+	}
+	if strings.Contains(normalized, "strategy") || strings.Contains(normalized, "playbook") || strings.Contains(normalized, "roadmap") {
+		if facts.Strategy != nil {
+			items := []string{}
+			for _, step := range facts.Strategy.Roadmap {
+				items = append(items, step.Card+": "+step.Status+". "+step.Use+" "+step.Note)
+			}
+			return finish([]Block{{Type: "heading", Text: facts.Strategy.Title}, {Type: "bullets", Items: items}})
+		}
+	}
+	if entry := matchCard(normalized, facts); entry != nil {
+		name, _ := entry["name"].(string)
+		items := []string{}
+		if fee, ok := entry["annual_fee_usd"].(float64); ok {
+			items = append(items, fmt.Sprintf("Annual fee: $%.0f", fee))
+		}
+		if rates, ok := entry["reward_rates"].(map[string]float64); ok {
+			keys := make([]string, 0, len(rates))
+			for key := range rates {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				items = append(items, fmt.Sprintf("%s: %g%% modeled return (one cent per point)", titleCase(key), rates[key]))
+			}
+		}
+		if benefits, ok := entry["benefits"].([]string); ok {
+			items = append(items, benefits...)
+		}
+		if len(items) > 0 {
+			return finish([]Block{{Type: "heading", Text: name}, {Type: "bullets", Items: items}, {Type: "note", Text: "Saved catalog terms. Verify conditions and current issuer terms before relying on them."}})
+		}
 	}
 	if groundedContext.Recommendations != nil && len(groundedContext.Recommendations.Items) > 0 &&
 		(strings.Contains(normalized, "recommend") || strings.Contains(normalized, "next") || strings.Contains(normalized, "apply")) {
 		item := groundedContext.Recommendations.Items[0]
-		blocks := []Block{{Type: "heading", Text: "Your next move: " + item.CardName}}
+		blocks := []Block{{Type: "heading", Text: "The app’s server-ranked next application: " + item.CardName}}
 		if len(item.Reasons) > 0 {
 			bullets := make([]string, 0, len(item.Reasons))
 			for _, reason := range item.Reasons {
@@ -71,7 +126,7 @@ func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedCon
 	}
 
 	category := ""
-	for _, candidate := range []string{"dining", "groceries", "grocery", "travel", "gas", "rent"} {
+	for _, candidate := range basicCategories(facts) {
 		if strings.Contains(normalized, candidate) {
 			category = strings.TrimSuffix(candidate, "ies")
 			if candidate == "groceries" || candidate == "grocery" {
@@ -84,7 +139,7 @@ func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedCon
 		var best *domain.CatalogCard
 		rate := 0.0
 		for _, item := range groundedContext.Wallet {
-			if item.Status != "active" || item.Card == nil {
+			if item.Status != "active" || item.Card == nil || item.Card.TermsUnknown {
 				continue
 			}
 			candidateRate := valuation.Rate(item.Card.RewardRates, category)
@@ -106,7 +161,7 @@ func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedCon
 		}
 	}
 
-	blocks := []Block{{Type: "paragraph", Text: "I do not have an eligible card recommendation for that question. Complete or update your questionnaire and wallet so REVO has facts to explain."}}
+	blocks := []Block{{Type: "paragraph", Text: "Basic mode can explain saved card fees and benefits, wallet reward rates by category, total annual fees, wallet score, your strategy and the server-ranked next application. Ask about a card or spending category."}}
 	if len(facts.MonthlySpend) > 0 {
 		blocks = append(blocks, Block{Type: "chart", Chart: &Chart{
 			Title: "Your monthly spending",
@@ -129,4 +184,59 @@ func spendBars(facts snapshot) []Bar {
 	}
 	sort.Slice(bars, func(i, j int) bool { return bars[i].Value > bars[j].Value })
 	return capBars(Chart{Bars: bars}).Bars
+}
+
+// cardNameNoise lists words too common in card names to identify a card on
+// their own: issuers, networks, spending categories and marketing words.
+var cardNameNoise = map[string]bool{
+	"card": true, "credit": true, "rewards": true, "reward": true, "travel": true, "cash": true, "back": true,
+	"plus": true, "everyday": true, "business": true, "signature": true, "visa": true, "mastercard": true,
+	"world": true, "elite": true, "bank": true, "american": true, "express": true, "capital": true, "chase": true,
+	"citi": true, "discover": true, "wells": true, "fargo": true, "america": true, "dining": true, "groceries": true,
+	"grocery": true, "hotel": true, "hotels": true, "airline": true, "airlines": true, "miles": true, "points": true,
+	"with": true, "from": true, "your": true, "card's": true,
+}
+
+// matchCard finds the wallet or catalog card a question names. A full-name
+// mention wins; otherwise the card with the most distinctive name words
+// matched wins, wallet cards first on ties. Generic words never match alone.
+func matchCard(normalized string, facts snapshot) map[string]any {
+	words := map[string]bool{}
+	for _, word := range strings.FieldsFunc(normalized, func(r rune) bool {
+		return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '\'')
+	}) {
+		words[word] = true
+	}
+	var best map[string]any
+	bestScore := 0
+	for _, entry := range append(append([]map[string]any{}, facts.Wallet...), facts.Catalog...) {
+		name, _ := entry["name"].(string)
+		lower := strings.ToLower(strings.TrimSpace(name))
+		if lower == "" {
+			continue
+		}
+		score := 0
+		if strings.Contains(normalized, lower) {
+			score = 100
+		}
+		for _, word := range strings.Fields(lower) {
+			if len(word) >= 4 && !cardNameNoise[word] && words[word] {
+				score++
+			}
+		}
+		if score > bestScore {
+			best, bestScore = entry, score
+		}
+	}
+	return best
+}
+
+func basicCategories(f snapshot) []string {
+	out := []string{"dining", "groceries", "grocery", "travel", "gas", "rent"}
+	for _, g := range f.PurchaseGuide {
+		if g.Category != "" {
+			out = append(out, strings.ToLower(g.Category))
+		}
+	}
+	return out
 }

@@ -77,15 +77,42 @@ PurchaseGuide demoPurchaseGuide(
     'discover-it': {'other': 1},
   };
   final categories = <PurchaseCategory>[];
+  int byRate(PurchaseOption a, PurchaseOption b) {
+    final rate = b.rate.compareTo(a.rate);
+    if (rate != 0) return rate;
+    final name = a.cardName.compareTo(b.cardName);
+    return name != 0 ? name : a.cardId.compareTo(b.cardId);
+  }
+
   for (final entry in labels.entries) {
     final options = <PurchaseOption>[];
+    final fallback = <PurchaseOption>[];
     final unknown = <String>[];
     final unknownIds = <String>[];
     for (final card in wallet) {
       final known = rates[card.id];
-      if (card.termsUnknown || known == null || entry.key == 'rent') {
+      if (card.termsUnknown || known == null) {
         unknown.add('${card.name}: no supported demo rule');
         unknownIds.add(card.id);
+        continue;
+      }
+      if (entry.key == 'rent') {
+        final base = known['other']!;
+        fallback.add(
+          PurchaseOption(
+            cardId: card.id,
+            cardName: card.name,
+            rate: base,
+            earnLabel:
+                '${base == base.roundToDouble() ? base.toInt() : base}x demo rate',
+            reason:
+                'Rent must qualify as a purchase. Check payment fees first.',
+            conditions: const [
+              'Unverified demo base rate before fees. Confirm acceptance and reward eligibility; fees can outweigh rewards.',
+            ],
+            source: 'Unverified offline demo data',
+          ),
+        );
         continue;
       }
       var rate = known[entry.key] ?? known['other']!;
@@ -109,18 +136,18 @@ PurchaseGuide demoPurchaseGuide(
         ),
       );
     }
-    options.sort((a, b) {
-      final byRate = b.rate.compareTo(a.rate);
-      return byRate != 0 ? byRate : a.cardName.compareTo(b.cardName);
-    });
+    options.sort(byRate);
+    fallback.sort(byRate);
+    final displayed = options.isEmpty ? fallback : options;
     categories.add(
       PurchaseCategory(
         id: entry.key,
         label: entry.value,
         options: options,
+        fallbackOptions: fallback,
         unknown: unknown,
         unknownCardIds: unknownIds,
-        tied: options.length > 1 && options[0].rate == options[1].rate,
+        tied: displayed.length > 1 && displayed[0].rate == displayed[1].rate,
         assumptions:
             'Offline demonstration only. Points assumed worth 1 cent each. Not current verified card terms.',
       ),

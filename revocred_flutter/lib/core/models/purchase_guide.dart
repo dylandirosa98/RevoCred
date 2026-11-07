@@ -39,6 +39,7 @@ class PurchaseCategory {
     required this.id,
     required this.label,
     this.options = const [],
+    this.fallbackOptions = const [],
     this.conditional = const [],
     this.unknown = const [],
     this.unknownCardIds = const [],
@@ -49,6 +50,7 @@ class PurchaseCategory {
     id: (j['id'] ?? '').toString(),
     label: (j['label'] ?? '').toString(),
     options: _objects(j['options'], PurchaseOption.fromJson),
+    fallbackOptions: _objects(j['fallback_options'], PurchaseOption.fromJson),
     conditional: _objects(j['conditional'], PurchaseOption.fromJson),
     unknown: _strings(j['unknown']),
     unknownCardIds: _strings(j['unknown_card_ids']),
@@ -56,12 +58,19 @@ class PurchaseCategory {
     tied: j['tied'] == true,
   );
   final String id, label, assumptions;
-  final List<PurchaseOption> options, conditional;
+  final List<PurchaseOption> options, fallbackOptions, conditional;
   final List<String> unknown;
   final List<String> unknownCardIds;
   final bool tied;
+  bool get isFallback => options.isEmpty && fallbackOptions.isNotEmpty;
+  List<PurchaseOption> get displayOptions =>
+      isFallback ? fallbackOptions : options;
   PurchaseCategory forWallet(Set<String> ids) {
     final filtered = options.where((o) => ids.contains(o.cardId)).toList();
+    final fallback = fallbackOptions
+        .where((o) => ids.contains(o.cardId))
+        .toList();
+    final displayed = filtered.isEmpty ? fallback : filtered;
     final currentUnknown = <String>[];
     final currentUnknownIds = <String>[];
     for (var i = 0; i < unknown.length && i < unknownCardIds.length; i++) {
@@ -74,11 +83,12 @@ class PurchaseCategory {
       id: id,
       label: label,
       options: filtered,
+      fallbackOptions: fallback,
       conditional: conditional.where((o) => ids.contains(o.cardId)).toList(),
       unknown: currentUnknown,
       unknownCardIds: currentUnknownIds,
       assumptions: assumptions,
-      tied: filtered.length > 1 && filtered[0].rate == filtered[1].rate,
+      tied: displayed.length > 1 && displayed[0].rate == displayed[1].rate,
     );
   }
 }

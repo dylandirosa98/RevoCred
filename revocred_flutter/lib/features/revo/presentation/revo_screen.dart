@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/app_models.dart';
 import 'chat_blocks_view.dart';
+import 'message_feedback.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/send_revo_message.dart';
@@ -20,6 +21,7 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
   bool sending = false;
   bool submitting = false;
   String? localError;
+  String status = "REVO is thinking…";
   int lastVisibleItemCount = -1;
   bool nearBottom = true;
   bool forceNextScroll = false;
@@ -71,6 +73,14 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
                       'Ask REVO',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
+                    if (data.messages.isNotEmpty)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: submitting ? null : _clearConversation,
+                          child: const Text('Clear conversation'),
+                        ),
+                      ),
                     const SizedBox(height: 5),
                     Text(
                       !config.useMocks
@@ -120,25 +130,39 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
               ),
               Divider(height: 1, color: product.border),
               Expanded(
-                child: ListView.builder(
-                  key: const ValueKey('chat-history'),
-                  controller: scrollController,
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: EdgeInsets.all(product.pagePadding),
-                  itemCount: data.messages.length + (sending ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == data.messages.length) {
-                      return const _ThinkingAnswer();
-                    }
-                    return _MessageDocument(
-                      message: data.messages[index],
-                      contextLabel: !config.useMocks
-                          ? 'Grounded in your wallet, strategy and ranking'
-                          : 'Grounded in the demo wallet on screen',
-                    );
-                  },
-                ),
+                child: data.messages.isEmpty && !sending
+                    ? ListView(
+                        padding: EdgeInsets.all(product.pagePadding),
+                        children: [
+                          Text(
+                            'Meet your wallet guide',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Explain your cards, plan and purchases.\nLook up current card terms.\nRevoCred’s server picks cards; REVO only explains them.',
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        key: const ValueKey('chat-history'),
+                        controller: scrollController,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: EdgeInsets.all(product.pagePadding),
+                        itemCount: data.messages.length + (sending ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index == data.messages.length) {
+                            return _ThinkingAnswer(label: status);
+                          }
+                          return _MessageDocument(
+                            message: data.messages[index],
+                            contextLabel: !config.useMocks
+                                ? 'Grounded in your wallet, strategy and ranking'
+                                : 'Grounded in the demo wallet on screen',
+                          );
+                        },
+                      ),
               ),
               if (localError != null)
                 Container(
@@ -155,6 +179,12 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
                       Icon(Icons.error_outline, color: product.danger),
                       const SizedBox(width: 9),
                       Expanded(child: Text(localError!)),
+                      TextButton(
+                        onPressed: submitting
+                            ? null
+                            : () => _submit(controller.text),
+                        child: const Text('Try again'),
+                      ),
                       TextButton(
                         onPressed: () => setState(() => localError = null),
                         child: const Text('Dismiss'),
@@ -199,20 +229,16 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
                         const SizedBox(width: 10),
                         IconButton.filled(
                           key: const ValueKey('revo-send'),
-                          tooltip: 'Send message',
-                          onPressed: submitting
+                          tooltip: sending ? 'Stop' : 'Send message',
+                          onPressed: sending
+                              ? () => ref
+                                    .read(appControllerProvider.notifier)
+                                    .cancelPendingMessage()
+                              : submitting
                               ? null
                               : () => _submit(controller.text),
                           padding: const EdgeInsets.all(15),
-                          icon: sending
-                              ? const SizedBox(
-                                  width: 19,
-                                  height: 19,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.arrow_upward),
+                          icon: Icon(sending ? Icons.stop : Icons.arrow_upward),
                         ),
                       ],
                     ),
@@ -232,6 +258,8 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
     setState(() {
       submitting = true;
       localError = null;
+      status = "REVO is thinking…";
+      controller.text = prompt;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
     try {
@@ -239,6 +267,12 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
         context,
         ref,
         prompt,
+        onStatus: (label) {
+          if (mounted) setState(() => status = label);
+        },
+        onError: (message) {
+          if (mounted) setState(() => localError = message);
+        },
         onSending: () {
           setState(() {
             sending = true;
@@ -249,19 +283,43 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
       if (mounted && sent && controller.text.trim() == prompt) {
         controller.clear();
       }
-    } catch (_) {
-      if (mounted) {
-        setState(
-          () => localError =
-              'The response failed. Check your connection or try again.',
-        );
-      }
     } finally {
       if (mounted) {
         setState(() {
           sending = false;
           submitting = false;
         });
+      }
+    }
+  }
+
+  Future<void> _clearConversation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear conversation?'),
+        content: const Text('This removes the messages in this conversation.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear conversation'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(appControllerProvider.notifier).clearChat();
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => localError =
+              'Could not clear the conversation. Please try again.',
+        );
       }
     }
   }
@@ -413,6 +471,11 @@ class _MessageDocument extends StatelessWidget {
               ),
             ],
           ),
+          if (message.isBasic)
+            Text(
+              'Basic answer (no AI)',
+              style: TextStyle(color: product.muted, fontSize: 11),
+            ),
           const SizedBox(height: 10),
           ChatBlocksView(
             blocks: message.blocks,
@@ -425,6 +488,10 @@ class _MessageDocument extends StatelessWidget {
                 : product.surface,
             bodySize: product.chatTreatment == ChatTreatment.document ? 16 : 14,
           ),
+          if (RegExp(
+            r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+          ).hasMatch(message.id))
+            MessageFeedback(key: ValueKey(message.id), messageId: message.id),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -451,21 +518,17 @@ class _QuickPromptButton extends StatelessWidget {
   final VoidCallback? onPressed;
 
   @override
-  Widget build(BuildContext context) => TextButton.icon(
+  Widget build(BuildContext context) => ActionChip(
     onPressed: onPressed,
-    style: TextButton.styleFrom(
-      foregroundColor: context.product.action,
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
-      shape: const RoundedRectangleBorder(),
-    ),
-    iconAlignment: IconAlignment.end,
-    icon: const Icon(Icons.arrow_outward, size: 14),
     label: label,
+    labelStyle: TextStyle(color: context.product.action),
+    side: BorderSide(color: context.product.border),
   );
 }
 
 class _ThinkingAnswer extends StatelessWidget {
-  const _ThinkingAnswer();
+  const _ThinkingAnswer({required this.label});
+  final String label;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -478,10 +541,7 @@ class _ThinkingAnswer extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
         const SizedBox(width: 10),
-        Text(
-          'REVO is thinking',
-          style: TextStyle(color: context.product.muted),
-        ),
+        Text(label, style: TextStyle(color: context.product.muted)),
       ],
     ),
   );

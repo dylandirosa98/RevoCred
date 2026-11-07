@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/logic/card_search.dart';
+import '../../../core/logic/strategy_digest.dart';
 import '../../../core/models/app_models.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
@@ -27,6 +28,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
   bool _handledRouteSearch = false;
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
+  final _pickerAnchor = GlobalKey();
   Timer? _searchDebounce;
   List<ReferenceCard> _indexResults = const [];
   bool _indexSearching = false;
@@ -55,16 +57,23 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
       _handledRouteSearch = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        setState(() => showPicker = true);
-        _searchFocus.requestFocus();
+        _openCardPicker();
       });
     } else if (!openSearch) {
       _handledRouteSearch = false;
     }
     final query = _searchController.text.trim();
-    final matches = query.isEmpty
-        ? available.take(6).toList()
-        : searchCards(available, query).take(12).toList();
+    final next = strategyNextCard(data);
+    final nextCard = available.where((card) => card.id == next?.id).firstOrNull;
+    final matching = query.isEmpty ? available : searchCards(available, query);
+    // Display the existing server-owned plan first, not a new recommendation.
+    // A search must still match; never insert an unrelated suggested product.
+    final matches = [
+      if (nextCard != null && matching.any((card) => card.id == nextCard.id))
+        nextCard,
+      for (final card in matching)
+        if (card.id != nextCard?.id) card,
+    ].take(query.isEmpty ? 6 : 12).toList();
     final catalogIds = data.catalog.map((card) => card.id).toSet();
     final catalogIdentities = data.catalog
         .map((card) => '${card.issuer}|${card.name}'.toLowerCase())
@@ -105,29 +114,24 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
           style: TextStyle(color: product.muted),
         ),
         SizedBox(height: product.sectionGap),
-        WalletCardStack(
-          cards: data.wallet,
-          onAskRevo: _askRevo,
-          onRemove: _confirmRemove,
-        ),
-        SizedBox(height: product.sectionGap),
         OutlinedButton.icon(
-          key: const ValueKey('add-card-button'),
-          onPressed: () => setState(() => showPicker = !showPicker),
-          icon: Icon(showPicker ? Icons.close : Icons.add),
+          key: const ValueKey('add-card-top-button'),
+          onPressed: _openCardPicker,
+          icon: const Icon(Icons.add),
           label: const Text('Add a card to wallet'),
         ),
         if (showPicker) ...[
           const SizedBox(height: 14),
           AppPanel(
+            key: _pickerAnchor,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.search),
-                    SizedBox(width: 9),
-                    Expanded(
+                    const Icon(Icons.search),
+                    const SizedBox(width: 9),
+                    const Expanded(
                       child: Text(
                         'Find a card to add',
                         style: TextStyle(
@@ -136,7 +140,17 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
                         ),
                       ),
                     ),
+                    IconButton(
+                      tooltip: 'Close card search',
+                      onPressed: _closeCardPicker,
+                      icon: const Icon(Icons.close),
+                    ),
                   ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Add cards you already own. See Strategy before applying for a new one.',
+                  style: TextStyle(color: product.muted, fontSize: 12),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -163,9 +177,14 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                SectionLabel(
-                  query.isEmpty ? 'Popular cards' : 'Matching cards',
-                ),
+                SectionLabel(query.isEmpty ? 'Cards to add' : 'Matching cards'),
+                if (query.isEmpty && nextCard != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Other results are catalog cards, not additional recommendations.',
+                    style: TextStyle(color: product.muted, fontSize: 12),
+                  ),
+                ],
                 if (_indexSearching)
                   const Padding(
                     padding: EdgeInsets.only(top: 8),
@@ -188,9 +207,23 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
                       contentPadding: EdgeInsets.zero,
                       minVerticalPadding: 10,
                       leading: IssuerMark(issuer: card.issuer, size: 44),
-                      title: Text(
-                        card.name,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      title: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (card.id == nextCard?.id)
+                            Text(
+                              'Next in your strategy',
+                              style: TextStyle(
+                                color: product.action,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          Text(
+                            card.name,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ],
                       ),
                       subtitle: Text(
                         '${card.issuer} | ${card.annualFee} | ${card.bestUse}',
@@ -204,7 +237,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
                                     .addCard(card.id);
                                 if (!context.mounted) return;
                                 if (added) {
-                                  setState(() => showPicker = false);
+                                  _closeCardPicker();
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -261,7 +294,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
                           .read(appControllerProvider.notifier)
                           .addCustomCard(draft);
                       if (!context.mounted) return;
-                      if (added) setState(() => showPicker = false);
+                      if (added) _closeCardPicker();
                     },
                     icon: const Icon(Icons.edit_outlined),
                     label: const Text("Can't find it? Add it manually"),
@@ -271,8 +304,43 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
             ),
           ),
         ],
+        SizedBox(height: product.sectionGap),
+        WalletCardStack(
+          cards: data.wallet,
+          onAskRevo: _askRevo,
+          onRemove: _confirmRemove,
+        ),
+        SizedBox(height: product.sectionGap),
+        OutlinedButton.icon(
+          key: const ValueKey('add-card-button'),
+          onPressed: _openCardPicker,
+          icon: const Icon(Icons.add),
+          label: const Text('Add a card to wallet'),
+        ),
       ],
     );
+  }
+
+  void _openCardPicker() {
+    setState(() => showPicker = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || !showPicker) return;
+      final anchor = _pickerAnchor.currentContext;
+      if (anchor != null) {
+        await Scrollable.ensureVisible(
+          anchor,
+          alignment: 0,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+      if (mounted && showPicker) _searchFocus.requestFocus();
+    });
+  }
+
+  void _closeCardPicker() {
+    _searchFocus.unfocus();
+    setState(() => showPicker = false);
   }
 
   Future<void> _confirmRemove(CreditCard card) async {
@@ -375,7 +443,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
         );
     if (!mounted) return;
     if (added) {
-      setState(() => showPicker = false);
+      _closeCardPicker();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

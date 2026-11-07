@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 
 	"github.com/revocred/revocred-api/internal/domain"
 )
@@ -29,14 +30,15 @@ type Option struct {
 	LastVerified string   `json:"last_verified,omitempty"`
 }
 type Category struct {
-	ID             string   `json:"id"`
-	Label          string   `json:"label"`
-	Options        []Option `json:"options"`
-	Conditional    []Option `json:"conditional"`
-	Unknown        []string `json:"unknown"`
-	UnknownCardIDs []string `json:"unknown_card_ids"`
-	Assumptions    string   `json:"assumptions"`
-	Tied           bool     `json:"tied"`
+	ID              string   `json:"id"`
+	Label           string   `json:"label"`
+	Options         []Option `json:"options"`
+	FallbackOptions []Option `json:"fallback_options"`
+	Conditional     []Option `json:"conditional"`
+	Unknown         []string `json:"unknown"`
+	UnknownCardIDs  []string `json:"unknown_card_ids"`
+	Assumptions     string   `json:"assumptions"`
+	Tied            bool     `json:"tied"`
 }
 
 func (g *Category) addUnknown(card domain.CatalogCard, reason string) {
@@ -49,7 +51,10 @@ func Build(wallet []domain.WalletCard, settings Settings) []Category {
 	categories := homeCategories
 	result := make([]Category, 0, len(categories))
 	for _, cat := range categories {
-		g := Category{ID: cat[0], Label: cat[1], Options: []Option{}, Conditional: []Option{}, Unknown: []string{}, Assumptions: "Owned active cards only. Points and miles are compared at 1 cent each; cash-back rates use their face value. Eligible purchases assumed; issuer terms and merchant coding apply. No welcome bonuses, statement credits, annual fees or transfer-partner uplift included."}
+		g := Category{ID: cat[0], Label: cat[1], Options: []Option{}, FallbackOptions: []Option{}, Conditional: []Option{}, Unknown: []string{}, Assumptions: "Owned active cards only. Points and miles are compared at 1 cent each; cash-back rates use their face value. Eligible purchases assumed; issuer terms and merchant coding apply. No welcome bonuses, statement credits, annual fees or transfer-partner uplift included."}
+		if cat[0] == "rent" {
+			g.Assumptions = strings.Replace(g.Assumptions, "Eligible purchases assumed; issuer terms and merchant coding apply.", "Rent acceptance, reward eligibility and processing fees are unconfirmed. Base-rate alternatives are conditional and shown before fees.", 1)
+		}
 		seen := map[string]bool{}
 		for _, item := range wallet {
 			card := item.Card
@@ -112,22 +117,26 @@ func Build(wallet []domain.WalletCard, settings Settings) []Category {
 			}
 			g.Conditional = append(g.Conditional, conditional...)
 			if !applicable {
+				if cat[0] == "rent" && !explicitOnly && rate > 0 {
+					// A known base rate can help the member without pretending rent
+					// is accepted, fee-free, or a supported earning category.
+					option.Reason = "Rent must qualify as a purchase. Check payment fees first."
+					option.Conditions = append(option.Conditions, "Base rewards are before processing fees; a fee can outweigh rewards. Cash advances and other ineligible payments do not earn these purchase rewards.")
+					g.FallbackOptions = append(g.FallbackOptions, option)
+					continue
+				}
 				g.addUnknown(*card, "no supported earning rule for this purchase")
 				continue
 			}
 			g.Options = append(g.Options, option)
 		}
-		sort.Slice(g.Options, func(i, j int) bool {
-			a, b := g.Options[i], g.Options[j]
-			if a.Rate != b.Rate {
-				return a.Rate > b.Rate
-			}
-			if a.CardName != b.CardName {
-				return a.CardName < b.CardName
-			}
-			return a.CardID < b.CardID
-		})
-		g.Tied = len(g.Options) > 1 && g.Options[0].Rate == g.Options[1].Rate
+		sortOptions(g.Options)
+		sortOptions(g.FallbackOptions)
+		displayed := g.Options
+		if len(displayed) == 0 {
+			displayed = g.FallbackOptions
+		}
+		g.Tied = len(displayed) > 1 && displayed[0].Rate == displayed[1].Rate
 		if settings.CapsAvailable {
 			g.Assumptions += " Known capped rates assume unused allowance."
 		} else {
@@ -140,4 +149,17 @@ func Build(wallet []domain.WalletCard, settings Settings) []Category {
 		result = append(result, g)
 	}
 	return result
+}
+
+func sortOptions(options []Option) {
+	sort.Slice(options, func(i, j int) bool {
+		a, b := options[i], options[j]
+		if a.Rate != b.Rate {
+			return a.Rate > b.Rate
+		}
+		if a.CardName != b.CardName {
+			return a.CardName < b.CardName
+		}
+		return a.CardID < b.CardID
+	})
 }

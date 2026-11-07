@@ -34,5 +34,17 @@ type Repository interface {
 	DeleteWalletCard(ctx context.Context, userID, walletCardID string) error
 	SaveRecommendation(ctx context.Context, userID string, input domain.RecommendationInput, result domain.RecommendationResult) (domain.RecommendationResult, error)
 	ListMessages(ctx context.Context, userID string, limit int) ([]domain.ChatMessage, error)
-	AppendChatExchange(ctx context.Context, userID, prompt, reply string, blocks json.RawMessage) ([]domain.ChatMessage, error)
+	// AppendChatExchange saves a prompt and its reply; mode ("ai" or "basic")
+	// is recorded on the reply.
+	AppendChatExchange(ctx context.Context, userID, prompt, reply string, blocks json.RawMessage, mode string) ([]domain.ChatMessage, error)
+	// ChatConsent returns the stored AI sharing version, or "" when none.
+	ChatConsent(ctx context.Context, userID string) (string, error)
+	// SetChatConsent stores a version; "" revokes.
+	SetChatConsent(ctx context.Context, userID, version string) error
+	ClearChat(ctx context.Context, userID string) error
+	// ChatAICount counts external-AI replies in the last 24 hours.
+	ChatAICount(ctx context.Context, userID string) (int, error)
+	// ChatFeedback upserts feedback on the caller's own assistant message and
+	// reports whether such a message exists.
+	ChatFeedback(ctx context.Context, userID, messageID, rating, reason string) (bool, error)
 }

@@ -12,10 +12,11 @@ import (
 // snapshot, so a chart can never contain a value the model remembered or made up.
 
 type Block struct {
-	Type  string   `json:"type"` // heading, paragraph, bullets, chart, note
-	Text  string   `json:"text,omitempty"`
-	Items []string `json:"items,omitempty"`
-	Chart *Chart   `json:"chart,omitempty"`
+	Ordered bool     `json:"ordered,omitempty"`
+	Type    string   `json:"type"` // heading, paragraph, bullets, chart, note
+	Text    string   `json:"text,omitempty"`
+	Items   []string `json:"items,omitempty"`
+	Chart   *Chart   `json:"chart,omitempty"`
 }
 
 type Chart struct {
@@ -35,6 +36,7 @@ type Bar struct {
 // Reply is what a provider returns: display blocks plus the plain text kept for
 // storage, export and any text-only consumer.
 type Reply struct {
+	Basic  bool    `json:"-"`
 	Text   string  `json:"text"`
 	Blocks []Block `json:"blocks"`
 }
@@ -51,13 +53,16 @@ var chartNames = map[string]bool{
 // ParseReply turns a model reply into blocks, resolving every chart reference
 // against the snapshot. Unresolvable references are dropped rather than shown,
 // and stray numeric chart syntax never reaches the user.
+var orderedListPattern = regexp.MustCompile(`^\d+[.)]\s+`)
+
 func ParseReply(markdown string, facts snapshot) []Block {
 	blocks := []Block{}
 	lines := strings.Split(strings.ReplaceAll(markdown, "\r\n", "\n"), "\n")
 	var bullets []string
+	ordered := false
 	flushBullets := func() {
 		if len(bullets) > 0 {
-			blocks = append(blocks, Block{Type: "bullets", Items: bullets})
+			blocks = append(blocks, Block{Type: "bullets", Items: bullets, Ordered: ordered})
 			bullets = nil
 		}
 	}
@@ -66,9 +71,9 @@ func ParseReply(markdown string, facts snapshot) []Block {
 		switch {
 		case line == "":
 			flushBullets()
-		case strings.HasPrefix(line, "### "):
+		case strings.HasPrefix(line, "# "), strings.HasPrefix(line, "## "), strings.HasPrefix(line, "### "):
 			flushBullets()
-			if text := clip(strings.TrimPrefix(line, "### "), 120); text != "" {
+			if text := clip(strings.TrimSpace(strings.TrimLeft(line, "#")), 120); text != "" {
 				blocks = append(blocks, Block{Type: "heading", Text: text})
 			}
 		case strings.HasPrefix(line, "#### "):
@@ -76,7 +81,19 @@ func ParseReply(markdown string, facts snapshot) []Block {
 			if text := clip(strings.TrimPrefix(line, "#### "), 200); text != "" {
 				blocks = append(blocks, Block{Type: "note", Text: text})
 			}
+		case orderedListPattern.MatchString(line):
+			if !ordered {
+				flushBullets()
+			}
+			ordered = true
+			if item := clip(stripCharts(orderedListPattern.ReplaceAllString(line, "")), 360); item != "" {
+				bullets = append(bullets, item)
+			}
 		case strings.HasPrefix(line, "- "), strings.HasPrefix(line, "* "):
+			if ordered {
+				flushBullets()
+			}
+			ordered = false
 			if item := clip(stripCharts(line[2:]), 360); item != "" {
 				bullets = append(bullets, item)
 			}
@@ -164,13 +181,17 @@ func clip(value string, limit int) string {
 		return fmt.Sprintf("REVOSOURCE%dTOKEN", len(urls)-1)
 	})
 	value = strings.TrimSpace(dropLeaks(stripEmphasis(value)))
+	if len([]rune(value)) > limit {
+		cut := string([]rune(value)[:limit])
+		if start := strings.LastIndex(cut, "REVOSOURCE"); start >= 0 && !strings.Contains(cut[start:], "TOKEN") {
+			cut = cut[:start]
+		}
+		value = strings.TrimSpace(cut) + "…"
+	}
 	for i, u := range urls {
 		value = strings.ReplaceAll(value, fmt.Sprintf("REVOSOURCE%dTOKEN", i), u)
 	}
-	if len([]rune(value)) <= limit {
-		return value
-	}
-	return strings.TrimSpace(string([]rune(value)[:limit])) + "…"
+	return value
 }
 
 // stripCharts removes any chart reference from prose so the raw marker is never
@@ -342,8 +363,12 @@ func RenderText(blocks []Block) string {
 				parts = append(parts, block.Text)
 			}
 		case "bullets":
-			for _, item := range block.Items {
-				parts = append(parts, "- "+item)
+			for i, item := range block.Items {
+				prefix := "- "
+				if block.Ordered {
+					prefix = fmt.Sprintf("%d. ", i+1)
+				}
+				parts = append(parts, prefix+item)
 			}
 		case "chart":
 			if block.Chart != nil {

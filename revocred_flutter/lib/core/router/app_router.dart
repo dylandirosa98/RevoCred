@@ -19,6 +19,12 @@ final appRouter = GoRouter(
   initialLocation: '/welcome',
   redirect: (context, route) {
     final container = ProviderScope.containerOf(context, listen: false);
+    if (route.uri.path == '/') {
+      return container.read(appControllerProvider).isAuthenticated ||
+              container.read(appConfigProvider).useMocks
+          ? '/home'
+          : '/welcome';
+    }
     if (container.read(appConfigProvider).useMocks) return null;
     final session = container.read(appControllerProvider);
     final path = route.uri.path;
@@ -39,7 +45,28 @@ final appRouter = GoRouter(
     }
     return '/welcome';
   },
+  errorBuilder: (context, state) {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final home =
+        container.read(appControllerProvider).isAuthenticated ||
+        container.read(appConfigProvider).useMocks;
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Page not found'),
+            FilledButton(
+              onPressed: () => context.go(home ? '/home' : '/welcome'),
+              child: Text(home ? 'Go to Home' : 'Go to Welcome'),
+            ),
+          ],
+        ),
+      ),
+    );
+  },
   routes: [
+    GoRoute(path: '/', redirect: (context, state) => '/welcome'),
     GoRoute(
       path: '/reset-password',
       builder: (context, state) => const AccountScreen(recovery: true),

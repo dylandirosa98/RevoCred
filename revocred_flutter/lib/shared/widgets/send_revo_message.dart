@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/chat_errors.dart';
 import '../../core/state/app_controller.dart';
+import '../../core/state/chat_consent.dart';
 
 class _SendGate {
   bool busy = false;
@@ -10,14 +12,24 @@ class _SendGate {
 
 final _sendGateProvider = Provider((ref) => _SendGate());
 
-/// One explicit choice per message: no saved permission can cross accounts,
-/// provider changes or a later chat. All product chat entry points use this gate.
+/// Every REVO entry point sends through here.
+///
+/// External AI needs agreement to the current sharing notice. A signed-in
+/// member agrees once and the server keeps it until they turn it off in
+/// Profile; a guest agrees once per app session. When the notice changes the
+/// member is asked again. Declining sends a basic answer and saves nothing.
+///
+/// Returns true when the message was answered. Failures are reported as
+/// friendly text through [onError], or a snackbar when it is null; a
+/// cancelled send reports nothing.
 Future<bool> sendRevoMessage(
   BuildContext context,
   WidgetRef ref,
   String value, {
   bool openChat = false,
   VoidCallback? onSending,
+  ValueChanged<String>? onError,
+  ValueChanged<String>? onStatus,
 }) async {
   final prompt = value.trim();
   final gate = ref.read(_sendGateProvider);
@@ -31,72 +43,66 @@ Future<bool> sendRevoMessage(
   try {
     final state = ref.read(appControllerProvider);
     if (!state.isAuthenticated && state.data?.isPersonalPreview == true) {
-      throw StateError('Create an account to discuss your personal plan.');
-    }
-    final disclosure = await repository.loadChatDisclosure();
-    if (!context.mounted) return false;
-    String? consent;
-    if (disclosure.external) {
-      final external = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Share this message with AI?'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('AI service: ${disclosure.recipient}'),
-                const SizedBox(height: 8),
-                Text('Model: ${disclosure.model}'),
-                const SizedBox(height: 16),
-                Text(disclosure.dataUse),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Use basic reply'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Agree and send'),
-            ),
-          ],
-        ),
-      );
-      if (external == null) return false;
-      if (external) consent = disclosure.version;
-    }
-    if (!context.mounted) return false;
-    if (app.sessionGeneration != session ||
-        repository.accountEmail != account) {
-      throw StateError(
-        'Your account changed. Send again from the current account.',
+      throw const ChatSendException(
+        'account_required',
+        'Create an account to let REVO discuss your personal plan.',
       );
     }
-    if (openChat) context.go('/revo');
-    onSending?.call();
-    await app.sendMessage(
-      prompt,
-      aiConsentVersion: consent,
-      expectedSessionGeneration: session,
-    );
-    return true;
-  } catch (_) {
-    if (messenger.mounted) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'REVO could not send. Check your account and connection, then try again. Your plan and wallet are still available.',
-          ),
-        ),
-      );
+    // One retry covers a notice that changed between asking and sending.
+    for (var attempt = 0; ; attempt++) {
+      if (ref.read(chatConsentProvider).hasError || attempt > 0) {
+        ref.invalidate(chatConsentProvider);
+      }
+      final consent = await ref.read(chatConsentProvider.future);
+      if (!context.mounted) return false;
+      var useAI = consent.granted;
+      if (consent.external && !consent.granted) {
+        final choice = await showChatConsentSheet(context, consent.disclosure);
+        if (choice == null || !context.mounted) return false;
+        if (choice) {
+          if (app.sessionGeneration != session ||
+              repository.accountEmail != account) {
+            throw const ChatSendException(
+              'account_changed',
+              'Your account changed. Send again from the current account.',
+            );
+          }
+          await ref.read(chatConsentProvider.notifier).grant();
+          useAI = true;
+        }
+      }
+      if (!context.mounted) return false;
+      if (app.sessionGeneration != session ||
+          repository.accountEmail != account) {
+        throw const ChatSendException(
+          'account_changed',
+          'Your account changed. Send again from the current account.',
+        );
+      }
+      if (openChat && attempt == 0) context.go('/revo');
+      onSending?.call();
+      try {
+        // The explicit version makes the server refuse rather than silently
+        // downgrade if the notice changed after it was shown.
+        await app.sendMessage(
+          prompt,
+          aiConsentVersion: useAI ? consent.disclosure.version : null,
+          expectedSessionGeneration: session,
+          onStatus: onStatus,
+        );
+        return true;
+      } on ChatSendException catch (error) {
+        if (error.code != 'ai_consent_changed' || attempt > 0) rethrow;
+      }
+    }
+  } on ChatCancelledException {
+    return false;
+  } catch (error) {
+    final message = chatErrorMessage(error);
+    if (onError != null) {
+      onError(message);
+    } else if (messenger.mounted) {
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     }
     return false;
   } finally {

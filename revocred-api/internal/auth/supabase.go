@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,9 +16,12 @@ import (
 var ErrUnauthorized = errors.New("unauthorized")
 
 type User struct {
-	LastSignInAt *time.Time `json:"last_sign_in_at,omitempty"`
-	ID           string     `json:"id"`
-	Email        string     `json:"email,omitempty"`
+	// Set only from this bearer session's AMR after Supabase verifies the token.
+	// A user's global last_sign_in_at may describe a different session.
+	PasswordAuthenticatedAt *time.Time `json:"-"`
+	LastSignInAt            *time.Time `json:"last_sign_in_at,omitempty"`
+	ID                      string     `json:"id"`
+	Email                   string     `json:"email,omitempty"`
 }
 
 type Authenticator interface {
@@ -82,7 +86,46 @@ func (a *SupabaseAuthenticator) Authenticate(ctx context.Context, bearerToken st
 	if !isUUID(user.ID) {
 		return User{}, ErrUnauthorized
 	}
+	user.PasswordAuthenticatedAt = verifiedPasswordTime(bearerToken, user.ID)
 	return user, nil
+}
+
+// Call only after the exact bearer token has passed Supabase /user validation.
+// iat changes on token refresh and last_sign_in_at can change in other sessions;
+// neither establishes recent password proof for this session.
+func verifiedPasswordTime(token, userID string) *time.Time {
+	if len(token) > 64<<10 {
+		return nil
+	}
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return nil
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil
+	}
+	var claims struct {
+		Subject string `json:"sub"`
+		AMR     []struct {
+			Method    string `json:"method"`
+			Timestamp int64  `json:"timestamp"`
+		} `json:"amr"`
+	}
+	if json.Unmarshal(raw, &claims) != nil || claims.Subject != userID {
+		return nil
+	}
+	var latest int64
+	for _, proof := range claims.AMR {
+		if proof.Method == "password" && proof.Timestamp > latest {
+			latest = proof.Timestamp
+		}
+	}
+	if latest == 0 {
+		return nil
+	}
+	when := time.Unix(latest, 0).UTC()
+	return &when
 }
 
 func isUUID(value string) bool {

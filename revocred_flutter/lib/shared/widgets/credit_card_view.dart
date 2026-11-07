@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/logic/card_detail_text.dart';
 import '../../core/models/app_models.dart';
 import '../../core/logic/card_art.dart';
 import '../../core/theme/app_theme.dart';
@@ -183,19 +184,6 @@ class _WalletCardStackState extends State<WalletCardStack> {
                         style: TextStyle(color: product.muted),
                       ),
                       const SizedBox(height: 18),
-                      const SectionLabel('Reward multipliers'),
-                      const SizedBox(height: 9),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children:
-                            (selected.pointMultipliers.isEmpty
-                                    ? [selected.multiplier]
-                                    : selected.pointMultipliers)
-                                .map((rate) => StatusPill(label: rate))
-                                .toList(),
-                      ),
-                      const SizedBox(height: 18),
                       _WalletDetailRow(
                         icon: Icons.payments_outlined,
                         label: 'Annual fee',
@@ -204,33 +192,59 @@ class _WalletCardStackState extends State<WalletCardStack> {
                             ? product.success
                             : product.warning,
                       ),
-                      const SizedBox(height: 16),
-                      const SectionLabel('Credits & benefits'),
-                      const SizedBox(height: 9),
-                      if (selected.benefits.isEmpty)
-                        Text(
-                          'No benefit details are available for this card yet.',
-                          style: TextStyle(color: product.muted),
-                        )
-                      else
-                        for (final benefit in selected.benefits)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 7),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.check_circle_outline,
-                                  size: 17,
-                                  color: product.success,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(child: Text(benefit)),
-                              ],
-                            ),
-                          ),
                       if (selected.communityData != null)
-                        CommunityCardDetails(data: selected.communityData!),
+                        CommunityCardDetails(
+                          data: selected.communityData!,
+                          catalogBenefits: selected.benefits,
+                          fallbackRewardRates: selected.pointMultipliers.isEmpty
+                              ? [selected.multiplier]
+                              : selected.pointMultipliers,
+                        )
+                      else ...[
+                        const SizedBox(height: 18),
+                        const SectionLabel('Rewards'),
+                        const SizedBox(height: 9),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children:
+                              (selected.pointMultipliers.isEmpty
+                                      ? [selected.multiplier]
+                                      : selected.pointMultipliers)
+                                  .map(
+                                    (rate) =>
+                                        StatusPill(label: cardDetailText(rate)),
+                                  )
+                                  .toList(),
+                        ),
+                        const SizedBox(height: 16),
+                        const SectionLabel('Credits & benefits'),
+                        const SizedBox(height: 9),
+                        if (selected.benefits.isEmpty)
+                          Text(
+                            'Benefit details are not available yet. This does not mean the card has no benefits.',
+                            style: TextStyle(color: product.muted),
+                          )
+                        else
+                          for (final benefit in selected.benefits)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 7),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.check_circle_outline,
+                                    size: 17,
+                                    color: product.success,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(cardDetailText(benefit)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                      ],
                       if (widget.onAskRevo != null) ...[
                         const SizedBox(height: 14),
                         OutlinedButton.icon(

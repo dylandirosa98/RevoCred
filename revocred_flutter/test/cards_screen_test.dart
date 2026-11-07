@@ -2,19 +2,173 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:revocred_flutter/app.dart';
 import 'package:revocred_flutter/core/config/app_config.dart';
+import 'package:revocred_flutter/core/data/demo_seed.dart';
 import 'package:revocred_flutter/core/data/mock_app_repository.dart';
+import 'package:revocred_flutter/core/logic/playbook.dart';
 import 'package:revocred_flutter/core/models/app_models.dart';
 import 'package:revocred_flutter/core/router/app_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets('top and bottom Add buttons open the same focused picker', (
+    tester,
+  ) async {
+    await _pumpCards(tester, '/cards');
+    final top = find.byKey(const ValueKey('add-card-top-button'));
+    final bottom = find.byKey(const ValueKey('add-card-button'));
+    expect(top, findsOneWidget);
+    expect(bottom, findsOneWidget);
+    expect(
+      tester.getBottomLeft(top).dy,
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('wallet-card-amex-gold')))
+            .dy,
+      ),
+    );
+    await tester.tap(top);
+    await tester.pumpAndSettle();
+    final search = find.byKey(const ValueKey('wallet-card-search'));
+    expect(search, findsOneWidget);
+    expect(tester.widget<TextField>(search).focusNode?.hasFocus, isTrue);
+    await tester.tap(find.byTooltip('Close card search'));
+    await tester.pumpAndSettle();
+    expect(search, findsNothing);
+    await tester.ensureVisible(bottom);
+    await tester.tap(bottom);
+    await tester.pumpAndSettle();
+    expect(search, findsOneWidget);
+    expect(tester.widget<TextField>(search).focusNode?.hasFocus, isTrue);
+    expect(tester.getRect(search).top, greaterThanOrEqualTo(0));
+    expect(tester.getRect(search).bottom, lessThan(844));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'picker leads with the real strategy next card, not a stale target',
+    (tester) async {
+      final data = createDemoAppData().copyWith(
+        playbook: const PlaybookAssignment(
+          code: 'S04',
+          title: 'Travel foundation',
+          ecosystem: 'Chase',
+          steps: [
+            PlaybookStep(
+              name: 'Freedom Unlimited',
+              use: 'Everyday',
+              status: 'have',
+            ),
+            PlaybookStep(
+              name: 'Sapphire Preferred',
+              use: 'Travel',
+              status: 'next',
+            ),
+            PlaybookStep(
+              name: 'Freedom Flex',
+              use: 'Rotating',
+              status: 'later',
+            ),
+          ],
+          unused: [],
+          alternatives: [],
+        ),
+      );
+      expect(data.profile.nextTarget, 'Freedom Flex');
+      await _pumpCards(
+        tester,
+        '/cards?search=1',
+        repository: MockAppRepository(initialData: data),
+      );
+      final results = find.byWidgetPredicate(
+        (widget) =>
+            widget is ListTile &&
+            widget.key.toString().contains('wallet-search-result-'),
+      );
+      expect(
+        tester.widget<ListTile>(results.first).key,
+        const ValueKey('wallet-search-result-sapphire-preferred'),
+      );
+      expect(find.text('Next in your strategy'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('wallet-search-result-amex-gold')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('wallet-card-sapphire-preferred')),
+        findsNothing,
+      );
+      final search = find.byKey(const ValueKey('wallet-card-search'));
+      await tester.enterText(search, 'Citi');
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('wallet-search-result-sapphire-preferred')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('wallet-search-result-citi-strata')),
+        findsOneWidget,
+      );
+      expect(find.text('Next in your strategy'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('wallet-clear-search')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<ListTile>(results.first).key,
+        const ValueKey('wallet-search-result-sapphire-preferred'),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final nextName in ['', 'Amex Gold']) {
+    testWidgets(
+      'picker does not invent or re-add an owned next card: $nextName',
+      (tester) async {
+        final data = createDemoAppData().copyWith(
+          playbook: PlaybookAssignment(
+            code: 'S04',
+            title: 'Current plan',
+            ecosystem: 'Chase',
+            steps: [
+              if (nextName.isNotEmpty)
+                PlaybookStep(name: nextName, use: '', status: 'next'),
+            ],
+            unused: const [],
+            alternatives: const [],
+          ),
+        );
+        await _pumpCards(
+          tester,
+          '/cards?search=1',
+          repository: MockAppRepository(initialData: data),
+        );
+        expect(find.text('Next in your strategy'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('wallet-search-result-amex-gold')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('add picker fits narrow phones and large text', (tester) async {
+    await _pumpCards(tester, '/cards?search=1');
+    tester.view.physicalSize = const Size(320, 844);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpAndSettle();
+    expect(find.text('Next in your strategy'), findsOneWidget);
+    expect(find.byTooltip('Close card search'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('wallet shows full selected-card details without coverage', (
     tester,
   ) async {
     await _pumpCards(tester, '/cards');
 
     expect(find.text('Wallet coverage'), findsNothing);
-    expect(find.text('REWARD MULTIPLIERS'), findsOneWidget);
+    expect(find.text('REWARDS'), findsOneWidget);
     expect(find.text('4x dining'), findsWidgets);
     expect(find.text(r'$325'), findsOneWidget);
     expect(find.text('CREDITS & BENEFITS'), findsOneWidget);

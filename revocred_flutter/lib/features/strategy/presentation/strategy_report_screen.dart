@@ -56,11 +56,16 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
               appState.isAuthenticated ? 'Continue' : 'Finish account',
             ),
           ),
-          IconButton(
-            key: const ValueKey('share-strategy-report'),
-            tooltip: 'Share report',
-            onPressed: exporting ? null : () => _export(data, share: true),
-            icon: const Icon(Icons.ios_share_outlined),
+          Builder(
+            builder: (shareContext) => IconButton(
+              key: const ValueKey('share-strategy-report'),
+              tooltip: 'Share report',
+              onPressed: exporting
+                  ? null
+                  : () =>
+                        _export(data, share: true, shareContext: shareContext),
+              icon: const Icon(Icons.ios_share_outlined),
+            ),
           ),
         ],
       ),
@@ -97,12 +102,18 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: exporting
-                      ? null
-                      : () => _export(data, share: true),
-                  icon: const Icon(Icons.ios_share_outlined),
-                  label: const Text('Share'),
+                child: Builder(
+                  builder: (shareContext) => OutlinedButton.icon(
+                    onPressed: exporting
+                        ? null
+                        : () => _export(
+                            data,
+                            share: true,
+                            shareContext: shareContext,
+                          ),
+                    icon: const Icon(Icons.ios_share_outlined),
+                    label: const Text('Share'),
+                  ),
                 ),
               ),
             ],
@@ -114,7 +125,15 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
     );
   }
 
-  Future<void> _export(AppData data, {bool share = false}) async {
+  Future<void> _export(
+    AppData data, {
+    bool share = false,
+    BuildContext? shareContext,
+  }) async {
+    final shareBox = shareContext?.findRenderObject() as RenderBox?;
+    final shareBounds = shareBox == null
+        ? null
+        : shareBox.localToGlobal(Offset.zero) & shareBox.size;
     setState(() => exporting = true);
     try {
       if (data.recommendedCardId != null &&
@@ -128,7 +147,11 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
         recommendedApplicationProvider(ApplyPlacement.report),
       );
       if (share) {
-        await shareStrategyReport(data, application: application);
+        await shareStrategyReport(
+          data,
+          application: application,
+          bounds: shareBounds,
+        );
       } else {
         await downloadStrategyReport(data, application: application);
       }

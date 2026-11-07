@@ -62,6 +62,7 @@ func TestPostgresIntegration(t *testing.T) {
 		}
 	}
 	t.Run("guest preview and atomic onboarding", func(t *testing.T) { testOnboarding(t, ctx, repo, a, b, cards) })
+	t.Run("issued recommendations remain completed", func(t *testing.T) { testRecommendationCompletion(t, ctx, admin, repo, cards) })
 	draft := domain.CreateCustomCard{Name: "My  Card", Issuer: "Test", Network: "Visa", RewardRates: map[string]float64{"other": 2}, TravelScope: "none", RewardsType: "cash_back", MinimumCreditTier: "good"}
 	mine, err := repo.CreateCustomCard(ctx, a, draft)
 	if err != nil {
@@ -103,7 +104,7 @@ func TestPostgresIntegration(t *testing.T) {
 	if _, err = repo.SaveRecommendation(ctx, a, input, result); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = repo.AppendChatExchange(ctx, a, "private prompt", "private response", []byte(`[{"type":"paragraph","text":"private response"}]`)); err != nil {
+	if _, err = repo.AppendChatExchange(ctx, a, "private prompt", "private response", []byte(`[{"type":"paragraph","text":"private response"}]`), "basic"); err != nil {
 		t.Fatal(err)
 	}
 	messages, err := repo.ListMessages(ctx, a, 100)

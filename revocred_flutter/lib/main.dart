@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 import 'app.dart';
 import 'core/config/app_config.dart';
 import 'core/data/api_app_repository.dart';
+import 'core/data/auth_timeout_client.dart';
 import 'core/data/app_repository.dart';
 import 'core/data/mock_app_repository.dart';
 
@@ -15,14 +17,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final preferences = await SharedPreferences.getInstance();
   const config = AppConfig.fromEnvironment();
-  // Capture before Supabase consumes the PKCE code. A leftover recovery hint
-  // without a code must not reopen recovery after a normal page reload.
-  final initialRecovery =
-      kIsWeb &&
-      Uri.base.queryParameters['recovery'] == 'true' &&
-      (Uri.base.queryParameters.containsKey('code') ||
-          Uri.base.fragment.contains('access_token='));
   try {
+    if (kReleaseMode && !kIsWeb && config.useMocks) {
+      throw StateError('Native release builds require live configuration.');
+    }
     config.validate();
   } catch (_) {
     runApp(
@@ -44,6 +42,7 @@ Future<void> main() async {
     await Supabase.initialize(
       url: config.supabaseUrl,
       publishableKey: config.supabaseAnonKey,
+      httpClient: AuthTimeoutClient(http.Client()),
     );
     supabaseClient = Supabase.instance.client;
   }
@@ -58,7 +57,6 @@ Future<void> main() async {
               : kIsWeb
               ? '${Uri.base.origin}/'
               : 'com.revocred.app://auth-callback/',
-          initialPasswordRecovery: initialRecovery,
         );
 
   if (repository is ApiAppRepository) {

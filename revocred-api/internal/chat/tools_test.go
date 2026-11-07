@@ -3,8 +3,10 @@ package chat
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -89,9 +91,46 @@ func TestPublicPageRedirectAndDialRestrictions(t *testing.T) {
 	}
 }
 func TestSearchSourcesKeepTitlesAndMatchingSnippets(t *testing.T) {
-	page := `<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fissuer.example%2Fguide">Issuer guide</a><a class="result__snippet">Deductible is $50.</a><a class="result__a" href="https://news.example/review">Independent review</a><a class="result__snippet">Separate second result.</a>`
+	page := `{"web":{"results":[{"url":"https://issuer.example/guide","title":"Issuer <strong>guide</strong>","description":"Deductible is $50."},{"url":"https://news.example/review","title":"Independent review","description":"Separate second result."},{"url":"http://insecure.example/","title":"Plain HTTP","description":"Dropped."},{"url":"https://issuer.example/guide","title":"Duplicate","description":"Dropped."}]}}`
 	sources := searchSources(page)
 	if len(sources) != 2 || sources[0].Title != "Issuer guide" || !strings.Contains(sources[0].Excerpt, "$50") || sources[1].Excerpt != "Separate second result." {
 		t.Fatalf("mismatched source: %+v", sources)
+	}
+}
+
+func TestSearchDisabledWithoutKey(t *testing.T) {
+	tools := searchTools(false)
+	if len(tools) != 1 || tools[0]["function"].(map[string]any)["name"] != "read_public_page" {
+		t.Fatalf("web_search offered without a search key: %+v", tools)
+	}
+	provider, err := New(Options{APIKey: "test-key"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt := provider.(goProvider).systemPrompt(Snapshot(DemoBrowseContext()))
+	if strings.Contains(prompt, "use web_search") || strings.Contains(prompt, "needs one search") {
+		t.Fatal("prompt promises search although search is disabled")
+	}
+	if _, err := (httpWebClient{client: http.DefaultClient}).Search(context.Background(), "Venture X"); err == nil {
+		t.Fatal("search without a key must fail closed")
+	}
+}
+
+func TestBraveSearchRequest(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Query().Get("q") != "Venture X lounge" || r.URL.Query().Get("count") != "5" {
+			t.Errorf("unexpected search request: %s %s", r.Method, r.URL)
+		}
+		if r.Header.Get("X-Subscription-Token") != "brave-test" || r.Header.Get("Accept") != "application/json" {
+			t.Error("missing Brave headers")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"web":{"results":[{"url":"https://www.capitalone.com/x","title":"X","description":"Lounge access."}]}}`)
+	}))
+	defer server.Close()
+	client := httpWebClient{client: server.Client(), searchAPIKey: "brave-test", searchBaseURL: server.URL}
+	page, err := client.Search(context.Background(), "Venture X lounge")
+	if err != nil || len(searchSources(page)) != 1 {
+		t.Fatalf("page=%q err=%v", page, err)
 	}
 }

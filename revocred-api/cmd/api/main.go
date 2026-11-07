@@ -102,10 +102,14 @@ func run(logger *slog.Logger) error {
 		Model:           cfg.AIModel,
 		BaseURL:         cfg.AIBaseURL,
 		ReasoningEffort: cfg.AIReasoningEffort,
+		SearchAPIKey:    cfg.SearchAPIKey,
 		Logger:          logger,
 	})
 	if err != nil {
 		return err
+	}
+	if cfg.AIAPIKey != "" && cfg.SearchAPIKey == "" {
+		logger.Warn("REVO web search is disabled; set SEARCH_API_KEY to enable Brave Search")
 	}
 	handler := httpapi.New(
 		repository,
@@ -115,7 +119,7 @@ func run(logger *slog.Logger) error {
 		logger,
 		cfg.AllowedOrigins,
 		cfg.RequestTimeout,
-		httpapi.Options{MetricsToken: cfg.MetricsToken, ClientIPHeader: cfg.ClientIPHeader},
+		httpapi.Options{MetricsToken: cfg.MetricsToken, ClientIPHeader: cfg.ClientIPHeader, ChatDailyAILimit: cfg.ChatDailyAILimit},
 	)
 
 	server := &http.Server{

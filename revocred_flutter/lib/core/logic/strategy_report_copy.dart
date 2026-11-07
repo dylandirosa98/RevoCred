@@ -1,5 +1,8 @@
 import '../models/app_models.dart';
 
+const strategyOwnedCardsExplanation =
+    'These cards are already in your wallet, including any outside this roadmap. No new application is needed for them.';
+
 const strategyRolesExplanation =
     'This is a map of wallet roles, not a shopping list. Cards you own already fill roles; unavailable cards are not applications to make now.';
 const strategyEligibilityExplanation =

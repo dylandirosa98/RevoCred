@@ -121,6 +121,10 @@ type responseRecorder struct {
 	status int
 }
 
+// Unwrap lets http.ResponseController reach the server's writer, so chat
+// streaming can flush through this recorder.
+func (w *responseRecorder) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
 func (w *responseRecorder) WriteHeader(status int) {
 	if w.status != 0 {
 		return

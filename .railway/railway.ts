@@ -46,6 +46,9 @@ export default defineRailway((ctx) => {
       AI_BASE_URL: ctx.shared.AI_BASE_URL,
       AI_MODEL: ctx.shared.AI_MODEL,
       AI_REASONING_EFFORT: ctx.shared.AI_REASONING_EFFORT,
+      // Optional Brave Search key; empty disables REVO web search.
+      SEARCH_API_KEY: ctx.shared.SEARCH_API_KEY,
+      CHAT_DAILY_AI_LIMIT: ctx.shared.CHAT_DAILY_AI_LIMIT,
     },
   });
 

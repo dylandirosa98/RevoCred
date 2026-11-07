@@ -4,13 +4,17 @@ class ChatDisclosure {
       version = '',
       recipient = '',
       model = '',
-      dataUse = '';
+      dataUse = '',
+      dataUsePoints = const [],
+      searchProvider = '';
 
   const ChatDisclosure({
     required this.version,
     required this.recipient,
     required this.model,
     required this.dataUse,
+    this.dataUsePoints = const [],
+    this.searchProvider = '',
   }) : external = true;
 
   factory ChatDisclosure.fromJson(Map<String, dynamic> json) {
@@ -27,6 +31,10 @@ class ChatDisclosure {
       recipient: json['recipient'] as String,
       model: json['model'] as String,
       dataUse: json['data_use'] as String,
+      dataUsePoints: json['data_use_points'] == null
+          ? [json['data_use'] as String]
+          : (json['data_use_points'] as List).cast<String>(),
+      searchProvider: (json['search_provider'] as String?) ?? '',
     );
   }
 
@@ -35,4 +43,6 @@ class ChatDisclosure {
   final String recipient;
   final String model;
   final String dataUse;
+  final List<String> dataUsePoints;
+  final String searchProvider;
 }

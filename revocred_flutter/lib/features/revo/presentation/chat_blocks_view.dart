@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'chat_link_text.dart';
 
 import '../../../core/models/app_models.dart';
 
@@ -17,7 +18,6 @@ class ChatBlocksView extends StatelessWidget {
     required this.accent,
     required this.surface,
     required this.bodySize,
-    this.onAskAbout = _defaultAsk,
     super.key,
   });
 
@@ -28,16 +28,16 @@ class ChatBlocksView extends StatelessWidget {
   final Color accent;
   final Color surface;
   final double bodySize;
-  final ValueChanged<String> onAskAbout;
-
-  static void _defaultAsk(String _) {}
 
   @override
   Widget build(BuildContext context) {
     if (blocks.isEmpty) {
-      return Text(
-        fallbackText,
-        style: TextStyle(color: ink, height: 1.6, fontSize: bodySize),
+      return SelectionArea(
+        child: ChatLinkText(
+          fallbackText,
+          accent: accent,
+          style: TextStyle(color: ink, height: 1.6, fontSize: bodySize),
+        ),
       );
     }
     return SelectionArea(
@@ -75,7 +75,7 @@ class ChatBlocksView extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final item in block.items)
+            for (var itemIndex = 0; itemIndex < block.items.length; itemIndex++)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
@@ -83,18 +83,24 @@ class ChatBlocksView extends StatelessWidget {
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(top: 8, right: 10),
-                      child: Container(
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: accent,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
+                      child: block.ordered
+                          ? Text(
+                              '${itemIndex + 1}.',
+                              style: TextStyle(color: accent),
+                            )
+                          : Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: accent,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
                     ),
                     Expanded(
-                      child: Text(
-                        item,
+                      child: ChatLinkText(
+                        block.items[itemIndex],
+                        accent: accent,
                         style: TextStyle(
                           color: ink,
                           height: 1.5,
@@ -118,7 +124,6 @@ class ChatBlocksView extends StatelessWidget {
           muted: muted,
           accent: accent,
           surface: surface,
-          onAskAbout: onAskAbout,
         );
       case 'note':
         return Container(
@@ -128,8 +133,9 @@ class ChatBlocksView extends StatelessWidget {
               left: BorderSide(color: muted.withValues(alpha: 0.5)),
             ),
           ),
-          child: Text(
+          child: ChatLinkText(
             block.text,
+            accent: accent,
             style: TextStyle(
               color: muted,
               fontSize: bodySize - 2,
@@ -141,8 +147,9 @@ class ChatBlocksView extends StatelessWidget {
       case 'paragraph':
       default:
         // An unknown block type falls back to whatever text it carried.
-        return Text(
+        return ChatLinkText(
           block.text,
+          accent: accent,
           style: TextStyle(color: ink, height: 1.6, fontSize: bodySize),
         );
     }
@@ -156,7 +163,6 @@ class _ChartCard extends StatelessWidget {
     required this.muted,
     required this.accent,
     required this.surface,
-    required this.onAskAbout,
   });
 
   final ChatChart chart;
@@ -164,7 +170,6 @@ class _ChartCard extends StatelessWidget {
   final Color muted;
   final Color accent;
   final Color surface;
-  final ValueChanged<String> onAskAbout;
 
   @override
   Widget build(BuildContext context) {

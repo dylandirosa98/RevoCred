@@ -242,8 +242,10 @@ void main() {
 
     await tester.tap(find.text('What card should I use for groceries?'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('REVO is thinking', skipOffstage: false), findsOneWidget);
+    // The label starts as "REVO is thinking…" and then shows live progress.
+    expect(find.textContaining('hinking', skipOffstage: false), findsOneWidget);
     await tester.pumpAndSettle();
   });
 

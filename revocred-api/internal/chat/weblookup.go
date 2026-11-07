@@ -33,33 +33,41 @@ type webSearchClient interface {
 	Get(ctx context.Context, pageURL string) (string, error)
 }
 
-type httpWebClient struct{ client *http.Client }
+type httpWebClient struct {
+	client        *http.Client
+	searchAPIKey  string
+	searchBaseURL string
+}
 
 func (c httpWebClient) Search(ctx context.Context, query string) (string, error) {
-	form := url.Values{"q": {query}}.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://html.duckduckgo.com/html/", strings.NewReader(form))
+	if c.searchAPIKey == "" {
+		return "", fmt.Errorf("search disabled")
+	}
+	base := c.searchBaseURL
+	if base == "" {
+		base = "https://api.search.brave.com/res/v1/web/search"
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"?"+url.Values{"q": {query}, "count": {"5"}}.Encode(), nil)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html")
-	searchClient := *c.client
-	searchClient.CheckRedirect = func(r *http.Request, via []*http.Request) error {
-		if len(via) >= 3 || r.URL.Scheme != "https" || r.URL.Host != "html.duckduckgo.com" {
-			return fmt.Errorf("search redirect blocked")
-		}
-		return nil
-	}
-	resp, err := searchClient.Do(req)
+	req.Header.Set("X-Subscription-Token", c.searchAPIKey)
+	req.Header.Set("Accept", "application/json")
+	client := *c.client
+	client.Timeout = 8 * time.Second
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return fmt.Errorf("search redirect blocked") }
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("search returned %d", resp.StatusCode)
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	if len(body) > 1<<20 {
+		return "", fmt.Errorf("search response too large")
+	}
 	return string(body), err
 }
 
@@ -67,23 +75,10 @@ func (c httpWebClient) Get(ctx context.Context, pageURL string) (string, error) 
 	return fetchPublicPage(ctx, pageURL)
 }
 
-var resultLinkPattern = regexp.MustCompile(`uddg=([^"&]+)`)
-var resultAnchorPattern = regexp.MustCompile(`<a[^>]*class="result__a"[^>]*>`)
-var anchorHrefPattern = regexp.MustCompile(`href="([^"]+)"`)
-
-// candidateResultLinks understands both DuckDuckGo link shapes: redirect
-// links carrying uddg= and plain result anchors linking out directly.
-func candidateResultLinks(html string) []string {
+func candidateResultLinks(page string) []string {
 	out := []string{}
-	for _, match := range resultLinkPattern.FindAllStringSubmatch(html, -1) {
-		if raw, err := url.QueryUnescape(match[1]); err == nil {
-			out = append(out, raw)
-		}
-	}
-	for _, anchor := range resultAnchorPattern.FindAllString(html, -1) {
-		if match := anchorHrefPattern.FindStringSubmatch(anchor); match != nil {
-			out = append(out, match[1])
-		}
+	for _, source := range searchSources(page) {
+		out = append(out, source.SourceURL)
 	}
 	return out
 }

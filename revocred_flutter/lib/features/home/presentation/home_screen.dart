@@ -30,6 +30,10 @@ OngoingValue _ongoingValue(AppData data) =>
       data.questionnaireAnswers?.travelScope ?? '',
     );
 
+// Shared illustrations already include their card-face lettering. Keep the
+// complete face visible and put Home's live labels below it.
+const _walletArtAspectRatio = 2400 / 1512;
+
 class _HomeValueBreakdown extends ConsumerWidget {
   const _HomeValueBreakdown();
   @override
@@ -111,7 +115,7 @@ class HomeScreen extends ConsumerWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 12,
           runSpacing: 8,
-          children: [AppLogo(), _DemoBadge()],
+          children: [AppLogo()],
         ),
         SizedBox(height: product.sectionGap),
         Text(
@@ -236,7 +240,7 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
   PurchaseCategory? get _categoryGuide => _guide
       ?.category(_categorySlug(category))
       ?.forWallet(widget.cards.map((c) => c.id).toSet());
-  PurchaseOption? get _pick => _categoryGuide?.options.firstOrNull;
+  PurchaseOption? get _pick => _categoryGuide?.displayOptions.firstOrNull;
 
   @override
   void didUpdateWidget(covariant _DecisionFlowHome oldWidget) {
@@ -279,6 +283,7 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
   Widget build(BuildContext context) {
     final product = context.product;
     final card = recommendedCard;
+    final fallback = _categoryGuide?.isFallback ?? false;
     final safeTop = MediaQuery.paddingOf(context).top;
     return SingleChildScrollView(
       key: const ValueKey('decision-flow-home'),
@@ -383,7 +388,11 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                   const Expanded(child: _WalletSectionHeader(label: 'Use now')),
                   Flexible(
                     child: Text(
-                      _categoryGuide?.tied == true
+                      fallback
+                          ? _categoryGuide?.tied == true
+                                ? 'Tied base-rate options for $category'
+                                : 'Base-rate option for $category'
+                          : _categoryGuide?.tied == true
                           ? 'Tied best for $category'
                           : 'Best known for $category',
                       key: const ValueKey('decision-category-result'),
@@ -405,7 +414,7 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                   child: Text(
                     widget.cards.isEmpty
                         ? 'Add a card to get a recommendation.'
-                        : 'No supported earning rule is available for this purchase. Open the category to review details.',
+                        : 'No supported earning rule is available for this purchase. Use Compare & options to review details.',
                   ),
                 )
               else ...[
@@ -415,8 +424,6 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                   child: _DecisionCard(
                     key: ValueKey('decision-card-${card.id}'),
                     card: card,
-                    category: category,
-                    earnLabel: _pick!.earnLabel,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -424,12 +431,22 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                   card: card,
                   category: category,
                   option: _pick!,
+                  isFallback: fallback,
                   onWhy: () => _showWhy(context, card),
                   onAsk: () => widget.onAskRevo(
                     'Why should I use ${card.name} for $category?',
                   ),
                 ),
               ],
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const ValueKey('decision-comparison-options'),
+                  onPressed: _showComparison,
+                  icon: const Icon(Icons.tune, size: 16),
+                  label: const Text('Compare & options'),
+                ),
+              ),
               const SizedBox(height: 22),
               Row(
                 children: [
@@ -460,7 +477,7 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
               ),
               const SizedBox(height: 11),
               SizedBox(
-                height: _StudioCard.height,
+                height: _StudioCard.heightFor(context),
                 child: ListView.separated(
                   key: const ValueKey('decision-wallet-cards'),
                   scrollDirection: Axis.horizontal,
@@ -474,6 +491,11 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                 ),
               ),
               const SizedBox(height: 25),
+              Text(
+                'Educational information, not financial advice. Verify current issuer terms before applying.',
+                style: TextStyle(color: product.muted, fontSize: 12),
+              ),
+              const SizedBox(height: 8),
               _DecisionNextMove(
                 target: widget.nextTarget,
                 onTap: () => context.go('/strategy'),
@@ -506,7 +528,9 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 10),
-              Text('${pick.earnLabel} — ${pick.reason}'),
+              Text(
+                '${pick.earnLabel}${_categoryGuide?.isFallback == true ? ' before fees' : ''} — ${pick.reason}',
+              ),
               for (final condition in pick.conditions)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -543,12 +567,16 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
           _MoreCategorySheet(categories: moreCategories, selected: category),
     );
     if (selection != null && mounted) {
-      await _selectCategory(selection);
+      _selectCategory(selection);
     }
   }
 
-  Future<void> _selectCategory(String selection) async {
+  void _selectCategory(String selection) {
     setState(() => category = selection);
+  }
+
+  Future<void> _showComparison() async {
+    final selection = category;
     final walletKey = widget.cards.map((c) => c.id).join('|');
     await showModalBottomSheet<void>(
       context: context,
@@ -669,7 +697,7 @@ class _MoreCategorySheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 7),
                   Text(
-                    'Choose the purchase type and RevoCred will compare it with your demo wallet.',
+                    'Choose the purchase type and RevoCred will compare it with your wallet.',
                     style: TextStyle(color: product.muted, height: 1.4),
                   ),
                   const SizedBox(height: 18),
@@ -716,36 +744,23 @@ class _MoreCategorySheet extends StatelessWidget {
 }
 
 class _DecisionCard extends StatelessWidget {
-  const _DecisionCard({
-    required this.card,
-    required this.category,
-    required this.earnLabel,
-    super.key,
-  });
+  const _DecisionCard({required this.card, super.key});
 
   final CreditCard card;
-  final String category;
-  final String earnLabel;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final width = math.min(constraints.maxWidth, 420.0);
-      final height = width / 1.586;
+      final height = width / _walletArtAspectRatio;
       return Align(
         alignment: Alignment.centerLeft,
         child: SizedBox(
           key: const ValueKey('decision-recommended-card'),
           width: width,
           height: height,
-          child: Container(
-            padding: EdgeInsets.all(width < 330 ? 18 : 24),
+          child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.black,
-              image: DecorationImage(
-                image: AssetImage(cardArtAsset(card)),
-                fit: BoxFit.cover,
-              ),
               borderRadius: BorderRadius.circular(22),
               boxShadow: [
                 BoxShadow(
@@ -755,113 +770,11 @@ class _DecisionCard extends StatelessWidget {
                 ),
               ],
             ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.black.withValues(alpha: .08),
-                          Colors.black.withValues(alpha: .66),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 30,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: .14),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: .25),
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _StudioCard._issuerMonogram(card.issuer),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFFB9A5FF,
-                            ).withValues(alpha: .2),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: const Text(
-                            'RECOMMENDED',
-                            style: TextStyle(
-                              color: Color(0xFFD7CEFF),
-                              fontSize: 8,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: .7,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Text(
-                      card.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: width < 330 ? 22 : 28,
-                        height: 1.05,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -.8,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            earnLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: .72),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          category.toUpperCase(),
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: .66),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: .7,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
+            child: Image.asset(
+              cardArtAsset(card),
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              semanticLabel: '${card.name}, stylized card illustration',
             ),
           ),
         ),
@@ -875,6 +788,7 @@ class _DecisionReason extends StatelessWidget {
     required this.card,
     required this.category,
     required this.option,
+    this.isFallback = false,
     required this.onWhy,
     required this.onAsk,
   });
@@ -882,6 +796,7 @@ class _DecisionReason extends StatelessWidget {
   final CreditCard card;
   final String category;
   final PurchaseOption option;
+  final bool isFallback;
   final VoidCallback onWhy;
   final VoidCallback onAsk;
 
@@ -889,6 +804,7 @@ class _DecisionReason extends StatelessWidget {
   Widget build(BuildContext context) {
     final product = context.product;
     return Container(
+      key: const ValueKey('decision-purchase-summary'),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: product.surface,
@@ -898,10 +814,20 @@ class _DecisionReason extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            option.conditions.isEmpty
+            '${option.earnLabel}${isFallback ? ' before fees' : ''} · $category',
+            key: const ValueKey('decision-purchase-earn-label'),
+            style: TextStyle(
+              color: product.action,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            isFallback || option.conditions.isEmpty
                 ? option.reason
                 : '${option.reason}. ${option.conditions.first}',
-            maxLines: 2,
+            maxLines: isFallback ? 3 : 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 12,
@@ -1045,41 +971,44 @@ class _DecisionNextMove extends StatelessWidget {
   );
 }
 
-class _DecisionUpcoming extends StatelessWidget {
+class _DecisionUpcoming extends ConsumerWidget {
   const _DecisionUpcoming({required this.onOpenCards});
 
   final VoidCallback onOpenCards;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: context.product.surface,
-      borderRadius: BorderRadius.circular(18),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _WalletSectionHeader(label: 'Upcoming'),
-        const SizedBox(height: 12),
-        _AttentionRow(
-          icon: Icons.restaurant_outlined,
-          title: 'Dining credit reminder',
-          detail: 'Review eligible purchases before month end',
-          color: context.product.warning,
-          onTap: onOpenCards,
-        ),
-        Divider(height: 24, color: context.product.border),
-        _AttentionRow(
-          icon: Icons.event_repeat_outlined,
-          title: 'Annual fee review',
-          detail: 'Venture X is your next wallet checkpoint',
-          color: context.product.action,
-          onTap: onOpenCards,
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context, WidgetRef ref) =>
+      !ref.watch(appConfigProvider).useMocks
+      ? const SizedBox.shrink()
+      : Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: context.product.surface,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _WalletSectionHeader(label: 'Demo reminders'),
+              const SizedBox(height: 12),
+              _AttentionRow(
+                icon: Icons.restaurant_outlined,
+                title: 'Dining credit reminder',
+                detail: 'Review eligible purchases before month end',
+                color: context.product.warning,
+                onTap: onOpenCards,
+              ),
+              Divider(height: 24, color: context.product.border),
+              _AttentionRow(
+                icon: Icons.event_repeat_outlined,
+                title: 'Annual fee review',
+                detail: 'Venture X is your next wallet checkpoint',
+                color: context.product.action,
+                onTap: onOpenCards,
+              ),
+            ],
+          ),
+        );
 }
 
 class _WalletStudioHome extends StatelessWidget {
@@ -1168,7 +1097,7 @@ class _WalletStudioHome extends StatelessWidget {
               ),
               const SizedBox(height: 11),
               SizedBox(
-                height: _StudioCard.height,
+                height: _StudioCard.heightFor(context),
                 child: ListView.separated(
                   key: const ValueKey('wallet-studio-cards'),
                   scrollDirection: Axis.horizontal,
@@ -1329,15 +1258,7 @@ class _StudioValuePanel extends StatelessWidget {
                 color: Colors.white.withValues(alpha: .1),
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: const Text(
-                'DEMO',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: .8,
-                ),
-              ),
+              child: const SizedBox.shrink(),
             ),
           ],
         ),
@@ -1413,7 +1334,18 @@ class _StudioCard extends StatelessWidget {
   });
 
   static const width = 184.0;
-  static const height = 158.0;
+
+  static double heightFor(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final lineHeight = DefaultTextStyle.of(context).style.height ?? 1.45;
+    // Inset artwork, padding/gaps, and up to two lines of card-name text.
+    return ((width - 22) / _walletArtAspectRatio +
+                38 +
+                lineHeight *
+                    (scaler.scale(8) + 2 * scaler.scale(13) + scaler.scale(9)))
+            .ceilToDouble() +
+        2; // Border plus whole-pixel text line rounding.
+  }
 
   final CreditCard card;
   final bool preferred;
@@ -1431,7 +1363,7 @@ class _StudioCard extends StatelessWidget {
         child: SizedBox(
           key: ValueKey('wallet-studio-card-${card.id}'),
           width: width,
-          child: Ink(
+          child: Container(
             decoration: BoxDecoration(
               color: product.surface,
               borderRadius: BorderRadius.circular(15),
@@ -1448,16 +1380,16 @@ class _StudioCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(15),
-                  ),
-                  child: Image.asset(
-                    cardArtAsset(card),
-                    width: width,
-                    height: 52,
-                    fit: BoxFit.cover,
-                    excludeFromSemantics: true,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+                  child: AspectRatio(
+                    aspectRatio: _walletArtAspectRatio,
+                    child: Image.asset(
+                      cardArtAsset(card),
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                      excludeFromSemantics: true,
+                    ),
                   ),
                 ),
                 Padding(
@@ -1492,7 +1424,7 @@ class _StudioCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         card.name,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: product.ink,
@@ -1645,15 +1577,7 @@ class _StudioHealthPanel extends StatelessWidget {
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                 ),
               ),
-              Text(
-                'DEMO MODEL',
-                style: TextStyle(
-                  color: product.muted,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: .8,
-                ),
-              ),
+              SizedBox.shrink(),
             ],
           ),
           const SizedBox(height: 15),
@@ -1842,7 +1766,7 @@ class _WalletFlowHome extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               SizedBox(
-                height: 168,
+                height: _WalletPreviewCard.heightFor(context),
                 child: ListView.separated(
                   key: const ValueKey('wallet-flow-cards'),
                   scrollDirection: Axis.horizontal,
@@ -1975,26 +1899,14 @@ class _WalletGreeting extends StatelessWidget {
         onPressed: onSearch,
         icon: const Icon(Icons.search, size: 22),
       ),
-      Stack(
-        clipBehavior: Clip.none,
-        children: [
-          IconButton(
-            tooltip: 'Strategy alerts',
-            onPressed: onAlerts,
-            icon: const Icon(Icons.notifications_none, size: 22),
-          ),
-          const Positioned(
-            right: 9,
-            top: 9,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Color(0xFFF04472),
-                shape: BoxShape.circle,
-              ),
-              child: SizedBox(width: 6, height: 6),
-            ),
-          ),
-        ],
+      Consumer(
+        builder: (context, ref, _) => ref.watch(appConfigProvider).useMocks
+            ? IconButton(
+                tooltip: 'Demo reminders',
+                onPressed: onAlerts,
+                icon: const Icon(Icons.notifications_none, size: 22),
+              )
+            : const SizedBox.shrink(),
       ),
     ],
   );
@@ -2051,6 +1963,22 @@ class _WalletPreviewCard extends StatelessWidget {
   final int value;
   final VoidCallback onTap;
 
+  static const width = 164.0;
+
+  static double heightFor(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final lineHeight = DefaultTextStyle.of(context).style.height ?? 1.45;
+    return ((width - 22) / _walletArtAspectRatio +
+                38 +
+                lineHeight *
+                    (scaler.scale(10) +
+                        2 * scaler.scale(13) +
+                        scaler.scale(16) +
+                        scaler.scale(9)))
+            .ceilToDouble() +
+        2; // Border plus whole-pixel text line rounding.
+  }
+
   @override
   Widget build(BuildContext context) {
     final product = context.product;
@@ -2060,8 +1988,8 @@ class _WalletPreviewCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(13),
-        child: Ink(
-          width: 164,
+        child: Container(
+          width: width,
           decoration: BoxDecoration(
             color: product.surface,
             borderRadius: BorderRadius.circular(13),
@@ -2071,16 +1999,16 @@ class _WalletPreviewCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(13),
-                ),
-                child: Image.asset(
-                  cardArtAsset(card),
-                  width: 164,
-                  height: 64,
-                  fit: BoxFit.cover,
-                  excludeFromSemantics: true,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+                child: AspectRatio(
+                  aspectRatio: _walletArtAspectRatio,
+                  child: Image.asset(
+                    cardArtAsset(card),
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                    excludeFromSemantics: true,
+                  ),
                 ),
               ),
               Padding(
@@ -2100,7 +2028,7 @@ class _WalletPreviewCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       card.name,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: product.ink,
@@ -2522,14 +2450,7 @@ class _ValueHero extends StatelessWidget {
             Divider(color: product.ink, thickness: 1),
           ] else if (treatment == HeroTreatment.terminal) ...[
             const SizedBox(height: 15),
-            Text(
-              'MODEL_STATUS=DETERMINISTIC  CONFIDENCE=DEMO',
-              style: TextStyle(
-                color: product.secondary,
-                fontSize: 10,
-                letterSpacing: .5,
-              ),
-            ),
+            SizedBox.shrink(),
           ],
           SizedBox(height: treatment == HeroTreatment.editorial ? 28 : 22),
           Wrap(
@@ -2712,12 +2633,4 @@ class _AttentionRow extends StatelessWidget {
       ),
     ),
   );
-}
-
-class _DemoBadge extends StatelessWidget {
-  const _DemoBadge();
-
-  @override
-  Widget build(BuildContext context) =>
-      StatusPill(label: 'DEMO ESTIMATES', color: context.product.warning);
 }

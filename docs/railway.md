@@ -35,7 +35,9 @@ TLS, issues certificates and routes the custom domain to the container.
    | `AI_API_KEY` | OpenAI API key (`sk-…`). Optional; empty keeps REVO on the deterministic explainer |
    | `AI_BASE_URL` | `https://api.openai.com/v1` |
     | `AI_MODEL` | Explicit OpenAI model enabled for the client's project; verify with a staging request |
-    | `AI_REASONING_EFFORT` | A value supported by the selected model; `none` sends temperature 0.2 |
+    | `AI_REASONING_EFFORT` | Optional. Defaults to `low` for OpenAI to keep REVO replies fast; `none` sends temperature 0.2 |
+    | `SEARCH_API_KEY` | Optional Brave Search API key. Empty disables REVO web search (the AI can still read public pages) and removes search from the sharing notice |
+    | `CHAT_DAILY_AI_LIMIT` | External-AI REVO replies per user per rolling 24 hours (default 60). Basic answers are not capped |
 
    Never add the Supabase service-role key or the owner database login.
 6. **Create the service.**
@@ -77,7 +79,7 @@ keys, budgets and monitoring; do not copy the developer's local `.env`.
 
 Development still supports `OPENCODE_GO_*` as fallbacks to `AI_*`. For OpenAI
 the API sends `max_completion_tokens` and `store=false`,
-omits `temperature` unless `AI_REASONING_EFFORT=none`, and allows more tokens
+omits `temperature` unless `AI_REASONING_EFFORT=none` (unset means `low`), and allows more tokens
 when reasoning is on. Startup fails, rather than leaking the key, if an `sk-`
 key would go to OpenCode or OpenAI has no `AI_MODEL`.
 
@@ -87,13 +89,15 @@ unavailable`; it records the HTTP status and the provider's error message,
 never the member's question. After a change, send REVO a question and confirm
 a full answer. The startup log line `server listening` shows `chat=openai`.
 
-`GET /v1/public/chat-disclosure` returns the actual configured recipient, model
-and versioned sharing notice without personal data. Before every chat message,
-Flutter offers Cancel, Use basic reply, or Agree and send. Only the last choice
-sends `ai_consent_version` matching the current notice. Both public and signed-in
-chat routes default to deterministic replies without permission; a stale version
-returns 409 and never calls external AI. There is no remembered permission to
-carry between messages or accounts. Older clients therefore receive basic replies.
+`GET /v1/public/chat-disclosure` returns the actual configured recipient, model,
+search provider and versioned sharing notice without personal data. The first
+time a member sends a message while external AI is configured, Flutter offers
+Agree and continue, Basic answer instead, or Cancel. Agreement is saved per
+account (`PUT /v1/chat/consent`) until the member turns it off in Profile;
+guests agree once per app session. When the notice changes (new model, endpoint
+or search provider) its version changes and every member is asked again. A
+message sent with a stale explicit version returns 409 and never calls external
+AI. Without saved permission, replies are deterministic basic answers.
 
 With consent, REVO sends the member's entered personal context and recent chat
 to the provider; see the in-app sharing notice for the exact fields. Name OpenAI

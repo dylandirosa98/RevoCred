@@ -137,11 +137,26 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('Enrollment required'), findsOneWidget);
-      expect(find.textContaining('every 4 years'), findsOneWidget);
-      expect(find.textContaining('120'), findsOneWidget);
+      expect(
+        find.text(r'Global entry credit — $120 every 4 years'),
+        findsOneWidget,
+      );
       expect(find.textContaining('Eligible purchases only'), findsOneWidget);
       expect(find.textContaining('Limit: 0'), findsOneWidget);
+      expect(find.textContaining('Enabled: Yes'), findsOneWidget);
+      expect(find.text('Free checked bags — Not included'), findsOneWidget);
       expect(find.textContaining('over 90 days old'), findsOneWidget);
+      for (final internalLabel in [
+        'OpenCard DB',
+        'Amount:',
+        'Currency:',
+        'Program:',
+        'Notes:',
+        'Period:',
+      ]) {
+        expect(find.textContaining(internalLabel), findsNothing);
+      }
+      expect(find.textContaining('unlimited'), findsNothing);
       expect(find.textContaining('null'), findsNothing);
       expect(tester.takeException(), isNull);
     },

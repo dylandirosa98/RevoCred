@@ -71,6 +71,9 @@ class _PurchaseRecommendationsSheetState
         ?.category(widget.categoryId)
         ?.forWallet(widget.wallet.map((c) => c.id).toSet());
     final options = category?.options ?? const <PurchaseOption>[];
+    final fallback = category?.isFallback == true
+        ? category!.fallbackOptions
+        : const <PurchaseOption>[];
     return FractionallySizedBox(
       heightFactor: .9,
       child: SafeArea(
@@ -92,6 +95,11 @@ class _PurchaseRecommendationsSheetState
                 Text(
                   'Compare cards already in your wallet—not cards to apply for.',
                   style: TextStyle(color: product.muted),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Educational information, not financial advice. Verify current issuer terms before applying.',
+                  style: TextStyle(color: product.muted, fontSize: 12),
                 ),
                 const SizedBox(height: 12),
                 if (widget.categoryId == 'travel' &&
@@ -164,12 +172,16 @@ class _PurchaseRecommendationsSheetState
                   ),
                   const SizedBox(height: 12),
                   if (category.tied)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 10),
-                      child: Text('The highest known modeled return is tied.'),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        category.isFallback
+                            ? 'The highest known base rate is tied. Eligibility and fees are unconfirmed.'
+                            : 'The highest known modeled return is tied.',
+                      ),
                     ),
                 ],
-                if (options.isEmpty && !_loading)
+                if (options.isEmpty && fallback.isEmpty && !_loading)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 18),
                     child: Text(
@@ -181,6 +193,15 @@ class _PurchaseRecommendationsSheetState
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _tile(context, options[i], i + 1, false),
                   ),
+                if (fallback.isNotEmpty) ...[
+                  const SectionLabel('Base-rate options — before fees'),
+                  const SizedBox(height: 8),
+                  for (final option in fallback)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _tile(context, option, null, true),
+                    ),
+                ],
                 if (category?.conditional.isNotEmpty ?? false) ...[
                   const SizedBox(height: 12),
                   const SectionLabel('Conditional rates — not assumed'),

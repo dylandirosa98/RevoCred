@@ -1,3 +1,4 @@
+import 'dart:ui' show Rect;
 import 'dart:js_interop';
 import 'dart:typed_data';
 
@@ -21,8 +22,9 @@ Future<void> deliverStrategyReportDownload(
 
 Future<void> deliverStrategyReportShare(
   Uint8List bytes,
-  String filename,
-) async {
+  String filename, {
+  Rect? bounds,
+}) async {
   final file = web.File(
     <JSAny>[bytes.toJS].toJS,
     filename,

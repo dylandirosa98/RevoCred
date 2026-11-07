@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -5,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_models.dart';
 import '../models/chat_disclosure.dart';
+import '../models/chat_errors.dart';
 import 'app_repository.dart';
 
 class ApiAppRepository implements AppRepository {
@@ -15,9 +17,7 @@ class ApiAppRepository implements AppRepository {
     String? Function()? accessTokenProvider,
     String? Function()? emailProvider,
     this.authRedirectUrl,
-    bool initialPasswordRecovery = false,
-  }) : _passwordRecovery = initialPasswordRecovery,
-       _supabase = supabaseClient,
+  }) : _supabase = supabaseClient,
        _http = httpClient ?? http.Client(),
        _accessTokenProvider =
            accessTokenProvider ??
@@ -47,19 +47,24 @@ class ApiAppRepository implements AppRepository {
     }
   }
 
-  bool _passwordRecovery;
+  bool _passwordRecovery = false;
+  int _authGeneration = 0;
 
   @override
-  bool get isPasswordRecovery => _passwordRecovery;
+  bool get isPasswordRecovery => isAuthenticated && _passwordRecovery;
   @override
   Stream<AccountSession> get sessionChanges =>
       _supabase?.auth.onAuthStateChange.map((state) {
         if (state.event == AuthChangeEvent.passwordRecovery) {
           _passwordRecovery = true;
         }
-        if (state.event == AuthChangeEvent.signedOut) _passwordRecovery = false;
+        if (state.event == AuthChangeEvent.signedOut ||
+            state.event == AuthChangeEvent.signedIn) {
+          _passwordRecovery = false;
+        }
         return AccountSession(
           authenticated: state.session != null,
+          userId: state.session?.user.id,
           passwordRecovery: _passwordRecovery,
         );
       }) ??
@@ -169,8 +174,19 @@ class ApiAppRepository implements AppRepository {
   @override
   Future<AuthResult> signIn(String email, String password) async {
     if (_supabase == null) return _configurationError();
+    final generation = ++_authGeneration;
     try {
-      await _supabase.auth.signInWithPassword(email: email, password: password);
+      final result = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      if (generation != _authGeneration) {
+        await _discardStaleAuth(result);
+        return const AuthResult(
+          success: false,
+          message: 'Sign-in cancelled. Please try again.',
+        );
+      }
       return const AuthResult(success: true);
     } on AuthException catch (error) {
       return AuthResult(success: false, message: error.message);
@@ -185,6 +201,7 @@ class ApiAppRepository implements AppRepository {
     bool notificationsOptIn = false,
   }) async {
     if (_supabase == null) return _configurationError();
+    final generation = ++_authGeneration;
     try {
       final result = await _supabase.auth.signUp(
         email: email,
@@ -198,14 +215,28 @@ class ApiAppRepository implements AppRepository {
               .toIso8601String(),
         },
       );
-      if (result.session != null && displayName.trim().isNotEmpty) {
+      if (generation != _authGeneration) {
+        await _discardStaleAuth(result);
+        return const AuthResult(
+          success: false,
+          message: 'Sign-up cancelled. Please sign in to continue.',
+        );
+      }
+      if (result.session != null &&
+          result.session?.accessToken == _accessTokenProvider() &&
+          displayName.trim().isNotEmpty) {
         // Sign-up collects the name, so persist it as soon as there is a
         // session to authenticate the write with.
-        await _request(
-          'PUT',
-          '/v1/profile/display-name',
-          body: {'display_name': displayName.trim()},
-        );
+        try {
+          await _request(
+            'PUT',
+            '/v1/profile/display-name',
+            body: {'display_name': displayName.trim()},
+          );
+        } catch (_) {
+          // Auth already created the account. The name is also in Supabase
+          // metadata; an optional API write must not invite another signup.
+        }
       }
       return AuthResult(
         success: true,
@@ -214,12 +245,41 @@ class ApiAppRepository implements AppRepository {
             : 'Account created.',
       );
     } on AuthException catch (error) {
+      if (error.code == 'user_already_exists' || error.code == 'email_exists') {
+        // Match GoTrue's obfuscated duplicate signup response. Never turn its
+        // privacy-preserving flow into an account-enumeration message.
+        return const AuthResult(
+          success: true,
+          message: 'Check your email to confirm your account, then sign in.',
+        );
+      }
       return AuthResult(success: false, message: error.message);
     }
   }
 
+  Future<void> _discardStaleAuth(AuthResponse result) async {
+    if (result.session != null &&
+        result.session?.accessToken ==
+            _supabase?.auth.currentSession?.accessToken) {
+      await _signOutLocal();
+    }
+  }
+
   @override
-  Future<void> signOut() async => _supabase?.auth.signOut();
+  Future<void> signOut() async {
+    _authGeneration++;
+    await _signOutLocal();
+  }
+
+  Future<void> _signOutLocal() async {
+    try {
+      await _supabase?.auth.signOut(scope: SignOutScope.local);
+    } catch (_) {
+      // GoTrue clears the local session before revoking it over the network.
+      // A failed remote revoke must not strand the app on a private screen.
+      if (_supabase?.auth.currentSession != null) rethrow;
+    }
+  }
 
   @override
   Future<AppData> loadAppData() async {
@@ -338,6 +398,177 @@ class ApiAppRepository implements AppRepository {
     return ChatMessage.fromJson((assistant as Map).cast<String, dynamic>());
   }
 
+  /// Streams progress as server-sent events; an older server or a buffering
+  /// browser client answers with plain JSON, which is handled the same way.
+  @override
+  Stream<ChatStreamEvent> streamMessage(
+    String prompt, {
+    String? aiConsentVersion,
+  }) {
+    final abort = Completer<void>();
+    void cancel() {
+      if (!abort.isCompleted) abort.complete();
+    }
+
+    final events = StreamController<ChatStreamEvent>(onCancel: cancel);
+    Future<void> run() async {
+      final token = _accessTokenProvider();
+      final request = http.AbortableRequest(
+        'POST',
+        _chatUri(token == null ? '/v1/public/explain' : '/v1/chat/messages'),
+        abortTrigger: abort.future,
+      );
+      request.headers.addAll({
+        'Authorization': ?(token == null ? null : 'Bearer $token'),
+        'Accept': 'text/event-stream, application/json',
+        'Content-Type': 'application/json',
+      });
+      request.body = jsonEncode({
+        'content': prompt,
+        'ai_consent_version': ?aiConsentVersion,
+      });
+      // The server answers within 45 seconds; keep-alives arrive every 10.
+      final response = await _http
+          .send(request)
+          .timeout(const Duration(seconds: 55));
+      if (response.statusCode == 401 && token != null) {
+        if (token == _accessTokenProvider()) await signOut();
+        throw const SessionExpiredException();
+      }
+      final type = response.headers['content-type'] ?? '';
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          type.startsWith('text/event-stream')) {
+        final lines = response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .timeout(const Duration(seconds: 30));
+        await for (final event in parseChatEvents(lines)) {
+          if (events.isClosed) return;
+          events.add(event);
+        }
+        return;
+      }
+      final body = await response.stream.bytesToString().timeout(
+        const Duration(seconds: 55),
+      );
+      Object? json;
+      try {
+        json = body.isEmpty ? null : jsonDecode(body);
+      } on FormatException {
+        json = null;
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw chatErrorFromJson(json, response.statusCode);
+      }
+      events.add(ChatDoneEvent.fromEnvelope(json));
+    }
+
+    run()
+        .catchError((Object error, StackTrace stack) {
+          // A cancelled request has no listener left to tell.
+          if (!abort.isCompleted && !events.isClosed) {
+            events.addError(
+              error is TimeoutException
+                  ? const ChatSendException(
+                      'timeout',
+                      'REVO took too long to respond. Please try again.',
+                    )
+                  : error,
+              stack,
+            );
+          }
+        })
+        .whenComplete(() {
+          if (!events.isClosed) events.close();
+        });
+    return events.stream;
+  }
+
+  @override
+  Future<ChatConsentStatus> loadChatConsent() async =>
+      ChatConsentStatus.fromJson(await _chatRequest('GET', '/v1/chat/consent'));
+
+  @override
+  Future<ChatConsentStatus> grantChatConsent(String version) async =>
+      ChatConsentStatus.fromJson(
+        await _chatRequest('PUT', '/v1/chat/consent', {'version': version}),
+      );
+
+  @override
+  Future<void> revokeChatConsent() async {
+    await _chatRequest('DELETE', '/v1/chat/consent');
+  }
+
+  @override
+  Future<void> clearChatHistory() async {
+    await _chatRequest('DELETE', '/v1/chat/messages');
+  }
+
+  @override
+  Future<void> sendChatFeedback(
+    String messageId, {
+    required String rating,
+    String? reason,
+  }) async {
+    final trimmed = reason?.trim();
+    await _chatRequest(
+      'POST',
+      '/v1/chat/messages/${Uri.encodeComponent(messageId)}/feedback',
+      {
+        'rating': rating,
+        if (trimmed != null && trimmed.isNotEmpty) 'reason': trimmed,
+      },
+    );
+  }
+
+  Uri _chatUri(String path) {
+    if (baseUrl.trim().isEmpty) {
+      throw StateError('Real mode requires REVOCRED_API_URL.');
+    }
+    return Uri.parse('${baseUrl.replaceFirst(RegExp(r'/$'), '')}$path');
+  }
+
+  /// Signed-in chat calls whose error codes the UI acts on, so failures are
+  /// [ChatSendException]s rather than plain messages.
+  Future<Object?> _chatRequest(
+    String method,
+    String path, [
+    Map<String, Object?>? body,
+  ]) async {
+    final token = _accessTokenProvider();
+    if (token == null) {
+      throw const ChatSendException(
+        'account_required',
+        'Create an account to let REVO discuss your personal plan.',
+      );
+    }
+    final request = http.Request(method, _chatUri(path))
+      ..headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        if (body != null) 'Content-Type': 'application/json',
+      });
+    if (body != null) request.body = jsonEncode(body);
+    final response = await http.Response.fromStream(
+      await _http.send(request).timeout(const Duration(seconds: 20)),
+    );
+    if (response.statusCode == 401) {
+      if (token == _accessTokenProvider()) await signOut();
+      throw const SessionExpiredException();
+    }
+    Object? json;
+    try {
+      json = response.body.isEmpty ? null : jsonDecode(response.body);
+    } on FormatException {
+      json = null;
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw chatErrorFromJson(json, response.statusCode);
+    }
+    return json;
+  }
+
   @override
   Future<DemoRecommendation?> saveQuestionnaire(
     QuestionnaireAnswers answers,
@@ -426,7 +657,9 @@ class ApiAppRepository implements AppRepository {
     }.timeout(timeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       if (response.statusCode == 401) {
-        await _supabase?.auth.signOut(scope: SignOutScope.local);
+        if (!anonymous && token == _accessTokenProvider()) {
+          await signOut();
+        }
         throw const SessionExpiredException();
       }
       String message = 'The request could not be completed. Please try again.';

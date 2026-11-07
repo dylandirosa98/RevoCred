@@ -38,7 +38,7 @@ void main() {
   });
 
   testWidgets(
-    'community details show rewards, benefits, dates, attribution at mobile width',
+    'card details keep terms without provider or retrieval metadata at mobile width',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -58,10 +58,17 @@ void main() {
       );
       expect(find.text('Ultimate Rewards points'), findsOneWidget);
       expect(find.textContaining('The Edit credit'), findsOneWidget);
-      expect(find.textContaining('2026-07-23'), findsOneWidget);
-      expect(find.textContaining('2026-10-25'), findsOneWidget);
-      expect(find.textContaining('OpenCard DB'), findsOneWidget);
-      expect(find.textContaining('CC BY 4.0'), findsOneWidget);
+      expect(find.text('8x — Travel through Chase Travel'), findsOneWidget);
+      expect(find.textContaining('two-night minimum'), findsOneWidget);
+      expect(find.textContaining('Jul 23, 2026'), findsOneWidget);
+      expect(find.textContaining('2026-10-25'), findsNothing);
+      expect(find.textContaining('Retrieved'), findsNothing);
+      expect(find.textContaining('OpenCard DB'), findsNothing);
+      expect(find.textContaining('CC BY 4.0'), findsNothing);
+      expect(find.text(community['warning']! as String), findsNothing);
+      expect(find.textContaining('from source'), findsNothing);
+      expect(find.text('Data source'), findsNothing);
+      expect(find.text('Data license'), findsNothing);
       expect(find.text('Issuer terms'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

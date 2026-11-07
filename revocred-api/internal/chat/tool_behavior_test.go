@@ -23,7 +23,7 @@ func TestWalletExplanationDoesNotEagerlySearch(t *testing.T) {
 		}
 		return http.DefaultTransport.RoundTrip(r)
 	})}
-	p, _ := New(Options{APIKey: "test-key", BaseURL: server.URL, Client: client})
+	p, _ := New(Options{APIKey: "test-key", SearchAPIKey: "brave-test", BaseURL: server.URL, Client: client})
 	reply, err := p.Reply(context.Background(), "Explain my wallet score", DemoBrowseContext())
 	if err != nil || calls != 1 || !strings.Contains(reply.Text, "category coverage") {
 		t.Fatal(reply, err, calls)
@@ -46,12 +46,12 @@ func TestToolLoopReportsSearchOutageToModel(t *testing.T) {
 	}))
 	defer server.Close()
 	client := &http.Client{Transport: toolTransport(func(r *http.Request) (*http.Response, error) {
-		if r.URL.Host == "html.duckduckgo.com" {
+		if r.URL.Host == "api.search.brave.com" {
 			return &http.Response{StatusCode: 503, Body: http.NoBody, Header: make(http.Header)}, nil
 		}
 		return http.DefaultTransport.RoundTrip(r)
 	})}
-	p, _ := New(Options{APIKey: "test-key", BaseURL: server.URL, Client: client})
+	p, _ := New(Options{APIKey: "test-key", SearchAPIKey: "brave-test", BaseURL: server.URL, Client: client})
 	reply, err := p.Reply(context.Background(), "Orbit card benefits?", Context{})
 	if err != nil || calls != 2 || !strings.Contains(reply.Text, "could not verify") {
 		t.Fatal(reply, err, calls)
@@ -96,13 +96,13 @@ func TestToolBudgetReturnsEvidenceInsteadOfDiscardingAnswer(t *testing.T) {
 	}))
 	defer server.Close()
 	client := &http.Client{Transport: toolTransport(func(r *http.Request) (*http.Response, error) {
-		if r.URL.Host == "html.duckduckgo.com" {
+		if r.URL.Host == "api.search.brave.com" {
 			searches++
-			return &http.Response{StatusCode: 200, Body: ioBody(`<a class="result__a" href="https://orbit.example/guide">Guide</a><a class="result__snippet">Deductible $50.</a>`), Header: make(http.Header)}, nil
+			return braveResponse(`{"web":{"results":[{"url":"https://orbit.example/guide","title":"Guide","description":"Deductible $50."}]}}`), nil
 		}
 		return http.DefaultTransport.RoundTrip(r)
 	})}
-	p, _ := New(Options{APIKey: "test-key", BaseURL: server.URL, Client: client})
+	p, _ := New(Options{APIKey: "test-key", SearchAPIKey: "brave-test", BaseURL: server.URL, Client: client})
 	reply, err := p.Reply(context.Background(), "Orbit card protection", Context{})
 	if err != nil || calls != 4 || searches != 6 || !strings.Contains(reply.Text, "$50") {
 		t.Fatal(reply, err, calls, searches)

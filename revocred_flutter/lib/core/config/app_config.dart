@@ -8,6 +8,12 @@ class AppConfig {
     this.supabaseAnonKey = '',
     this.production = false,
     this.authRedirectUrl = '',
+    this.legalEntity = '',
+    this.supportEmail = '',
+    this.legalJurisdiction = '',
+    this.legalEffectiveDate = '',
+    this.privacyUrl = '',
+    this.termsUrl = '',
   });
 
   const AppConfig.fromEnvironment()
@@ -21,7 +27,17 @@ class AppConfig {
       production = const bool.fromEnvironment('REVOCRED_PRODUCTION'),
       authRedirectUrl = const String.fromEnvironment(
         'REVOCRED_AUTH_REDIRECT_URL',
-      );
+      ),
+      legalEntity = const String.fromEnvironment('REVOCRED_LEGAL_ENTITY'),
+      supportEmail = const String.fromEnvironment('REVOCRED_SUPPORT_EMAIL'),
+      legalJurisdiction = const String.fromEnvironment(
+        'REVOCRED_LEGAL_JURISDICTION',
+      ),
+      legalEffectiveDate = const String.fromEnvironment(
+        'REVOCRED_LEGAL_EFFECTIVE_DATE',
+      ),
+      privacyUrl = const String.fromEnvironment('REVOCRED_PRIVACY_URL'),
+      termsUrl = const String.fromEnvironment('REVOCRED_TERMS_URL');
 
   final bool useMocks;
   final String apiUrl;
@@ -29,6 +45,13 @@ class AppConfig {
   final String supabaseAnonKey;
   final bool production;
   final String authRedirectUrl;
+
+  final String legalEntity;
+  final String supportEmail;
+  final String legalJurisdiction;
+  final String legalEffectiveDate;
+  final String privacyUrl;
+  final String termsUrl;
 
   void validate() {
     if (supabaseAnonKey.startsWith('sb_secret_')) {
@@ -41,6 +64,26 @@ class AppConfig {
       throw StateError('Real mode requires API and Supabase configuration.');
     }
     if (production) {
+      if ([
+        legalEntity,
+        supportEmail,
+        legalJurisdiction,
+        legalEffectiveDate,
+        privacyUrl,
+        termsUrl,
+      ].any((value) => value.trim().isEmpty)) {
+        throw StateError('Production requires complete legal configuration.');
+      }
+      for (final value in [privacyUrl, termsUrl]) {
+        final uri = Uri.tryParse(value);
+        if (uri == null ||
+            uri.scheme != 'https' ||
+            uri.host.isEmpty ||
+            uri.userInfo.isNotEmpty) {
+          throw StateError('Legal URLs must use HTTPS.');
+        }
+      }
+
       for (final value in [apiUrl, supabaseUrl]) {
         final uri = Uri.tryParse(value);
         if (uri == null ||

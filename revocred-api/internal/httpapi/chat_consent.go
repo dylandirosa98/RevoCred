@@ -32,3 +32,19 @@ func (a *API) consentedChatProvider(w http.ResponseWriter, r *http.Request, cons
 	}
 	return a.chatProvider, true
 }
+
+// storedConsentProvider uses external AI only when the account's saved
+// permission matches the current notice; anything else gets basic answers.
+func (a *API) storedConsentProvider(stored string) chat.Provider {
+	if a.chatProvider.Mode() == "deterministic" {
+		return a.chatProvider
+	}
+	if stored == "" {
+		return chat.NewDeterministicProvider()
+	}
+	disclosure, err := chat.Disclosure(a.chatProvider)
+	if err != nil || !disclosure.External || stored != disclosure.Version {
+		return chat.NewDeterministicProvider()
+	}
+	return a.chatProvider
+}

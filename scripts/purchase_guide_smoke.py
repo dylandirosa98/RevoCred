@@ -69,7 +69,16 @@ def main():
             page.goto(web + '/#/home')
             enable_accessibility(page)
             expect(page.get_by_text('Make the next swipe count.', exact=True)).to_be_attached(timeout=30000)
-            page.get_by_text('Online shopping', exact=True).click()
+
+            def select_category(label):
+                page.get_by_text(label, exact=True).click()
+                expect(page.get_by_text('Best known for ' + label, exact=True)).to_be_attached()
+                expect(page.get_by_text('Best cards for ' + label, exact=True)).to_have_count(0)
+
+            # The fast path never opens a comparison or booking form.
+            for label in ('Dining', 'Groceries', 'Travel', 'Gas', 'Transit', 'Online shopping'):
+                select_category(label)
+            page.get_by_role('button', name='Compare & options', exact=True).click()
             expect(page.get_by_label('1. Quicksilver', exact=True)).to_be_attached(timeout=15000)
             expect(page.get_by_text('1.5% cash back', exact=False)).to_be_attached()
             assert page.get_by_text('Venture X', exact=False).count() == 0, 'unowned card in comparison'
@@ -79,7 +88,8 @@ def main():
             expect(page.get_by_text('Best known for Online shopping', exact=True)).to_be_attached()
             page.get_by_text('Best known for Online shopping', exact=True).scroll_into_view_if_needed()
             page.screenshot(path=str(screenshots / 'online-shopping-home.png'))
-            page.get_by_text('Groceries', exact=True).click()
+            select_category('Groceries')
+            page.get_by_role('button', name='Compare & options', exact=True).click()
             expect(page.get_by_label('1. Amex Gold', exact=True)).to_be_attached()
             page.get_by_role('checkbox', name=re.compile('Spending caps still available')).click()
             page.wait_for_timeout(1200)
@@ -89,11 +99,13 @@ def main():
             page.screenshot(path=str(screenshots / 'groceries-cap-exhausted.png'))
             expect(page.get_by_label('1. Quicksilver', exact=True)).to_be_attached(timeout=15000)
             page.mouse.click(8, 8)
-            page.get_by_text('Dining', exact=True).click()
+            select_category('Dining')
+            page.get_by_role('button', name='Compare & options', exact=True).click()
             expect(page.get_by_label('1. Amex Gold', exact=True)).to_be_attached()
             expect(page.get_by_role('checkbox', name=re.compile('Spending caps still available'))).to_be_checked()
             page.mouse.click(8, 8)
-            page.get_by_text('Travel', exact=True).click()
+            select_category('Travel')
+            page.get_by_role('button', name='Compare & options', exact=True).click()
             page.get_by_role('button', name=re.compile('How are you booking')).click()
             page.wait_for_timeout(400)
             mode_ids = [m['id'] for m in bootstrap['data']['purchase_guide']['travel_modes']]
@@ -114,6 +126,8 @@ def main():
             page.get_by_label('1. Sapphire Reserve', exact=True).scroll_into_view_if_needed()
             page.screenshot(path=str(screenshots / 'chase-portal-comparison.png'))
             page.mouse.click(8, 8)
+            expect(page.get_by_text('8x Ultimate Rewards points · Travel', exact=True)).to_be_attached()
+            page.screenshot(path=str(screenshots / 'travel-use-now-no-popup.png'))
             # A wallet mutation must change the server comparison; no stale catalog fallback.
             _, added = request(api + '/v1/wallet', 'POST', {'catalog_card_id': ids['platinum'], 'nickname': '', 'status': 'active'}, headers)
             assert guide('?travel_mode=flights-direct')['travel']['options'][0]['card_id'] == ids['platinum']
@@ -122,7 +136,7 @@ def main():
             assert not errors, 'Runtime errors: ' + '; '.join(errors)
             context.close()
             browser.close()
-        verified += ['16 categories covered; rent not guessed', 'owned cards only', 'portal/direct distinction', 'cap toggle reranks', 'wallet add/remove reranks', 'mobile UI and no runtime errors']
+        verified += ['16 categories covered; rent not guessed', 'owned cards only', 'category taps update Use now with no popup', 'comparison and booking controls are opt-in', 'portal/direct distinction', 'cap toggle reranks', 'wallet add/remove reranks', 'mobile UI and no runtime errors']
         print('Purchase guide live smoke PASSED: ' + '; '.join(verified))
         print('Screenshots:', screenshots)
         (screenshots / 'result.json').write_text(json.dumps({'passed': True, 'verified': verified}, indent=2))

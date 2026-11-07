@@ -61,6 +61,9 @@ class PlaybookStep {
     this.coveredBy = '',
     this.timing = '',
     this.timingNote = '',
+    this.cardId = '',
+    this.completedRecommendation = false,
+    this.completedOrder = 0,
   });
 
   factory PlaybookStep.fromJson(Map<String, dynamic> json) => PlaybookStep(
@@ -71,6 +74,9 @@ class PlaybookStep {
     coveredBy: (json['covered_by'] ?? '').toString(),
     timing: (json['timing'] ?? '').toString(),
     timingNote: (json['timing_note'] ?? '').toString(),
+    cardId: (json['card_id'] ?? '').toString(),
+    completedRecommendation: json['completed_recommendation'] == true,
+    completedOrder: (json['completed_order'] as num?)?.toInt() ?? 0,
   );
 
   final String name;
@@ -80,6 +86,9 @@ class PlaybookStep {
   final String coveredBy;
   final String timing;
   final String timingNote;
+  final String cardId;
+  final bool completedRecommendation;
+  final int completedOrder;
 }
 
 class UnusedPlaybookCard {

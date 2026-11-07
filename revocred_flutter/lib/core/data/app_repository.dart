@@ -1,5 +1,8 @@
 import '../models/app_models.dart';
 import '../models/chat_disclosure.dart';
+import 'chat_stream.dart';
+
+export 'chat_stream.dart';
 
 class AuthResult {
   const AuthResult({required this.success, this.message});
@@ -39,6 +42,24 @@ abstract interface class AppRepository {
   Future<void> removeCard(String walletCardId);
   Future<ChatDisclosure> loadChatDisclosure();
   Future<ChatMessage> sendMessage(String prompt, {String? aiConsentVersion});
+
+  /// Sends a message and reports progress before the saved exchange. Closing
+  /// the subscription cancels the request.
+  Stream<ChatStreamEvent> streamMessage(
+    String prompt, {
+    String? aiConsentVersion,
+  });
+
+  /// The account's saved AI sharing permission.
+  Future<ChatConsentStatus> loadChatConsent();
+  Future<ChatConsentStatus> grantChatConsent(String version);
+  Future<void> revokeChatConsent();
+  Future<void> clearChatHistory();
+  Future<void> sendChatFeedback(
+    String messageId, {
+    required String rating,
+    String? reason,
+  });
   Future<DemoRecommendation?> saveQuestionnaire(QuestionnaireAnswers answers);
   Future<void> switchStrategy(String code);
   Future<void> updateDisplayName(String name);
@@ -48,9 +69,11 @@ class AccountSession {
   const AccountSession({
     required this.authenticated,
     this.passwordRecovery = false,
+    this.userId,
   });
   final bool authenticated;
   final bool passwordRecovery;
+  final String? userId;
 }
 
 class SessionExpiredException implements Exception {

@@ -125,9 +125,7 @@ class MockAppRepository implements AppRepository {
     if (_data.wallet.any((card) => card.id == cardId)) return;
     final card = _data.catalog.where((item) => item.id == cardId).firstOrNull;
     if (card != null) {
-      _data = _data.copyWith(
-        wallet: [..._data.wallet, card.copyWith(isActive: true)],
-      );
+      _updateWallet([..._data.wallet, card.copyWith(isActive: true)]);
     }
   }
 
@@ -160,22 +158,23 @@ class MockAppRepository implements AppRepository {
       walletCardId: id,
       termsUnknown: card.termsUnknown,
     );
+    _updateWallet([..._data.wallet, created]);
+  }
+
+  void _updateWallet(List<CreditCard> wallet) {
     _data = _data.copyWith(
-      wallet: [..._data.wallet, created],
+      wallet: wallet,
       playbook: buildPlaybook(
         code: _data.playbook?.code ?? _data.strategyPlan?.code,
-        walletNames: [
-          ..._data.wallet,
-          created,
-        ].map((item) => item.name).toList(),
+        walletNames: wallet.map((item) => item.name).toList(),
       ),
     );
   }
 
   @override
   Future<void> removeCard(String walletCardId) async {
-    _data = _data.copyWith(
-      wallet: _data.wallet
+    _updateWallet(
+      _data.wallet
           .where((card) => (card.walletCardId ?? card.id) != walletCardId)
           .toList(),
     );
@@ -208,6 +207,48 @@ class MockAppRepository implements AppRepository {
     _data = _data.copyWith(messages: [..._data.messages, message]);
     return message;
   }
+
+  String _chatConsentVersion = '';
+
+  /// Demo progress, then the reply from [sendMessage] so test doubles that
+  /// override it keep working.
+  @override
+  Stream<ChatStreamEvent> streamMessage(
+    String prompt, {
+    String? aiConsentVersion,
+  }) async* {
+    yield const ChatStatusEvent('thinking', 'Thinking…');
+    final reply = await sendMessage(prompt, aiConsentVersion: aiConsentVersion);
+    yield const ChatStatusEvent('writing', 'Writing your answer…');
+    yield ChatDoneEvent(reply: reply);
+  }
+
+  @override
+  Future<ChatConsentStatus> loadChatConsent() async => ChatConsentStatus(
+    granted: _chatConsentVersion.isNotEmpty,
+    version: _chatConsentVersion,
+  );
+
+  @override
+  Future<ChatConsentStatus> grantChatConsent(String version) async {
+    _chatConsentVersion = version;
+    return loadChatConsent();
+  }
+
+  @override
+  Future<void> revokeChatConsent() async => _chatConsentVersion = '';
+
+  @override
+  Future<void> clearChatHistory() async {
+    _data = _data.copyWith(messages: const []);
+  }
+
+  @override
+  Future<void> sendChatFeedback(
+    String messageId, {
+    required String rating,
+    String? reason,
+  }) async {}
 
   @override
   Future<DemoRecommendation?> saveQuestionnaire(

@@ -21,9 +21,10 @@ const (
 )
 
 type Options struct {
-	APIKey  string
-	Model   string
-	BaseURL string
+	SearchAPIKey string
+	APIKey       string
+	Model        string
+	BaseURL      string
 	// ReasoningEffort is sent as reasoning_effort when set (OpenAI: none,
 	// low, medium, ...). Reasoning models reject a custom temperature.
 	ReasoningEffort string
@@ -66,6 +67,9 @@ func New(opts Options) (Provider, error) {
 		model = defaultGoModel
 	}
 	effort := strings.ToLower(strings.TrimSpace(opts.ReasoningEffort))
+	if effort == "" && openAI {
+		effort = "low"
+	}
 	for _, r := range effort {
 		if r < 'a' || r > 'z' {
 			return nil, errors.New("AI_REASONING_EFFORT must be a single word such as none or low")
@@ -84,26 +88,28 @@ func New(opts Options) (Provider, error) {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
 	return goProvider{
-		endpoint: base + "/chat/completions",
-		apiKey:   apiKey,
-		model:    model,
-		effort:   effort,
-		openAI:   openAI,
-		client:   client,
-		fallback: fallback,
-		logger:   logger,
+		searchAPIKey: strings.TrimSpace(opts.SearchAPIKey),
+		endpoint:     base + "/chat/completions",
+		apiKey:       apiKey,
+		model:        model,
+		effort:       effort,
+		openAI:       openAI,
+		client:       client,
+		fallback:     fallback,
+		logger:       logger,
 	}, nil
 }
 
 type goProvider struct {
-	endpoint string
-	apiKey   string
-	model    string
-	effort   string
-	openAI   bool
-	client   *http.Client
-	fallback Provider
-	logger   *slog.Logger
+	searchAPIKey string
+	endpoint     string
+	apiKey       string
+	model        string
+	effort       string
+	openAI       bool
+	client       *http.Client
+	fallback     Provider
+	logger       *slog.Logger
 }
 
 func (p goProvider) Mode() string {
@@ -149,6 +155,7 @@ func (p goProvider) Reply(ctx context.Context, prompt string, groundedContext Co
 			return reply, err
 		}
 		reply.Blocks = append([]Block{{Type: "note", Text: note}}, reply.Blocks...)
+		reply.Basic = true
 		reply.Text = RenderText(reply.Blocks)
 		return reply, nil
 	}
@@ -157,7 +164,7 @@ func (p goProvider) Reply(ctx context.Context, prompt string, groundedContext Co
 		return limited("Full answers are unavailable right now, so here is a quick summary from your plan.")
 	}
 
-	messages := []map[string]string{{"role": "system", "content": systemPrompt(facts)}}
+	messages := []map[string]string{{"role": "system", "content": p.systemPrompt(facts)}}
 	history := groundedContext.History
 	if len(history) > maxHistoryTurns {
 		history = history[len(history)-maxHistoryTurns:]
@@ -183,7 +190,7 @@ func (p goProvider) Reply(ctx context.Context, prompt string, groundedContext Co
 	for round := 0; round <= 4; round++ {
 		request := p.requestBody(nil)
 		request["messages"] = conversation
-		request["tools"] = searchTools()
+		request["tools"] = searchTools(p.searchAPIKey != "")
 		request["tool_choice"] = "auto"
 		if round == 4 || toolCount >= 6 {
 			request["tool_choice"] = "none"
@@ -205,6 +212,7 @@ func (p goProvider) Reply(ctx context.Context, prompt string, groundedContext Co
 		if !p.openAI && groundedContext.SessionID != "" {
 			req.Header.Set("X-Opencode-Session", groundedContext.SessionID)
 		}
+		ReportProgress(ctx, "thinking", "Thinking…")
 		resp, err := p.client.Do(req)
 		if err != nil {
 			return unavailable("request failed", "error", err.Error())
@@ -265,7 +273,7 @@ func (p goProvider) Reply(ctx context.Context, prompt string, groundedContext Co
 					toolName = "unknown"
 				}
 				p.logger.Info("ai research tool", "tool", toolName, "round", round+1)
-				result := runWebTool(modelCtx, call, httpWebClient{client: p.client}, facts)
+				result := runWebTool(modelCtx, call, httpWebClient{client: p.client, searchAPIKey: p.searchAPIKey}, facts)
 				conversation = append(conversation, map[string]any{"role": "tool", "tool_call_id": call.ID, "content": result})
 			}
 			continue
@@ -274,6 +282,7 @@ func (p goProvider) Reply(ctx context.Context, prompt string, groundedContext Co
 		if reply == "" {
 			return unavailable("empty reply", "finish_reason", parsed.Choices[0].FinishReason)
 		}
+		ReportProgress(ctx, "writing", "Writing your answer…")
 		blocks := ParseReply(reply, facts)
 		return Reply{Blocks: blocks, Text: RenderText(blocks)}, nil
 	}
@@ -316,4 +325,18 @@ Use clear paragraphs and bullets, not markdown tables. Aim for 60-140 words for 
 
 Private member context (use privately; not for tools):
 ` + string(encoded)
+}
+
+// searchGuidance is swapped for noSearchGuidance when no search API key is
+// configured, so the model never promises a lookup it cannot make.
+const searchGuidance = "General education needs no search; use web_search for current or missing product details, including unfamiliar cards."
+const noSearchGuidance = "General education needs no lookup. Web search is not available; if the member supplies a public HTTPS source you may read it with read_public_page, otherwise say which current terms you could not verify."
+
+func (p goProvider) systemPrompt(facts snapshot) string {
+	s := systemPrompt(facts)
+	if p.searchAPIKey == "" {
+		s = strings.Replace(s, searchGuidance, noSearchGuidance, 1)
+		s = strings.Replace(s, "A focused benefit question usually needs one search and one relevant page; answer", "Answer", 1)
+	}
+	return s
 }

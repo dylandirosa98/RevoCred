@@ -25,7 +25,10 @@ class StrategyDigest {
 enum StrategySlotStatus { completed, substituted, next, later, unavailable }
 
 String strategyTimingCaption(StrategyRoadmapSlot slot) => switch (slot.status) {
-  StrategySlotStatus.completed => 'Already in your wallet',
+  StrategySlotStatus.completed =>
+    slot.completedRecommendation
+        ? 'Completed — now in your wallet'
+        : 'Already in your wallet',
   StrategySlotStatus.substituted => 'Covered by your current card',
   StrategySlotStatus.next =>
     slot.timing == 'Timing not available'
@@ -57,6 +60,9 @@ class StrategyRoadmapSlot {
     required this.use,
     required this.note,
     required this.status,
+    this.cardId = '',
+    this.completedRecommendation = false,
+    this.completedOrder = 0,
     this.timing = 'Timing not available',
     this.timingNote =
         'Verify account history and issuer rules before applying.',
@@ -67,6 +73,9 @@ class StrategyRoadmapSlot {
   final String use;
   final String note;
   final StrategySlotStatus status;
+  final String cardId;
+  final bool completedRecommendation;
+  final int completedOrder;
   final String timing;
   final String timingNote;
 
@@ -80,48 +89,85 @@ class StrategyRoadmapSlot {
 /// this helper never advertises an unowned alternative.
 List<StrategyRoadmapSlot> strategyRoadmapSlots(AppData data) {
   final playbook = data.playbook;
-  if (playbook != null && playbook.steps.isNotEmpty) {
-    final orderedSteps = [...playbook.steps];
-    int rank(String status) => switch (status) {
-      'have' => 0,
-      'next' => 1,
-      'later' => 2,
-      _ => 3,
-    };
+  if (playbook != null) {
+    final orderedSteps = playbook.steps
+        .where(
+          (step) =>
+              !step.completedRecommendation ||
+              (step.cardId.isNotEmpty &&
+                  data.wallet.any((card) => card.id == step.cardId)),
+        )
+        .toList();
+    int rank(String status, String name, String cardId) {
+      if (cardId.isEmpty
+          ? _walletCardFor(data, name) != null
+          : data.wallet.any((card) => card.id == cardId)) {
+        return 0;
+      }
+      return switch (status) {
+        'have' => 0,
+        'next' => 1,
+        'later' => 2,
+        _ => 3,
+      };
+    }
+
     // Preserve server role order within each group; actionable next always
     // precedes conditional future applications, even if appended by the server.
     final indexed = orderedSteps.indexed.toList()
       ..sort((a, b) {
-        final result = rank(a.$2.status).compareTo(rank(b.$2.status));
+        final result = rank(
+          a.$2.status,
+          a.$2.name,
+          a.$2.cardId,
+        ).compareTo(rank(b.$2.status, b.$2.name, b.$2.cardId));
+
         return result == 0 ? a.$1.compareTo(b.$1) : result;
       });
-    return indexed.map((entry) {
+    final slots = indexed.map((entry) {
       final step = entry.$2;
-      final coveredBy = step.coveredBy.trim();
+      final held = step.cardId.isEmpty
+          ? _walletCardFor(data, step.name)
+          : data.wallet.where((card) => card.id == step.cardId).firstOrNull;
+      final status = held == null ? step.status : 'have';
+      final coveredBy = held?.name ?? step.coveredBy.trim();
       final substituted =
-          step.status == 'have' &&
+          status == 'have' &&
           coveredBy.isNotEmpty &&
           _normalizeCard(coveredBy) != _normalizeCard(step.name);
       return StrategyRoadmapSlot(
+        cardId: step.cardId,
+        completedRecommendation: step.completedRecommendation,
+        completedOrder: step.completedOrder,
         targetName: step.name,
-        displayName: coveredBy.isEmpty ? step.name : coveredBy,
+        displayName: coveredBy.isNotEmpty
+            ? coveredBy
+            : step.cardId.isEmpty
+            ? step.name
+            : data.catalog
+                      .where((card) => card.id == step.cardId)
+                      .firstOrNull
+                      ?.name ??
+                  step.name,
         use: step.use,
         note: step.note.isEmpty ? step.use : step.note,
-        timing: step.status == 'have'
-            ? 'Already covered'
-            : step.status == 'unavailable'
+        timing: status == 'have'
+            ? step.completedRecommendation
+                  ? 'Completed recommendation'
+                  : 'Already covered'
+            : status == 'unavailable'
             ? 'Do not apply now'
             : step.timing.isEmpty
             ? 'Timing not available'
             : step.timing,
-        timingNote: step.status == 'have'
+        timingNote: status == 'have'
             ? 'No new application needed.'
             : step.timingNote.isEmpty
             ? 'Opening dates and inquiry history were not collected. Verify issuer rules before applying.'
             : step.timingNote,
         status: substituted
             ? StrategySlotStatus.substituted
-            : switch (step.status) {
+            : switch (status) {
                 'have' => StrategySlotStatus.completed,
                 'next' => StrategySlotStatus.next,
                 'unavailable' => StrategySlotStatus.unavailable,
@@ -129,6 +175,51 @@ List<StrategyRoadmapSlot> strategyRoadmapSlots(AppData data) {
               },
       );
     }).toList();
+    final unique = <StrategyRoadmapSlot>[];
+    final indexes = <String, int>{};
+    for (final slot in slots) {
+      final id = slot.cardId.isNotEmpty
+          ? slot.cardId
+          : strategySlotCard(data, slot)?.id;
+      final existing = id == null ? null : indexes[id];
+      if (existing == null) {
+        if (id != null) indexes[id] = unique.length;
+        unique.add(slot);
+      } else if (slot.completedRecommendation &&
+          !unique[existing].completedRecommendation) {
+        unique[existing] = slot;
+      }
+    }
+    // Safety net: one card, one role. A completed recommendation wins over any
+    // other slot rendering the same card, matched by exact ID or card name, so
+    // a stale family-covered template role can never repeat an issued card.
+    final completedIds = <String>{};
+    final completedNames = <String>{};
+    for (final slot in unique) {
+      if (slot.completedRecommendation) {
+        if (slot.cardId.isNotEmpty) completedIds.add(slot.cardId);
+        completedNames.add(_normalizeCard(slot.displayName));
+      }
+    }
+    final deduped = unique.where((slot) {
+      if (slot.completedRecommendation) return true;
+      final id = slot.cardId.isNotEmpty
+          ? slot.cardId
+          : strategySlotCard(data, slot)?.id;
+      if (id != null && completedIds.contains(id)) return false;
+      return !completedNames.contains(_normalizeCard(slot.displayName));
+    }).toList();
+    final completed =
+        deduped.where((slot) => slot.completedRecommendation).toList()
+          ..sort((a, b) {
+            final order = a.completedOrder.compareTo(b.completedOrder);
+            return order == 0 ? a.cardId.compareTo(b.cardId) : order;
+          });
+    var index = 0;
+    return [
+      for (final slot in deduped)
+        slot.completedRecommendation ? completed[index++] : slot,
+    ];
   }
 
   final slots = <StrategyRoadmapSlot>[];
@@ -184,13 +275,15 @@ int strategyCoveredRoleCount(AppData data) =>
 RoadmapStep? strategyNextActionStep(AppData data) {
   final playbook = data.playbook;
   if (playbook != null) {
-    for (final step in playbook.steps) {
-      if (step.status != 'next') continue;
+    // Use the same wallet-aware roles as Strategy; an owned card cannot stay
+    // actionable while a just-finished mutation waits for fresh server data.
+    for (final slot in strategyRoadmapSlots(data)) {
+      if (slot.status != StrategySlotStatus.next) continue;
       return RoadmapStep(
         id: '${playbook.code}-next',
-        cardId: step.name,
+        cardId: slot.cardId.isEmpty ? slot.targetName : slot.cardId,
         stage: 'Consider next',
-        note: step.note.isEmpty ? step.use : step.note,
+        note: slot.note,
         estimatedValue: 0,
       );
     }
@@ -211,10 +304,38 @@ RoadmapStep? strategyNextActionStep(AppData data) {
   return null;
 }
 
-String? strategyNextCardName(AppData data) {
+CreditCard? strategyNextCard(AppData data) {
+  if (data.playbook != null) {
+    final slot = strategyRoadmapSlots(
+      data,
+    ).where((slot) => slot.status == StrategySlotStatus.next).firstOrNull;
+    return slot == null ? null : strategySlotCard(data, slot);
+  }
   final step = strategyNextActionStep(data);
   if (step == null) return null;
-  return strategyCardFor(data, step.cardId)?.name ?? step.cardId;
+  return strategyCardFor(data, step.cardId);
+}
+
+String? strategyNextCardName(AppData data) {
+  final card = strategyNextCard(data);
+  if (card != null) return card.name;
+  if (data.playbook != null) {
+    return strategyRoadmapSlots(data)
+        .where((slot) => slot.status == StrategySlotStatus.next)
+        .firstOrNull
+        ?.displayName;
+  }
+  return strategyNextActionStep(data)?.cardId;
+}
+
+CreditCard? strategySlotCard(AppData data, StrategyRoadmapSlot slot) {
+  if (slot.cardId.isNotEmpty) {
+    return [
+      ...data.wallet,
+      ...data.catalog,
+    ].where((card) => card.id == slot.cardId).firstOrNull;
+  }
+  return strategyCardFor(data, slot.displayName);
 }
 
 /// Catalog cards ordered for the strategy screen rather than by seed order.
@@ -228,7 +349,7 @@ List<CreditCard> strategyComparisonCards(AppData data, {int limit = 4}) {
   }
 
   for (final slot in strategyRoadmapSlots(data)) {
-    if (!slot.isCovered) add(strategyCardFor(data, slot.displayName));
+    if (!slot.isCovered) add(strategySlotCard(data, slot));
   }
   for (final card in data.catalog) {
     add(card);
@@ -242,7 +363,7 @@ List<CreditCard> strategyComparisonCards(AppData data, {int limit = 4}) {
 List<CreditCard> strategyTargetCards(AppData data) {
   final targets = <CreditCard>[];
   for (final slot in strategyRoadmapSlots(data)) {
-    final card = strategyCardFor(data, slot.displayName);
+    final card = strategySlotCard(data, slot);
     if (card != null && !targets.any((item) => item.id == card.id)) {
       targets.add(card);
     }

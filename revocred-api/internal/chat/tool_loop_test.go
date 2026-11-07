@@ -17,6 +17,12 @@ type toolTransport func(*http.Request) (*http.Response, error)
 
 func (f toolTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
+func braveResponse(body string) *http.Response {
+	header := make(http.Header)
+	header.Set("Content-Type", "application/json")
+	return &http.Response{StatusCode: 200, Body: ioBody(body), Header: header}
+}
+
 func TestModelDirectedSearchFollowup(t *testing.T) {
 	for _, openAI := range []bool{false, true} {
 		t.Run(fmt.Sprintf("openai=%v", openAI), func(t *testing.T) {
@@ -52,16 +58,19 @@ func TestModelDirectedSearchFollowup(t *testing.T) {
 			defer server.Close()
 			client := &http.Client{}
 			client.Transport = toolTransport(func(r *http.Request) (*http.Response, error) {
-				if r.URL.Host == "html.duckduckgo.com" {
-					if r.FormValue("q") != "Unfamiliar Orbit card deductible" {
-						t.Errorf("external search got private/non-topic data: %s", r.FormValue("q"))
+				if r.URL.Host == "api.search.brave.com" {
+					if r.URL.Query().Get("q") != "Unfamiliar Orbit card deductible" {
+						t.Errorf("external search got private/non-topic data: %s", r.URL.Query().Get("q"))
+					}
+					if r.Header.Get("X-Subscription-Token") != "brave-test" {
+						t.Error("search request is missing the Brave subscription token")
 					}
 					searches++
-					return &http.Response{StatusCode: 200, Body: ioBody(`<a class="result__a" href="https://orbit.example/guide">Orbit guide</a><a class="result__snippet">Deductible is $50.</a>`), Header: make(http.Header)}, nil
+					return braveResponse(`{"web":{"results":[{"url":"https://orbit.example/guide","title":"Orbit guide","description":"Deductible is $50."}]}}`), nil
 				}
 				return http.DefaultTransport.RoundTrip(r)
 			})
-			provider, _ := New(Options{APIKey: "test-key", BaseURL: server.URL, Client: client})
+			provider, _ := New(Options{APIKey: "test-key", SearchAPIKey: "brave-test", BaseURL: server.URL, Client: client})
 			p := provider.(goProvider)
 			p.openAI = openAI
 			reply, err := p.Reply(context.Background(), "And the deductible?", Context{History: []Turn{{Role: "user", Content: "Explain Unfamiliar Orbit card protection"}}})

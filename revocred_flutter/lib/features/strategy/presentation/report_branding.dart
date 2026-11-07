@@ -81,19 +81,23 @@ class ReportScore extends StatelessWidget {
                     Positioned.fill(
                       child: CustomPaint(painter: ScoreGaugePainter(score)),
                     ),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          '$score',
-                          style: const TextStyle(
-                            fontFamily: 'Anton',
-                            fontSize: 32,
-                            height: 1,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.bottomCenter,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$score',
+                            style: const TextStyle(
+                              fontFamily: 'Anton',
+                              fontSize: 32,
+                              height: 1,
+                            ),
                           ),
-                        ),
-                        const Text('/100', style: TextStyle(fontSize: 11)),
-                      ],
+                          const Text('/100', style: TextStyle(fontSize: 11)),
+                        ],
+                      ),
                     ),
                   ],
                 ),

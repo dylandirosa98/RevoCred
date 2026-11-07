@@ -14,7 +14,7 @@ func (p *Postgres) ExportAccount(ctx context.Context, userID string) (map[string
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	out := map[string]json.RawMessage{}
-	for _, table := range []string{"profiles", "wallet_cards", "questionnaire_responses", "recommendation_runs", "chat_messages"} {
+	for _, table := range []string{"profiles", "wallet_cards", "questionnaire_responses", "recommendation_runs", "issued_recommendations", "chat_messages", "chat_ai_consents", "chat_feedback"} {
 		var data []byte
 		// Table identifiers are a fixed internal allowlist, never request input.
 		if err = tx.QueryRow(ctx, "SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]') FROM revocred."+table+" t WHERE user_id=$1", userID).Scan(&data); err != nil {

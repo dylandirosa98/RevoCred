@@ -7,7 +7,7 @@ No API key, signup, cardholder data, or paid provider is involved.
 ## What is connected
 
 - Exact public catalog UUID → OpenCard product-ID bindings live in
-  `revocred-api/internal/carddata/cache.go`. All fourteen main cards currently
+  `revocred-api/internal/carddata/cache.go`. All fifteen main cards currently
   map. The `quicksilver` row is the base Quicksilver (excellent credit),
   re-sourced to the base issuer page in migration `000025`, and bound to
   `us-capital-one-quicksilver`. No fuzzy matching, new
@@ -17,9 +17,14 @@ No API key, signup, cardholder data, or paid provider is involved.
   caps), flattened display rules, benefit descriptions/conditions, separate
   welcome-offer and travel-perk evidence, original sources, source verification
   date, fetch date, and snapshot SHA-256.
-- Wallet and strategy card details display this in an attributed supplemental
-  section, alongside existing issuer snapshots. Newer issuer benefits are not
-  overwritten by older community descriptions. REVO receives source-labelled
+- Wallet and strategy card details use readable rewards, benefits and travel
+  sections, with issuer links and a verification/age notice. Display-only
+  formatting turns structured caps into spending limits and groups credit
+  amounts/cadences, rather than printing JSON or internal field names. Cards
+  do not show provider branding or duplicate modeled/source rewards blocks.
+  Newer issuer benefits are not overwritten by older community descriptions;
+  raw source/evidence and modeled calculation inputs remain unchanged.
+  REVO receives source-labelled
   community facts as reference material, not permission to select cards.
 - These descriptions are **not independently verified, complete issuer terms**.
   Missing benefit data means unknown, not no benefit. Some upstream records have
@@ -67,8 +72,11 @@ restarts the API and hydrates the refreshed snapshot immediately.
 Data: [OpenCard DB](https://github.com/thedavidweng/opencard-db),
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
 [upstream data license](https://github.com/thedavidweng/opencard-db/blob/main/LICENSE-DATA).
-RevoCred adapts field formatting for display and shows attribution, license link,
-issuer link, verification date and retrieval date in the UI. This license does
+RevoCred adapts field formatting for display. Attribution, the original source
+link, license link and adaptation disclosure are in Profile → Privacy and terms
+→ Data credits. Cards retain issuer links and source verification dates without
+provider branding or technical retrieval metadata; fetch dates remain in the API.
+This license does
 not grant rights to card artwork or issuer trademarks. Re-check the upstream
 license if changing provider or importing a different artifact.
 
@@ -80,11 +88,16 @@ license if changing provider or importing a different artifact.
   inputs and recommendation results.
 - `make check`: formatter/analyzer, complete Flutter and Go suites, SQL vet.
 - `test/community_card_data_test.dart`: model isolation, copy preservation, and
-  mobile-width rendering with currency, earning rules, benefit text, dates,
-  source attribution and external links.
+  mobile-width readable card details with currency, earning rules, benefits,
+  dates and issuer links; attribution appears separately in Legal.
+- `test/card_detail_text_test.dart`: spending-cap and travel-field formatting,
+  preservation of missing/zero/conditional terms, no raw code across all fifteen
+  catalog products, and unchanged source evidence.
 - `uv run --no-project --with playwright python scripts/opencard_smoke.py`:
   real shared-browser test at 390×844 with a disposable local QA account,
-  expanded Reserve credits, earning rates, dates/attribution, and no runtime
-  errors. Deletes its own account and verifies deletion. Uses installed native
+  Discover/Gold spending limits, Reserve credits and travel conditions, clean
+  Cards presentation, dates and issuer links, separate Legal attribution, unchanged
+  financial inputs/evidence and no runtime errors. Deletes its own account and
+  verifies deletion. Uses installed native
   Playwright Chromium when available; `CHROMIUM_PATH` can override it. Snap
   Chromium cannot access Hermes scratch profiles under confinement.

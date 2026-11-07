@@ -1,3 +1,4 @@
+import '../../../core/logic/friendly_error.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -106,6 +107,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         onSubmit: () => _submit(signUp: signingUp),
                         onSwitchMode: () => setState(() {
                           signingUp = !signingUp;
+                          password.clear();
+                          obscurePassword = true;
                           message = null;
                         }),
                       )
@@ -148,7 +151,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _submit({required bool signUp}) async {
-    if (email.text.trim().isEmpty || password.text.length < (signUp ? 12 : 6)) {
+    if (submitting) return;
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email.text.trim())) {
+      setState(() => message = 'Enter a valid email address.');
+      return;
+    }
+    if (password.text.isEmpty || (signUp && password.text.length < 12)) {
       setState(
         () => message = signUp
             ? 'Enter an email and a password of at least 12 characters.'
@@ -184,6 +192,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (mounted) {
         final authenticated = ref.read(appControllerProvider).isAuthenticated;
         setState(() {
+          if (result.success && signUp && !authenticated) {
+            signingUp = false;
+            password.clear();
+            obscurePassword = true;
+          }
           message =
               result.message ??
               (result.success ? 'Signed in.' : 'Authentication failed.');
@@ -197,7 +210,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
     } catch (_) {
       if (mounted) {
-        setState(() => message = 'Authentication failed. Please try again.');
+        setState(
+          () => message =
+              'Unable to reach the authentication service. Check your connection and try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => submitting = false);
@@ -547,7 +563,7 @@ class _AuthFormPage extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: IconButton(
           key: const ValueKey('auth-back'),
-          onPressed: onBack,
+          onPressed: submitting ? null : onBack,
           tooltip: 'Back',
           icon: const Icon(Icons.arrow_back),
         ),
@@ -587,6 +603,7 @@ class _AuthFormPage extends StatelessWidget {
         TextField(
           key: const ValueKey('auth-name'),
           controller: name,
+          enabled: !submitting,
           textCapitalization: TextCapitalization.words,
           textInputAction: TextInputAction.next,
           onSubmitted: (_) => FocusScope.of(context).nextFocus(),
@@ -602,6 +619,7 @@ class _AuthFormPage extends StatelessWidget {
       TextField(
         key: const ValueKey('auth-email'),
         controller: email,
+        enabled: !submitting,
         keyboardType: TextInputType.emailAddress,
         textInputAction: TextInputAction.next,
         onSubmitted: (_) => FocusScope.of(context).nextFocus(),
@@ -613,6 +631,9 @@ class _AuthFormPage extends StatelessWidget {
       TextField(
         key: const ValueKey('auth-password'),
         controller: password,
+        enabled: !submitting,
+        enableSuggestions: false,
+        autocorrect: false,
         obscureText: obscurePassword,
         textInputAction: TextInputAction.done,
         autofillHints: signingUp
@@ -621,8 +642,9 @@ class _AuthFormPage extends StatelessWidget {
         onSubmitted: (_) => submitting ? null : onSubmit(),
         decoration: InputDecoration(
           labelText: 'Password',
+          helperText: signingUp ? 'Use at least 12 characters.' : null,
           suffixIcon: IconButton(
-            onPressed: onTogglePassword,
+            onPressed: submitting ? null : onTogglePassword,
             tooltip: obscurePassword ? 'Show password' : 'Hide password',
             icon: Icon(
               obscurePassword
@@ -746,7 +768,9 @@ class _AuthSideNote extends StatelessWidget {
             children: [
               Icon(Icons.check, size: 17, color: context.product.action),
               const SizedBox(width: 10),
-              Text(item, style: TextStyle(color: context.product.ink)),
+              Expanded(
+                child: Text(item, style: TextStyle(color: context.product.ink)),
+              ),
             ],
           ),
         ),
@@ -990,7 +1014,7 @@ class BrandedLoadingScreen extends StatelessWidget {
                         ),
                       ] else ...[
                         Text(
-                          error!,
+                          friendlyError(error),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: context.product.danger,

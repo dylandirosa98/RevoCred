@@ -35,6 +35,11 @@ type fakeRepository struct {
 	wallet      []domain.WalletCard
 	savedInput  domain.RecommendationInput
 	savedResult domain.RecommendationResult
+	chatConsent string
+	chatAICount int
+	chatCleared bool
+	savedModes  []string
+	feedback    string
 }
 
 func (f *fakeRepository) ListOffers(context.Context) ([]affiliate.Offer, error) {
@@ -92,8 +97,33 @@ func (f *fakeRepository) SaveRecommendation(_ context.Context, _ string, input d
 func (f *fakeRepository) ListMessages(context.Context, string, int) ([]domain.ChatMessage, error) {
 	return []domain.ChatMessage{}, nil
 }
-func (f *fakeRepository) AppendChatExchange(context.Context, string, string, string, json.RawMessage) ([]domain.ChatMessage, error) {
-	return []domain.ChatMessage{}, nil
+func (f *fakeRepository) AppendChatExchange(_ context.Context, _ string, prompt, reply string, blocks json.RawMessage, mode string) ([]domain.ChatMessage, error) {
+	f.savedModes = append(f.savedModes, mode)
+	return []domain.ChatMessage{
+		{ID: "u1", Role: "user", Content: prompt},
+		{ID: "a1", Role: "assistant", Content: reply, Blocks: blocks, Mode: mode},
+	}, nil
+}
+func (f *fakeRepository) ChatConsent(context.Context, string) (string, error) {
+	return f.chatConsent, nil
+}
+func (f *fakeRepository) SetChatConsent(_ context.Context, _ string, version string) error {
+	f.chatConsent = version
+	return nil
+}
+func (f *fakeRepository) ClearChat(context.Context, string) error {
+	f.chatCleared = true
+	return nil
+}
+func (f *fakeRepository) ChatAICount(context.Context, string) (int, error) {
+	return f.chatAICount, nil
+}
+func (f *fakeRepository) ChatFeedback(_ context.Context, _ string, messageID, rating, reason string) (bool, error) {
+	if messageID != "a1" {
+		return false, nil
+	}
+	f.feedback = rating + ":" + reason
+	return true, nil
 }
 
 type fakeRecommender struct{}

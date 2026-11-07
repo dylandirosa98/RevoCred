@@ -137,6 +137,15 @@ Future<Uint8List> buildStrategyReportPdf(
             size: 11,
           ),
           pw.SizedBox(height: 12),
+          if (data.wallet.isNotEmpty) ...[
+            _text('CARDS YOU ALREADY HAVE', size: 12, bold: true),
+            pw.SizedBox(height: 4),
+            _text(strategyOwnedCardsExplanation, size: 9),
+            pw.SizedBox(height: 5),
+            for (final card in data.wallet)
+              _text('${card.name} — Already owned', size: 10),
+            pw.SizedBox(height: 12),
+          ],
           _columns([
             _summary('Your goal', plan.goal, 'goal'),
             _summary(
@@ -239,13 +248,7 @@ Future<Uint8List> buildStrategyReportPdf(
               ],
             ),
           ),
-          if (data.wallet.isNotEmpty) ...[
-            pw.SizedBox(height: 10),
-            _text(
-              'CURRENT WALLET (${data.wallet.length} CARDS): ${data.wallet.map((card) => card.name).join(' • ')}',
-              size: 8,
-            ),
-          ],
+
           pw.SizedBox(height: 10),
           _columns([
             _box(
@@ -264,10 +267,7 @@ Future<Uint8List> buildStrategyReportPdf(
                         pw.Column(
                           children: [
                             _text(
-                              strategyCardFor(
-                                    data,
-                                    slots[i].displayName,
-                                  )?.bestUse ??
+                              strategySlotCard(data, slots[i])?.bestUse ??
                                   slots[i].use,
                               size: 8,
                               bold: true,
@@ -556,14 +556,16 @@ pw.Widget _card(
   Map<String, pw.MemoryImage> art,
   double artWidth,
 ) {
-  final card = strategyCardFor(data, slot.displayName);
-  final status = switch (slot.status) {
-    StrategySlotStatus.completed => 'IN YOUR WALLET',
-    StrategySlotStatus.substituted => 'OWNED SUBSTITUTE',
-    StrategySlotStatus.next => 'RECOMMENDED NEXT',
-    StrategySlotStatus.later => 'APPLY LATER',
-    StrategySlotStatus.unavailable => 'DO NOT APPLY NOW',
-  };
+  final card = strategySlotCard(data, slot);
+  final status = slot.completedRecommendation
+      ? 'COMPLETED'
+      : switch (slot.status) {
+          StrategySlotStatus.completed => 'IN YOUR WALLET',
+          StrategySlotStatus.substituted => 'OWNED SUBSTITUTE',
+          StrategySlotStatus.next => 'RECOMMENDED NEXT',
+          StrategySlotStatus.later => 'APPLY LATER',
+          StrategySlotStatus.unavailable => 'DO NOT APPLY NOW',
+        };
   return pw.Container(
     decoration: pw.BoxDecoration(
       border: pw.Border.all(color: _pale),
@@ -656,7 +658,7 @@ pw.Widget _card(
 int strategyReportYearOneValue(AppData data) => data.projectedYearlyValue;
 
 String _slotArtAsset(AppData data, StrategyRoadmapSlot slot) {
-  final card = strategyCardFor(data, slot.displayName);
+  final card = strategySlotCard(data, slot);
   return card == null
       ? cardArtAssetForName(slot.displayName)
       : cardArtAsset(card);
@@ -674,10 +676,12 @@ Future<void> downloadStrategyReport(
 
 Future<void> shareStrategyReport(
   AppData data, {
+  Rect? bounds,
   ApplicationLink? application,
 }) async {
   await deliverStrategyReportShare(
     await buildStrategyReportPdf(data, application: application),
     'revocred-${data.strategyPlan?.code.toLowerCase() ?? 'personal'}-strategy-report.pdf',
+    bounds: bounds,
   );
 }

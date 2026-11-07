@@ -57,7 +57,9 @@ func (p *Postgres) PreviewPlan(ctx context.Context, input domain.RecommendationI
 		return domain.Bootstrap{}, err
 	}
 	applySubstitutions(&playbook, wallet, substitutions)
+	bindPlaybookProducts(&playbook, catalog, wallet)
 	applyRecommendation(&playbook, &result)
+	absorbFamilyRoles(&playbook)
 	profile.NextApplicationTarget = playbook.NextCard
 	return domain.Bootstrap{Catalog: catalog, Wallet: wallet, Profile: &profile, LatestRecommendations: &result, LatestQuestionnaire: &input, WalletMetrics: scoring.Metrics(wallet, input.MonthlyCategorySpend, input.TravelScope), Playbook: &playbook, QuickPrompts: []string{}}, nil
 }

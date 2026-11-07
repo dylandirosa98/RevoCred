@@ -111,9 +111,16 @@ void main() {
     final card = find.byKey(const ValueKey('decision-recommended-card'));
     expect(card, findsOneWidget);
     final size = tester.getSize(card);
-    expect(size.width / size.height, closeTo(1.586, .001));
+    expect(size.width / size.height, closeTo(2400 / 1512, .001));
 
     await tester.tap(find.byKey(const ValueKey('decision-category-travel')));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('Best known for Travel'), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('decision-comparison-options')),
+    );
+    await tester.tap(find.byKey(const ValueKey('decision-comparison-options')));
     await tester.pumpAndSettle();
     expect(find.text('Best cards for Travel'), findsOneWidget);
     expect(
@@ -142,6 +149,13 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey('decision-more-category-drugstores')),
     );
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('Best known for Drugstores'), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('decision-comparison-options')),
+    );
+    await tester.tap(find.byKey(const ValueKey('decision-comparison-options')));
     await tester.pumpAndSettle();
     expect(find.text('Best cards for Drugstores'), findsOneWidget);
     expect(

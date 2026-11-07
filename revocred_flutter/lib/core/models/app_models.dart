@@ -282,11 +282,13 @@ class ChatBlock {
     required this.type,
     this.text = '',
     this.items = const [],
+    this.ordered = false,
     this.chart,
   });
 
   factory ChatBlock.fromJson(Map<String, dynamic> json) => ChatBlock(
     type: (json['type'] ?? '').toString(),
+    ordered: json['ordered'] == true,
     text: (json['text'] ?? '').toString(),
     items: ((json['items'] as List<dynamic>?) ?? const [])
         .map((item) => item.toString())
@@ -299,6 +301,7 @@ class ChatBlock {
   final String type;
   final String text;
   final List<String> items;
+  final bool ordered;
   final ChatChart? chart;
 }
 
@@ -355,10 +358,12 @@ class ChatMessage {
     required this.content,
     required this.createdAt,
     this.blocks = const [],
+    this.mode,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
     id: json['id'].toString(),
+    mode: json['mode'] as String?,
     role: json['role'] == 'user' ? MessageRole.user : MessageRole.assistant,
     content: json['content'] as String,
     blocks: ((json['blocks'] as List<dynamic>?) ?? const [])
@@ -372,6 +377,8 @@ class ChatMessage {
         DateTime.now(),
   );
 
+  final String? mode;
+  bool get isBasic => mode == 'basic';
   final String id;
   final MessageRole role;
   final String content;

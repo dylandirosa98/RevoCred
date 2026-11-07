@@ -179,8 +179,11 @@ type ChatMessage struct {
 	Content string `json:"content"`
 	// Blocks is the resolved structured reply the app renders. It may be empty
 	// for older messages, which then render as plain text.
-	Blocks    json.RawMessage `json:"blocks,omitempty"`
-	CreatedAt time.Time       `json:"created_at"`
+	Blocks json.RawMessage `json:"blocks,omitempty"`
+	// Mode is "ai" or "basic" for assistant replies saved after chat modes
+	// existed; empty for user messages and older replies.
+	Mode      string    `json:"mode,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // OngoingValue is wallet-only. Recommendation Net remains rewards less fees.

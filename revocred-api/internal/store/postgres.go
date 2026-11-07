@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/jackc/pgx/v5"
@@ -39,7 +40,7 @@ func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
 
 func (p *Postgres) Ping(ctx context.Context) error {
 	var ready bool
-	if err := p.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM revocred.catalog_cards WHERE data_kind='issuer_snapshot' AND is_active) AND to_regprocedure('revocred.delete_account(uuid)') IS NOT NULL AND to_regclass('revocred.affiliate_offers') IS NOT NULL AND to_regclass('revocred.affiliate_click_days') IS NOT NULL`).Scan(&ready); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM revocred.catalog_cards WHERE data_kind='issuer_snapshot' AND is_active) AND to_regprocedure('revocred.delete_account(uuid)') IS NOT NULL AND to_regclass('revocred.affiliate_offers') IS NOT NULL AND to_regclass('revocred.affiliate_click_days') IS NOT NULL AND to_regclass('revocred.issued_recommendations') IS NOT NULL`).Scan(&ready); err != nil {
 		return err
 	}
 	if !ready {
@@ -49,6 +50,7 @@ func (p *Postgres) Ping(ctx context.Context) error {
 }
 
 func (p *Postgres) Bootstrap(ctx context.Context, userID string) (domain.Bootstrap, error) {
+	issuedAt := time.Now().UTC()
 	profile, err := p.GetProfile(ctx, userID)
 	if err != nil {
 		return domain.Bootstrap{}, err
@@ -92,13 +94,25 @@ func (p *Postgres) Bootstrap(ctx context.Context, userID string) (domain.Bootstr
 	if recommendations != nil {
 		recommendations.StrategyCode = code
 	}
-	playbook := strategy.Build(code, walletNames(wallet), playbookPrefs(questionnaire))
+	completed, err := p.completedIssuedRecommendations(ctx, userID, code, wallet)
+	if err != nil {
+		return domain.Bootstrap{}, err
+	}
+	playbook := strategy.Build(code, walletNamesExcept(wallet, completed), playbookPrefs(questionnaire))
 	substitutions, err := p.Substitutions(ctx)
 	if err != nil {
 		return domain.Bootstrap{}, err
 	}
 	applySubstitutions(&playbook, wallet, substitutions)
-	applyRecommendation(&playbook, recommendations)
+	bindPlaybookProducts(&playbook, catalog, wallet)
+	restoreCompletedRecommendations(&playbook, completed, wallet)
+	detachIssuedFamilyCoverage(&playbook, completed)
+	bindPlaybookProducts(&playbook, catalog, wallet)
+	selected := applyRecommendation(&playbook, recommendations)
+	absorbFamilyRoles(&playbook)
+	if err = p.recordIssuedRecommendation(ctx, userID, code, selected, issuedAt, "bootstrap_next", ""); err != nil {
+		return domain.Bootstrap{}, err
+	}
 	if profile != nil {
 		profile.NextApplicationTarget = playbook.NextCard
 	}
@@ -523,6 +537,12 @@ INSERT INTO revocred.recommendation_items (
 			return domain.RecommendationResult{}, fmt.Errorf("save recommendation item: %w", err)
 		}
 	}
+	if len(result.Items) > 0 {
+		recorder := &Postgres{pool: transactionDB{tx}}
+		if err = recorder.recordIssuedRecommendation(ctx, userID, result.StrategyCode, &result.Items[0], result.CreatedAt, "saved_rank1", result.RunID); err != nil {
+			return domain.RecommendationResult{}, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.RecommendationResult{}, fmt.Errorf("commit recommendation: %w", err)
 	}
@@ -605,11 +625,13 @@ func questionnaireProfile(input domain.RecommendationInput, result domain.Recomm
 }
 
 // The same ranked server result supplies profile, playbook and chat guidance.
-func applyRecommendation(playbook *strategy.Playbook, result *domain.RecommendationResult) {
+func applyRecommendation(playbook *strategy.Playbook, result *domain.RecommendationResult) *domain.RecommendationItem {
+	var selected *domain.RecommendationItem
 	playbook.NextCard = ""
 	// A card outside a thematic playbook may still be best for some spending.
 	playbook.Unused = []strategy.UnusedCard{}
 	eligible := map[string]bool{}
+	eligibleIDs := map[string]bool{}
 	covered := map[string]bool{}
 	for _, step := range playbook.Steps {
 		if step.Status == "have" {
@@ -618,10 +640,15 @@ func applyRecommendation(playbook *strategy.Playbook, result *domain.Recommendat
 		}
 	}
 	if result != nil {
-		for _, item := range result.Items {
+		for i := range result.Items {
+			item := &result.Items[i]
 			eligible[item.CardName] = true
+			if item.CardID != "" {
+				eligibleIDs[item.CardID] = true
+			}
 			if playbook.NextCard == "" && !covered[normalizeCardName(item.CardName)] {
 				playbook.NextCard = item.CardName
+				selected = item
 			}
 		}
 	}
@@ -632,19 +659,21 @@ func applyRecommendation(playbook *strategy.Playbook, result *domain.Recommendat
 			continue
 		}
 		step.Status = "later"
-		if !eligible[step.Name] {
+		if (step.CardID != "" && !eligibleIDs[step.CardID]) || (step.CardID == "" && !eligible[step.Name]) {
 			step.Status = "unavailable"
 			step.Note = "Not currently eligible or no positive modeled wallet improvement."
 		}
-		if step.Name == playbook.NextCard {
+		if selected != nil && ((step.CardID != "" && step.CardID == selected.CardID) || (step.CardID == "" && step.Name == playbook.NextCard)) {
 			step.Status = "next"
+			step.CardID = selected.CardID
 			found = true
 		}
 	}
-	if playbook.NextCard != "" && !found {
-		playbook.Steps = append(playbook.Steps, strategy.PlaybookStep{Name: playbook.NextCard, Status: "next", Use: "Highest-ranked eligible improvement for your current wallet."})
+	if selected != nil && !found {
+		playbook.Steps = append(playbook.Steps, strategy.PlaybookStep{CardID: selected.CardID, Name: playbook.NextCard, Status: "next", Use: "Highest-ranked eligible improvement for your current wallet."})
 	}
 	strategy.Schedule(playbook)
+	return selected
 }
 
 func normalizeCardName(value string) string {
@@ -751,8 +780,8 @@ WHERE ri.recommendation_run_id = $1 ORDER BY ri.rank`, result.RunID)
 
 func (p *Postgres) ListMessages(ctx context.Context, userID string, limit int) ([]domain.ChatMessage, error) {
 	rows, err := p.pool.Query(ctx, `
-SELECT id::text, role, content, blocks, created_at FROM (
-    SELECT id, role, content, blocks, created_at, sequence
+SELECT id::text, role, content, blocks, COALESCE(mode, ''), created_at FROM (
+    SELECT id, role, content, blocks, mode, created_at, sequence
     FROM revocred.chat_messages WHERE user_id = $1
     ORDER BY sequence DESC LIMIT $2
 ) recent ORDER BY sequence`, userID, limit)
@@ -763,7 +792,7 @@ SELECT id::text, role, content, blocks, created_at FROM (
 	messages := make([]domain.ChatMessage, 0)
 	for rows.Next() {
 		var message domain.ChatMessage
-		if err := rows.Scan(&message.ID, &message.Role, &message.Content, &message.Blocks, &message.CreatedAt); err != nil {
+		if err := rows.Scan(&message.ID, &message.Role, &message.Content, &message.Blocks, &message.Mode, &message.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan chat message: %w", err)
 		}
 		messages = append(messages, message)
@@ -774,7 +803,10 @@ SELECT id::text, role, content, blocks, created_at FROM (
 	return messages, nil
 }
 
-func (p *Postgres) AppendChatExchange(ctx context.Context, userID, prompt, reply string, blocks json.RawMessage) ([]domain.ChatMessage, error) {
+func (p *Postgres) AppendChatExchange(ctx context.Context, userID, prompt, reply string, blocks json.RawMessage, mode string) ([]domain.ChatMessage, error) {
+	if mode != "ai" && mode != "basic" {
+		return nil, fmt.Errorf("save chat exchange: invalid mode %q", mode)
+	}
 	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("begin chat transaction: %w", err)
@@ -782,17 +814,18 @@ func (p *Postgres) AppendChatExchange(ctx context.Context, userID, prompt, reply
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	messages := make([]domain.ChatMessage, 2)
-	// Only the assistant reply carries blocks; the prompt stays plain text.
+	// Only the assistant reply carries blocks and a mode; the prompt stays plain text.
 	messagesIn := []struct {
 		role, content string
 		blocks        json.RawMessage
-	}{{role: "user", content: prompt}, {role: "assistant", content: reply, blocks: blocks}}
+		mode          *string
+	}{{role: "user", content: prompt}, {role: "assistant", content: reply, blocks: blocks, mode: &mode}}
 	for i, message := range messagesIn {
 		err := tx.QueryRow(ctx, `
-INSERT INTO revocred.chat_messages (user_id, role, content, blocks)
-VALUES ($1, $2, $3, $4)
-RETURNING id::text, role, content, blocks, created_at`, userID, message.role, message.content, message.blocks).Scan(
-			&messages[i].ID, &messages[i].Role, &messages[i].Content, &messages[i].Blocks, &messages[i].CreatedAt,
+INSERT INTO revocred.chat_messages (user_id, role, content, blocks, mode)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id::text, role, content, blocks, COALESCE(mode, ''), created_at`, userID, message.role, message.content, message.blocks, message.mode).Scan(
+			&messages[i].ID, &messages[i].Role, &messages[i].Content, &messages[i].Blocks, &messages[i].Mode, &messages[i].CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("save %s message: %w", message.role, err)

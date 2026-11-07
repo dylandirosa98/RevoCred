@@ -68,6 +68,10 @@ class StrategyRoadmapView extends StatelessWidget {
         ),
         SizedBox(height: product.sectionGap),
         _StrategyHero(data: data, digest: digest, showStatus: showStatus),
+        if (data.wallet.isNotEmpty) ...[
+          SizedBox(height: product.sectionGap),
+          _OwnedWallet(data: data, onCardDetails: onCardDetails),
+        ],
         SizedBox(height: product.sectionGap),
         _OverviewGrid(data: data, plan: plan),
         SizedBox(height: product.sectionGap),
@@ -124,7 +128,7 @@ class StrategyRoadmapView extends StatelessWidget {
                       child: _RoadmapCard(
                         number: entry.$1 + 1,
                         slot: entry.$2,
-                        card: strategyCardFor(data, entry.$2.displayName),
+                        card: strategySlotCard(data, entry.$2),
                         onCardDetails: onCardDetails,
                       ),
                     ),
@@ -134,13 +138,7 @@ class StrategyRoadmapView extends StatelessWidget {
           ),
         SizedBox(height: product.sectionGap),
         _StrategyProgress(slots: slots),
-        if (data.wallet.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(
-            'CURRENT WALLET (${data.wallet.length} CARDS): ${data.wallet.map((card) => card.name).join(' • ')}',
-            style: TextStyle(fontSize: 11, color: product.muted),
-          ),
-        ],
+
         SizedBox(height: product.sectionGap),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -199,6 +197,134 @@ class StrategyRoadmapView extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OwnedWallet extends StatelessWidget {
+  const _OwnedWallet({required this.data, required this.onCardDetails});
+
+  final AppData data;
+  final ValueChanged<CreditCard>? onCardDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    final product = context.product;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionLabel('Cards you already have'),
+        const SizedBox(height: 8),
+        Text(
+          strategyOwnedCardsExplanation,
+          style: TextStyle(color: product.muted, fontSize: 12, height: 1.4),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final largeText = MediaQuery.textScalerOf(context).scale(12) > 16;
+            final columns = largeText
+                ? 1
+                : constraints.maxWidth >= 700
+                ? 3
+                : constraints.maxWidth >= 320
+                ? 2
+                : 1;
+            const gap = 12.0;
+            final width =
+                (constraints.maxWidth - gap * (columns - 1)) / columns;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final card in data.wallet)
+                  SizedBox(
+                    width: width,
+                    child: AppPanel(
+                      key: ValueKey('strategy-owned-card-${card.id}'),
+                      padding: const EdgeInsets.all(12),
+                      child: InkWell(
+                        onTap: onCardDetails == null
+                            ? null
+                            : () => onCardDetails!(card),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.check_circle_outline,
+                                  color: product.success,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    'Already owned',
+                                    maxLines: 2,
+                                    style: TextStyle(
+                                      color: product.success,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            LayoutBuilder(
+                              builder: (context, constraints) => CreditCardArt(
+                                card: card,
+                                width: constraints.maxWidth,
+                                height: constraints.maxWidth / 1.586,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              card.name,
+                              maxLines: 3,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            if (data.playbook?.steps.any(
+                                  (step) =>
+                                      step.completedRecommendation &&
+                                      step.cardId == card.id,
+                                ) ==
+                                true) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Completed recommendation',
+                                maxLines: 3,
+                                style: TextStyle(
+                                  color: product.success,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                            if (card.termsUnknown) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Terms not entered; excluded from scoring.',
+                                style: TextStyle(
+                                  color: product.muted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -450,13 +576,15 @@ class _RoadmapCard extends StatelessWidget {
     final benefits = card?.benefits.take(3).toList() ?? const <String>[];
     final isNext = slot.status == StrategySlotStatus.next;
     final isCovered = slot.isCovered;
-    final header = switch (slot.status) {
-      StrategySlotStatus.completed => 'IN YOUR WALLET',
-      StrategySlotStatus.substituted => 'COVERED BY OWNED CARD',
-      StrategySlotStatus.next => 'RECOMMENDED NEXT',
-      StrategySlotStatus.later => 'FUTURE OPTION',
-      StrategySlotStatus.unavailable => 'NOT CURRENTLY NEEDED',
-    };
+    final header = slot.completedRecommendation
+        ? 'COMPLETED'
+        : switch (slot.status) {
+            StrategySlotStatus.completed => 'IN YOUR WALLET',
+            StrategySlotStatus.substituted => 'COVERED BY OWNED CARD',
+            StrategySlotStatus.next => 'RECOMMENDED NEXT',
+            StrategySlotStatus.later => 'FUTURE OPTION',
+            StrategySlotStatus.unavailable => 'NOT CURRENTLY NEEDED',
+          };
     return Material(
       color: product.surface,
       borderRadius: BorderRadius.circular(product.radius),
@@ -875,7 +1003,7 @@ class _UsageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final card = strategyCardFor(data, slot.displayName);
+    final card = strategySlotCard(data, slot);
     return Column(
       children: [
         Icon(

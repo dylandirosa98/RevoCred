@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
@@ -9,6 +10,7 @@ import '../data/onboarding_draft_store.dart';
 import '../logic/demo_recommendation.dart';
 import '../logic/playbook.dart';
 import '../models/app_models.dart';
+import '../models/chat_errors.dart';
 
 final appConfigProvider = Provider<AppConfig>(
   (ref) => throw UnimplementedError('AppConfig must be overridden.'),
@@ -79,22 +81,50 @@ class AppController extends Notifier<AppState> {
   @override
   AppState build() {
     final authenticated = _repository.isAuthenticated;
-    final subscription = _repository.sessionChanges.listen((session) {
-      if (!session.authenticated) {
-        _sessionGeneration++;
-        if (state.isAuthenticated) unawaited(draftStore.clear());
-        state = AppState(
-          isAuthenticated: false,
-          isLoading: false,
-          data: createDemoAppData(),
+    var accountEmail = _repository.accountEmail;
+    String? userId;
+    final subscription = _repository.sessionChanges.listen(
+      (session) {
+        final changedAccount =
+            session.authenticated &&
+            state.isAuthenticated &&
+            ((userId != null &&
+                    session.userId != null &&
+                    userId != session.userId) ||
+                accountEmail != _repository.accountEmail);
+        accountEmail = session.authenticated ? _repository.accountEmail : null;
+        userId = session.userId;
+        if (changedAccount ||
+            (session.authenticated && !state.isAuthenticated)) {
+          _sessionGeneration++;
+          state = AppState(
+            isAuthenticated: true,
+            isLoading: true,
+            passwordRecovery: session.passwordRecovery,
+          );
+          unawaited(refresh());
+          return;
+        }
+        if (!session.authenticated) {
+          _sessionGeneration++;
+          if (state.isAuthenticated) unawaited(draftStore.clear());
+          state = AppState(
+            isAuthenticated: false,
+            isLoading: false,
+            data: createDemoAppData(),
+          );
+        } else if (state.passwordRecovery != session.passwordRecovery) {
+          state = state.copyWith(passwordRecovery: session.passwordRecovery);
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        // GoTrue reports retryable refresh and rejected callback errors on this
+        // stream. Only its signedOut event revokes an existing local session.
+        state = state.copyWith(
+          error: 'Could not update your session. Please try again.',
         );
-      } else if (session.passwordRecovery) {
-        state = state.copyWith(isAuthenticated: true, passwordRecovery: true);
-      } else if (!state.isAuthenticated) {
-        state = state.copyWith(isAuthenticated: true);
-        unawaited(refresh());
-      }
-    });
+      },
+    );
     ref.onDispose(subscription.cancel);
     return AppState(
       isAuthenticated: authenticated,
@@ -162,7 +192,7 @@ class AppController extends Notifier<AppState> {
       );
     } catch (error) {
       if (generation != _sessionGeneration) return;
-      if (error is SessionExpiredException) {
+      if (error is SessionExpiredException && !_repository.isAuthenticated) {
         state = AppState(
           isAuthenticated: false,
           isLoading: false,
@@ -220,9 +250,11 @@ class AppController extends Notifier<AppState> {
   }
 
   Future<void> signOut() async {
-    _sessionGeneration++;
+    final generation = ++_sessionGeneration;
     await _repository.signOut();
+    if (generation != _sessionGeneration && state.isAuthenticated) return;
     await draftStore.clear();
+    if (generation != _sessionGeneration && state.isAuthenticated) return;
     if (_config.useMocks) {
       state = AppState(
         isAuthenticated: true,
@@ -241,61 +273,96 @@ class AppController extends Notifier<AppState> {
   }
 
   Future<void> finishPasswordRecovery(String password) async {
+    final generation = _sessionGeneration;
     await _repository.updatePassword(password);
+    if (generation != _sessionGeneration) return;
     state = state.copyWith(passwordRecovery: false);
     await refresh();
   }
 
   Future<bool> addCard(String cardId) async {
+    final generation = _sessionGeneration;
     try {
       await _repository.addCard(cardId);
+      if (generation != _sessionGeneration) return false;
       await refresh();
+      if (generation != _sessionGeneration) return false;
       state = state.copyWith(actionMessage: 'Card added to your wallet.');
       return true;
     } catch (error) {
+      if (generation != _sessionGeneration) return false;
       state = state.copyWith(error: 'Could not add card: $error');
       return false;
     }
   }
 
   Future<bool> addCustomCard(CustomCardDraft card) async {
+    final generation = _sessionGeneration;
     try {
       await _repository.addCustomCard(card);
+      if (generation != _sessionGeneration) return false;
       await refresh();
+      if (generation != _sessionGeneration) return false;
       state = state.copyWith(
         actionMessage: '${card.name} added to your wallet.',
       );
       return true;
     } catch (error) {
+      if (generation != _sessionGeneration) return false;
       state = state.copyWith(error: 'Could not add custom card: $error');
       return false;
     }
   }
 
   Future<bool> removeCard(String walletCardId) async {
+    final generation = _sessionGeneration;
     try {
       await _repository.removeCard(walletCardId);
+      if (generation != _sessionGeneration) return false;
       await refresh();
+      if (generation != _sessionGeneration) return false;
       state = state.copyWith(actionMessage: 'Card removed from your wallet.');
       return true;
     } catch (error) {
+      if (generation != _sessionGeneration) return false;
       state = state.copyWith(error: 'Could not remove card: $error');
       return false;
     }
   }
 
+  VoidCallback? _cancelPendingMessage;
+
+  /// Whether a REVO message is waiting for its reply.
+  bool get isSendingMessage => _cancelPendingMessage != null;
+
+  /// Aborts the in-flight REVO message; [sendMessage] then throws
+  /// [ChatCancelledException] and nothing is kept.
+  void cancelPendingMessage() => _cancelPendingMessage?.call();
+
+  /// Sends a REVO message. The prompt shows immediately; on success it is
+  /// replaced by the server's copy and followed by the reply. On any failure
+  /// or cancel it is removed again, so a retry never duplicates it. Errors are
+  /// rethrown for the caller to show; they never set the global [AppState.error].
   Future<void> sendMessage(
     String prompt, {
     String? aiConsentVersion,
     int? expectedSessionGeneration,
+    ValueChanged<String>? onStatus,
   }) async {
     if (expectedSessionGeneration != null &&
         expectedSessionGeneration != _sessionGeneration) {
       throw const SessionExpiredException();
     }
     if (!state.isAuthenticated && state.data?.isPersonalPreview == true) {
-      throw StateError(
-        'Create an account to let REVO explain your personal plan. Guest demo chat does not use your private preview.',
+      throw const ChatSendException(
+        'account_required',
+        'Create an account to let REVO discuss your personal plan.',
+      );
+    }
+    if (isSendingMessage) {
+      throw const ChatSendException(
+        'busy',
+        'REVO is still answering your last message.',
       );
     }
     final generation = _sessionGeneration;
@@ -309,27 +376,86 @@ class AppController extends Notifier<AppState> {
     );
     state = state.copyWith(
       data: data.copyWith(messages: [...data.messages, userMessage]),
-      clearError: true,
     );
+    final done = Completer<ChatDoneEvent>();
+    void fail(Object error, [StackTrace? stack]) {
+      if (!done.isCompleted) done.completeError(error, stack);
+    }
+
+    final subscription = _repository
+        .streamMessage(prompt, aiConsentVersion: aiConsentVersion)
+        .listen(
+          (event) {
+            switch (event) {
+              case ChatStatusEvent(:final label):
+                if (!done.isCompleted) onStatus?.call(label);
+              case ChatDoneEvent():
+                if (!done.isCompleted) done.complete(event);
+            }
+          },
+          onError: fail,
+          onDone: () => fail(
+            const ChatSendException(
+              'incomplete_response',
+              'REVO stopped before finishing. Please try again.',
+            ),
+          ),
+          cancelOnError: true,
+        );
+    _cancelPendingMessage = () => fail(const ChatCancelledException());
     try {
-      final reply = await _repository.sendMessage(
-        prompt,
-        aiConsentVersion: aiConsentVersion,
-      );
+      final result = await done.future;
       if (generation != _sessionGeneration) return;
       final current = state.data;
       if (current != null) {
         state = state.copyWith(
-          data: current.copyWith(messages: [...current.messages, reply]),
+          data: current.copyWith(
+            messages: [
+              for (final message in current.messages)
+                if (message.id == userMessage.id)
+                  result.user ?? message
+                else
+                  message,
+              result.reply,
+            ],
+          ),
         );
       }
-    } catch (error) {
+    } catch (_) {
       if (generation == _sessionGeneration) {
-        state = state.copyWith(error: 'REVO could not respond: $error');
+        final current = state.data;
+        if (current != null) {
+          state = state.copyWith(
+            data: current.copyWith(
+              messages: current.messages
+                  .where((message) => message.id != userMessage.id)
+                  .toList(),
+            ),
+          );
+        }
       }
       rethrow;
+    } finally {
+      _cancelPendingMessage = null;
+      // Cancelling also aborts a request that is still running.
+      unawaited(subscription.cancel());
     }
   }
+
+  /// Deletes the conversation on the server, then locally.
+  Future<void> clearChat() async {
+    final generation = _sessionGeneration;
+    await _repository.clearChatHistory();
+    if (generation != _sessionGeneration) return;
+    final data = state.data;
+    if (data != null) {
+      state = state.copyWith(data: data.copyWith(messages: const []));
+    }
+  }
+
+  /// Records thumbs up/down (with an optional reason) on a REVO reply.
+  Future<void> rateMessage(String messageId, String rating, {String? reason}) =>
+      _repository.sendChatFeedback(messageId, rating: rating, reason: reason);
 
   Future<void> prepareQuestionnaire() async {
     if (_config.useMocks) return;
@@ -379,6 +505,7 @@ class AppController extends Notifier<AppState> {
         throw StateError(state.error ?? 'Could not refresh app data.');
       }
     }
+    if (generation != _sessionGeneration) throw const SessionExpiredException();
     final current = state.data;
     final recommendationJson = answers.toRecommendationJson();
     final plan = StrategyPlan.fromAnswers(answers);
@@ -433,18 +560,23 @@ class AppController extends Notifier<AppState> {
         actionMessage: 'Name updated.',
       );
     } catch (error) {
+      if (generation != _sessionGeneration) rethrow;
       state = state.copyWith(error: 'Could not update your name: $error');
       rethrow;
     }
   }
 
   Future<void> switchStrategy(String code) async {
+    final generation = _sessionGeneration;
     await _repository.switchStrategy(code);
+    if (generation != _sessionGeneration) return;
     if (_config.useMocks) {
+      final data = await _repository.loadAppData();
+      if (generation != _sessionGeneration) return;
       state = state.copyWith(
         isAuthenticated: true,
         isLoading: false,
-        data: await _repository.loadAppData(),
+        data: data,
         actionMessage: 'Switched to $code.',
       );
       return;

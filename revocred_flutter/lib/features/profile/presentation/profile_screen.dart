@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/models/chat_errors.dart';
 import '../../../core/state/app_controller.dart';
+import '../../../core/state/chat_consent.dart';
 import '../../../core/logic/strategy_digest.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/content_layout.dart';
@@ -53,7 +56,7 @@ class ProfileScreen extends ConsumerWidget {
         Text(
           !state.isAuthenticated || config.useMocks
               ? 'Demo profile | Sign in to use your live account'
-              : 'Authenticated with Supabase',
+              : 'Signed in',
           style: TextStyle(color: product.success, fontWeight: FontWeight.w700),
         ),
         SizedBox(height: product.sectionGap),
@@ -182,6 +185,38 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
         ),
+        if (state.isAuthenticated) const _AiAnswersSetting(),
+        SizedBox(height: product.sectionGap),
+        const SectionLabel('Expert help'),
+        const SizedBox(height: 10),
+        AppPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Talk to a credit card expert',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Want a human review of your setup? A credit card expert can answer questions your roadmap cannot.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: product.muted),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                key: const ValueKey('expert-link'),
+                onPressed: () => launchUrl(
+                  Uri.parse('https://thecreditcardstrategist.com'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('thecreditcardstrategist.com'),
+              ),
+            ],
+          ),
+        ),
         SizedBox(height: product.sectionGap),
         const SectionLabel('Legal and support'),
         if (!config.useMocks)
@@ -302,31 +337,36 @@ class _ProfileRow extends StatelessWidget {
       builder: (context, constraints) {
         if (constraints.maxWidth < 500) {
           return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
                 label,
+                textAlign: TextAlign.center,
                 style: TextStyle(color: context.product.muted, fontSize: 12),
               ),
               const SizedBox(height: 3),
-              Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(
+                value,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
             ],
           );
         }
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 180,
+            Expanded(
               child: Text(
                 label,
+                textAlign: TextAlign.center,
                 style: TextStyle(color: context.product.muted),
               ),
             ),
             Expanded(
               child: Text(
                 value,
-                textAlign: TextAlign.right,
+                textAlign: TextAlign.center,
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
@@ -335,4 +375,73 @@ class _ProfileRow extends StatelessWidget {
       },
     ),
   );
+}
+
+/// Lets a signed-in member turn REVO's external AI answers on or off. Shown
+/// only when the server has an external AI configured.
+class _AiAnswersSetting extends ConsumerStatefulWidget {
+  const _AiAnswersSetting();
+
+  @override
+  ConsumerState<_AiAnswersSetting> createState() => _AiAnswersSettingState();
+}
+
+class _AiAnswersSettingState extends ConsumerState<_AiAnswersSetting> {
+  bool saving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final consent = ref.watch(chatConsentProvider).value;
+    if (consent == null || !consent.external) return const SizedBox.shrink();
+    final product = context.product;
+    return Padding(
+      padding: EdgeInsets.only(top: product.sectionGap),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SectionLabel('REVO'),
+          const SizedBox(height: 10),
+          AppPanel(
+            // Its own Material keeps the tile's ink visible on the panel.
+            child: Material(
+              type: MaterialType.transparency,
+              child: SwitchListTile.adaptive(
+                key: const ValueKey('ai-answers-toggle'),
+                contentPadding: EdgeInsets.zero,
+                value: consent.granted,
+                onChanged: saving ? null : (on) => _change(on, consent),
+                title: const Text('AI answers (REVO)'),
+                subtitle: Text(
+                  'Uses ${consent.disclosure.recipient} to answer in more depth. '
+                  'Off = basic answers from your plan.',
+                  style: TextStyle(color: product.muted),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _change(bool on, ChatConsentState consent) async {
+    final notifier = ref.read(chatConsentProvider.notifier);
+    final messenger = ScaffoldMessenger.of(context);
+    if (on) {
+      final agreed = await showChatConsentSheet(
+        context,
+        consent.disclosure,
+        forMessage: false,
+      );
+      if (agreed != true || !mounted) return;
+    }
+    setState(() => saving = true);
+    try {
+      on ? await notifier.grant() : await notifier.revoke();
+    } catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(chatErrorMessage(error))));
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
 }

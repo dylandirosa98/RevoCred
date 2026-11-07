@@ -7,8 +7,9 @@
   explanations. Personal persistence requires an account; guest previews exist.
 - **Not approved for production release yet.** A successful build is not a
   privacy, operational, physical-device, or Apple review certification.
-- The first pass found missing third-party AI permission (5.1.2(i)); per-message
-  consent and server enforcement are now implemented locally. Native acceptance
+- The first pass found missing third-party AI permission (5.1.2(i)); account-level
+  consent (asked once per notice version, revocable in Profile) and server
+  enforcement are now implemented locally. Native acceptance
   and the client's actual OpenAI data controls still need verification.
 - Top risk: the in-app legal notice is explicitly unfinished; support ownership,
   public policy URL and deployed AI provider disclosures need operator input.
@@ -66,58 +67,28 @@ No hosted settings were changed and no live AI requests or key inspection were
 used for this patch. The actual enabled OpenAI model and project data controls
 remain deployment acceptance items.
 
-Consent now uses the actual backend recipient/model, not a hardcoded build-time
-label. Each message requires a new affirmative action for external AI. Basic
-reply uses the deterministic server explainer; cancel sends nothing. There is
-no persistent permission to revoke or accidentally reuse across accounts.
-The backend matches a disclosure version covering endpoint/model/text before
-calling an external provider; missing permission never invokes that provider.
-
-OpenCode's [Go documentation](https://opencode.ai/v2/docs/console/go), checked
-2026-10-19, describes coding-agent traffic and a monthly DeepSeek ZDR agreement
-currently valid through 2026-10-31. Those testing-service terms do **not** define
-OpenAI production retention. Do not promise zero retention for either route
-without confirming its actual current agreement. Testing should use synthetic
-data and must still comply with its provider's terms.
-
-| Priority | Area | Finding | Why review might reject | Evidence | Recommendation | Effort | Confidence |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| P1 high | Privacy | Consent implemented locally; native acceptance and actual OpenAI controls unverified | 5.1.2(i) requires permission before third-party AI sharing | `send_revo_message.dart`, server `chat_consent.go`, chat consent tests | Verify production recipient, decline/cancel, every entry point and session changes on device | M | High |
-| P0 blocker | Privacy / UX | Legal notice still contains operator placeholders | 2.1 completeness; 5.1.1 privacy disclosure | `lib/features/profile/presentation/legal_screen.dart`; `docs/railway.md` | Operator-approved policy, retention, legal identity, public privacy URL and working support | M | High |
-| P1 high | Technical | Signed archive/device behavior unverified | 2.1 stability and reviewer access | Xcode project has no development team; Linux environment | Sign/archive on Mac; validate in Organizer; execute device acceptance matrix | M | High |
-| P1 high | Account | Hosted email/auth callbacks and deletion unverified | Reviewer cannot enter or manage account | `Info.plist` URL scheme; `account_screen.dart`; `ApiAppRepository.deleteAccount` | Deliver real emails; verify cold/warm callback, recovery, deletion on device | M | High |
-| P1 high | UX | Reviewer account, store metadata and hosted backend availability unverified | 2.1 requires full access and working service | External App Store Connect/Railway/Supabase state not inspected | Provide active account and accurate notes; keep backend live | S | High |
-| P1 high | Privacy | SDK aggregate manifest and App Store answers unverified | Privacy declarations must match actual collection | `Runner/PrivacyInfo.xcprivacy`, `pubspec.lock`, `docs/ios-privacy.md` | Inspect archived SDK report; complete accurate Connect answers | M | High |
-| P1 high | Content | Financial positioning, catalog accuracy and asset rights need sign-off | Misleading claims / sensitive information / IP risks | `legal_screen.dart` educational disclaimer; catalog migrations; card artwork | Verify current issuer facts, artwork rights and seller/legal-entity suitability under 5.1.1(ix) | M | Medium |
-
-Paths under `lib/` above are relative to `revocred_flutter/`.
-
-## 3. Detailed findings
-
-### Privacy & data handling
-
-**AI consent remediation:** `sendRevoMessage` gates the composer, quick prompts
-and Home/Cards shortcuts. It fetches the current named recipient, model and
-data-use notice without sending private content. Cancel does not send, Basic
-reply sends no external-AI permission, and Agree and send authorizes only that
-message. The dialog names the personal context and recent history to be shared.
-No permission is persisted. An account change during the dialog blocks sending.
-`chat_consent.go` selects the deterministic provider for absent permission and
-rejects stale permission before either public or authenticated provider calls.
-Unknown recipient disclosures fail closed. Flutter regression tests cover all
-entry points, cancel/basic/agree, per-message prompting, malformed/failed notices
-and account changes; Go spy-provider tests cover both routes and changed versions.
+Consent uses the actual backend recipient, model and search provider, not a
+hardcoded build-time label. A signed-in member is asked once; the server stores
+the agreed notice version per account (`chat_ai_consents`) and the member can
+turn AI answers off in Profile. Any change to the endpoint, model, search
+provider or notice wording changes the version, so stale permission falls back
+to basic answers and the app asks again. Guests agree once per app session and
+send the version with each message. "Basic answer instead" saves nothing;
+cancel sends nothing. Permission never crosses accounts: the client reloads it
+when the signed-in account changes, and an account change while the sheet is
+open blocks sending. When the app sends an explicit version the backend refuses
+a stale one (409 `ai_consent_changed`) rather than downgrading silently.
+Every saved reply records whether it used AI (`mode`), and external-AI replies
+are capped per user per day (`CHAT_DAILY_AI_LIMIT`). Members can rate or report
+any saved answer and clear their conversation. Flutter regression tests cover
+all entry points, ask-once, re-prompting on a changed notice, Profile revoke,
+basic/cancel, failed notices and account changes; Go tests cover stored
+consent, stale versions, the cap, streaming and disconnects.
 Repeat these checks on the archived app and real production backend. Do not
 mistake a request-level permission assertion for a cryptographic proof of user
 interaction or a durable consent audit log.
 
-**Legal facts:** `LegalScreen` still asks the operator to supply legal identity,
-jurisdiction and retention facts. Its provider wording now distinguishes OpenAI
-production from OpenCode/DeepSeek testing and describes per-message choices.
-Do not invent remaining facts to remove placeholders.
-Obtain actual operator/retention choices, publish accessible policy
-and support pages, update the in-app notice, and align the manifest and Connect
-answers. Verify URLs without sign-in and from the archived app.
+**Legal remediation addressed in source:** Privacy & Terms now uses required production legal defines, public HTTPS policy/terms links and a support mailto. Policy and terms drafts are in `docs/legal/`; affiliate language is consistent and email marketing is declared. Owner completion, legal review, hosting and signed-build verification remain release gates.
 
 ### Permissions & entitlements
 
@@ -223,3 +194,20 @@ identity/retention decisions and enrollment details. Production OpenAI is now
 confirmed and consent implemented locally. Finalize legal facts, configure the
 client's production project/model and repeat this review against the signed
 artifact and live services.
+
+## App Store Connect privacy answers
+
+Tracking: No. Data collection: Yes. Enter the following categories and purposes; only the indicated categories are linked to identity. No category is used for tracking. Confirm against the final archived SDK privacy report.
+
+| Data type | Linked to identity | Purposes |
+| --- | --- | --- |
+| Name | Yes | AppFunctionality |
+| CreditInfo | Yes | AppFunctionality, ProductPersonalization |
+| ProductInteraction | No | Analytics |
+| EmailAddress | Yes | AppFunctionality, DeveloperAdvertising |
+| UserID | Yes | AppFunctionality |
+| OtherFinancialInfo | Yes | AppFunctionality, ProductPersonalization |
+| OtherUserContent | Yes | AppFunctionality, ProductPersonalization |
+| OtherDiagnosticData | No | AppFunctionality |
+
+Legal source changes and marketing purpose declaration are addressed. Public hosting, real operator facts and App Store Connect entry remain owner actions.

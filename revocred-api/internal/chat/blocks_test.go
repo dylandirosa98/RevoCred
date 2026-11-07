@@ -174,3 +174,17 @@ func TestRecommendationChartComparesRankedOptions(t *testing.T) {
 		t.Fatalf("bars = %+v", bars)
 	}
 }
+
+func TestOrderedHeadingsAndSourceURLs(t *testing.T) {
+	blocks := ParseReply("# Heading\n1. See [terms](https://example.com/card_terms)\n2) https://example.com/reward_rates\n- Another", snapshot{})
+	if len(blocks) != 3 || blocks[0].Type != "heading" || !blocks[1].Ordered || blocks[2].Ordered {
+		t.Fatalf("unexpected blocks: %#v", blocks)
+	}
+	if !strings.Contains(blocks[1].Items[0], "card_terms") || !strings.Contains(blocks[1].Items[1], "reward_rates") {
+		t.Fatalf("URLs lost: %#v", blocks)
+	}
+	url := "https://example.com/" + strings.Repeat("long_path", 100)
+	if got := clip("See "+url, 40); !strings.Contains(got, url) {
+		t.Fatalf("URL clipped: %s", got)
+	}
+}

@@ -37,6 +37,8 @@ type API struct {
 	stats          counters
 	metricsToken   string
 	clientIPHeader string
+	// chatDailyAILimit caps external-AI replies per user per rolling day.
+	chatDailyAILimit int
 }
 
 func New(
@@ -57,6 +59,10 @@ func New(
 	if len(options) > 0 {
 		api.metricsToken = options[0].MetricsToken
 		api.clientIPHeader = options[0].ClientIPHeader
+		api.chatDailyAILimit = options[0].ChatDailyAILimit
+	}
+	if api.chatDailyAILimit <= 0 {
+		api.chatDailyAILimit = defaultChatDailyAILimit
 	}
 	for _, origin := range allowedOrigins {
 		api.allowedOrigins[strings.TrimRight(origin, "/")] = struct{}{}
@@ -92,6 +98,11 @@ func New(
 	api.protected(mux, "PUT /v1/strategy", api.putStrategy)
 	api.protected(mux, "GET /v1/chat/messages", api.getMessages)
 	api.protected(mux, "POST /v1/chat/messages", api.postMessage)
+	api.protected(mux, "GET /v1/chat/consent", api.chatConsent)
+	api.protected(mux, "PUT /v1/chat/consent", api.chatConsent)
+	api.protected(mux, "DELETE /v1/chat/consent", api.chatConsent)
+	api.protected(mux, "DELETE /v1/chat/messages", api.clearChat)
+	api.protected(mux, "POST /v1/chat/messages/{id}/feedback", api.chatFeedback)
 
 	return api.requestID(api.logging(api.recoverPanic(api.cors(api.rateLimit(api.deadline(mux))))))
 }
@@ -118,7 +129,7 @@ func (a *API) exportAccount(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) deleteAccount(w http.ResponseWriter, r *http.Request) {
 	user := authenticatedUser(r.Context())
-	if user.LastSignInAt == nil || time.Since(*user.LastSignInAt) > 5*time.Minute || user.LastSignInAt.After(time.Now().Add(time.Minute)) {
+	if user.PasswordAuthenticatedAt == nil || time.Since(*user.PasswordAuthenticatedAt) > 5*time.Minute || user.PasswordAuthenticatedAt.After(time.Now().Add(time.Minute)) {
 		writeError(w, r, http.StatusForbidden, "reauthentication_required", "Sign in again before deleting your account.", nil)
 		return
 	}
@@ -401,94 +412,6 @@ func (a *API) getMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeData(w, http.StatusOK, messages)
-}
-
-func (a *API) publicExplain(w http.ResponseWriter, r *http.Request) {
-	if !a.limits.allow("explain:"+a.clientIP(r), 20, time.Now()) {
-		a.tooMany(w, r)
-		return
-	}
-	var input struct {
-		Content          string `json:"content"`
-		AIConsentVersion string `json:"ai_consent_version"`
-	}
-	if !a.decodeJSON(w, r, &input) {
-		return
-	}
-	input.Content = strings.TrimSpace(input.Content)
-	if input.Content == "" || len(input.Content) > 4000 {
-		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "request validation failed", map[string]string{"content": "must contain 1 to 4000 characters"})
-		return
-	}
-	provider, permitted := a.consentedChatProvider(w, r, input.AIConsentVersion)
-	if !permitted {
-		return
-	}
-	reply, err := provider.Reply(r.Context(), input.Content, chat.DemoBrowseContext())
-	if err != nil {
-		a.internalError(w, r, err)
-		return
-	}
-	writeData(w, http.StatusCreated, []domain.ChatMessage{{
-		ID: "demo-user", Role: "user", Content: input.Content,
-	}, {
-		ID: "demo-assistant", Role: "assistant", Content: reply.Text, Blocks: replyBlocks(reply),
-	}})
-}
-
-func (a *API) postMessage(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Content          string `json:"content"`
-		AIConsentVersion string `json:"ai_consent_version"`
-	}
-	if !a.decodeJSON(w, r, &input) {
-		return
-	}
-	input.Content = strings.TrimSpace(input.Content)
-	if input.Content == "" || len(input.Content) > 4000 {
-		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "request validation failed", map[string]string{"content": "must contain 1 to 4000 characters"})
-		return
-	}
-	userID := authenticatedUser(r.Context()).ID
-	provider, permitted := a.consentedChatProvider(w, r, input.AIConsentVersion)
-	if !permitted {
-		return
-	}
-	bootstrap, err := a.repository.Bootstrap(r.Context(), userID)
-	if err != nil {
-		a.internalError(w, r, err)
-		return
-	}
-	recent, err := a.repository.ListMessages(r.Context(), userID, 8)
-	if err != nil {
-		a.internalError(w, r, err)
-		return
-	}
-	history := make([]chat.Turn, 0, len(recent))
-	for _, message := range recent {
-		history = append(history, chat.Turn{Role: message.Role, Content: message.Content})
-	}
-	reply, err := provider.Reply(r.Context(), input.Content, chat.Context{
-		SessionID:       userID,
-		History:         history,
-		Catalog:         bootstrap.Catalog,
-		Wallet:          bootstrap.Wallet,
-		Recommendations: bootstrap.LatestRecommendations,
-		Profile:         bootstrap.Profile,
-		Questionnaire:   bootstrap.LatestQuestionnaire,
-		Metrics:         bootstrap.WalletMetrics,
-		Playbook:        bootstrap.Playbook,
-	})
-	if err != nil {
-		a.internalError(w, r, err)
-		return
-	}
-	messages, err := a.repository.AppendChatExchange(r.Context(), userID, input.Content, reply.Text, replyBlocks(reply))
-	if err != nil {
-		a.internalError(w, r, err)
-		return
-	}
-	writeData(w, http.StatusCreated, messages)
 }
 
 func (a *API) decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {

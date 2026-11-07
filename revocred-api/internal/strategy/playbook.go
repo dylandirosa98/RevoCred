@@ -13,13 +13,16 @@ type Preferences struct {
 }
 
 type PlaybookStep struct {
-	Name       string `json:"name"`
-	Use        string `json:"use"`
-	Status     string `json:"status"`
-	Note       string `json:"note,omitempty"`
-	CoveredBy  string `json:"covered_by,omitempty"`
-	Timing     string `json:"timing,omitempty"`
-	TimingNote string `json:"timing_note,omitempty"`
+	CardID                  string `json:"card_id,omitempty"`
+	CompletedRecommendation bool   `json:"completed_recommendation,omitempty"`
+	CompletedOrder          int    `json:"completed_order,omitempty"`
+	Name                    string `json:"name"`
+	Use                     string `json:"use"`
+	Status                  string `json:"status"`
+	Note                    string `json:"note,omitempty"`
+	CoveredBy               string `json:"covered_by,omitempty"`
+	Timing                  string `json:"timing,omitempty"`
+	TimingNote              string `json:"timing_note,omitempty"`
 }
 
 type UnusedCard struct {
@@ -143,6 +146,9 @@ func Schedule(playbook *Playbook) {
 		switch step.Status {
 		case "have":
 			step.Timing = "Already covered"
+			if step.CompletedRecommendation {
+				step.Timing = "Completed recommendation"
+			}
 			step.TimingNote = "No new application needed."
 		case "unavailable":
 			step.Timing = "Do not apply now"
@@ -269,6 +275,7 @@ func family(name string) string {
 }
 
 func normalize(value string) string {
+	// Family reports the product family for roadmap deduplication. Savor for
 	var b strings.Builder
 	for _, r := range strings.ToLower(value) {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
@@ -277,3 +284,7 @@ func normalize(value string) string {
 	}
 	return strings.TrimPrefix(strings.TrimPrefix(b.String(), "amex"), "chase")
 }
+
+// Family reports the product family for roadmap deduplication. Savor for
+// Students covers the SavorOne family role; they must never occupy two roles.
+func Family(name string) string { return family(name) }

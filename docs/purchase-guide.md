@@ -20,12 +20,39 @@ or unowned card. The hero, list, earn label and “Why this card?” all use the
 purchase-specific result. Category comparisons have no Apply action. Acquisition
 recommendations remain in the separately labelled next-move area.
 
+Category taps update the Home “Use now” card immediately from the loaded
+server guide, without opening a sheet or making another request. “Why this
+card?” opens the explanation only when requested. The optional “Compare &
+options” button opens the full wallet comparison, spending-cap assumption,
+and travel booking-channel controls. Choosing an additional category closes
+the category picker without opening a second sheet. Confirmed comparison
+settings still update the Home result for that category; ordinary Travel does
+not silently assume a particular issuer portal.
+
 ## Rules and assumptions
 
+- For each active owned card, use the greater of its known base rate and any
+  applicable category rate. Then compare cards at the declared common value
+  assumption. This is server code, not an AI choice or a card-name heuristic.
+  A lower category bonus cannot beat another card's higher known base rate.
+- A category/context must actually match before its bonus is used. Portal,
+  activation, promotion and cap restrictions cannot become unconditional
+  multipliers. The existing cap control remains an explicitly disclosed
+  unused-allowance assumption, not transaction tracking.
 - All 16 current Home categories have results or an explicit unsupported/unknown
   state. Generic catch-all rates do **not** imply that rent earns rewards or is
-  payable without processing fees. Explicit user-supplied rent terms retain an
-  eligibility/payment-route warning.
+  payable without processing fees. Rent's `options` contains explicit rent
+  earning rules only. Separate `fallback_options` contains positive known base
+  rates for cards without rent terms, ordered by rate, card name, then card UUID.
+  Supported rent rules take priority over unconfirmed fallback rates.
+- When no supported rent rule is available, Home displays the first owned
+  fallback as “Base-rate option”, its return “before fees”, and one short note:
+  “Rent must qualify as a purchase. Check payment fees first.” Full eligibility,
+  cash-advance exclusions and fee warnings remain behind optional details.
+  Unknown, missing, invalid, zero-base, inactive and unowned cards never become
+  fallback recommendations. Ties remain labeled and are recomputed after wallet
+  filtering. No fallback changes wallet scores, annual value or application
+  ranking. An empty/unknown wallet still requires card terms; no card is invented.
 - Base rates and amounts come from exact mapped OpenCard records when available;
   stored source/user-supplied numeric terms are the fallback. Card names,
   benefit descriptions and generic maximum multipliers never determine rank.
@@ -33,7 +60,7 @@ recommendations remain in the separately labelled next-move area.
   supported categories and purchase contexts. Rates remain source values, not
   hardcoded rates in the adapter. New ambiguous labels are flagged as unreviewed
   and never inferred from keyword overlap. Existing fixture tests reconcile every
-  category rule for the 14 mapped main products.
+  category rule for the 15 mapped main products.
 - Online shopping means an ordinary online purchase with no established merchant
   bonus. A restaurant multiplier, online grocery-only bonus, rotating category,
   or travel-portal rate cannot leak into this comparison.
@@ -90,6 +117,7 @@ make check
 cd revocred-api && go test -race ./internal/purchaseguide ./internal/httpapi
 # Requires the local stack and existing share tunnels:
 uv run --no-project --with playwright python scripts/purchase_guide_smoke.py
+uv run --no-project --with playwright python scripts/purchase_fallback_smoke.py
 ```
 
 The smoke checks real API results for all category IDs, owned-only candidates,
@@ -99,3 +127,8 @@ Screenshots and its machine-readable result live under
 `.local/purchase-guide-smoke/`. It does not use saved user credentials or contact
 production. Offline mock mode uses explicitly labelled, structured demo rates;
 it never calls the real API or pretends those fixtures are current issuer terms.
+
+The fallback smoke separately checks all 16 categories with a disposable
+Discover + Double Cash wallet, rent's before-fee note and optional comparison,
+cap settings, removal/reload behavior, unchanged wallet metrics and verified
+account cleanup. Artifacts are in `.local/purchase-fallback-smoke/`.

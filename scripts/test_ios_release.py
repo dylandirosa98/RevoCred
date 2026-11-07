@@ -23,6 +23,9 @@ class IOSReleaseTest(unittest.TestCase):
             SUPABASE_URL="https://project.example.test",
             SUPABASE_ANON_KEY="sb_publishable_example_test_only",
             REVOCRED_AUTH_REDIRECT_URL=ios_release.MOBILE_AUTH_CALLBACK,
+            REVOCRED_LEGAL_ENTITY="RevoCred Example LLC", REVOCRED_SUPPORT_EMAIL="support@example.test",
+            REVOCRED_LEGAL_JURISDICTION="New Jersey, USA", REVOCRED_LEGAL_EFFECTIVE_DATE="2026-11-06",
+            REVOCRED_PRIVACY_URL="https://app.example.test/privacy", REVOCRED_TERMS_URL="https://app.example.test/terms",
         )
         self.config.write_text(json.dumps(self.values))
         self.options.write_bytes(plistlib.dumps(dict(
@@ -97,7 +100,9 @@ class IOSReleaseTest(unittest.TestCase):
         self.config.write_text(json.dumps({**self.values,
             "REVOCRED_API_URL": "https://api.revocred.com",
             "SUPABASE_URL": "https://project.supabase.co",
-            "SUPABASE_ANON_KEY": "sb_publishable_unit_test_only_123"}))
+            "SUPABASE_ANON_KEY": "sb_publishable_unit_test_only_123",
+            "REVOCRED_PRIVACY_URL": "https://revocred.com/privacy",
+            "REVOCRED_TERMS_URL": "https://revocred.com/terms"}))
         with patch.object(ios_release.subprocess, "run") as run, \
                 patch.object(ios_release.subprocess, "check_output") as output, \
                 contextlib.redirect_stdout(io.StringIO()):
