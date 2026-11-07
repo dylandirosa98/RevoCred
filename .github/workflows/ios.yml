@@ -53,7 +53,7 @@ jobs:
         run: python3 scripts/ios_ci.py
       - name: Upload only allowlisted secret-free fixture evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-compile-fixture-${{ github.run_id }}-${{ github.run_attempt }}
           retention-days: 7
