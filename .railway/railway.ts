@@ -49,6 +49,9 @@ export default defineRailway((ctx) => {
       // Optional Brave Search key; empty disables REVO web search.
       SEARCH_API_KEY: ctx.shared.SEARCH_API_KEY,
       CHAT_DAILY_AI_LIMIT: ctx.shared.CHAT_DAILY_AI_LIMIT,
+      // Browser origins allowed to call the API (comma-separated HTTPS origins).
+      // Native apps send no Origin; leave empty unless a web build is in use.
+      CORS_ALLOWED_ORIGINS: ctx.shared.CORS_ALLOWED_ORIGINS,
     },
   });
 

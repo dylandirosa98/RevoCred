@@ -123,8 +123,10 @@ the client's actual organization/project settings rather than assuming ZDR.
   edge reports. Without it every user would share the edge's limit. Only set it
   where the container is reachable solely through a proxy that overwrites the
   header.
-- `CORS_ALLOWED_ORIGINS` is unset: native apps send no `Origin`, so browser
-  requests are refused. Set it only if a web build is ever hosted.
+- `CORS_ALLOWED_ORIGINS` comes from the shared variable of the same name. Leave
+  it empty for the App Store: native apps send no `Origin`, so browser requests
+  are refused. Set it to explicit HTTPS origins only while a web build (for
+  example a testing preview) calls this API.
 - One replica. Rate limits and counters live in process memory; more replicas
   multiply the limits. Add a shared quota backend before scaling out.
 - `/metrics` is public on Railway (Caddy used to hide it) but returns 404
