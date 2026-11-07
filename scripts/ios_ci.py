@@ -19,7 +19,13 @@ def write_fixture(path):
     config = json.loads((ROOT / 'config/ios-release.example.json').read_text())
     config.update(REVOCRED_API_URL='https://api.example.test',
                   SUPABASE_URL='https://project.example.test',
-                  SUPABASE_ANON_KEY='sb_publishable_compile_fixture_only')
+                  SUPABASE_ANON_KEY='sb_publishable_compile_fixture_only',
+                  REVOCRED_LEGAL_ENTITY='RevoCred Compile Fixture',
+                  REVOCRED_SUPPORT_EMAIL='support@example.test',
+                  REVOCRED_LEGAL_JURISDICTION='Compile Fixture',
+                  REVOCRED_LEGAL_EFFECTIVE_DATE='2026-01-01',
+                  REVOCRED_PRIVACY_URL='https://legal.example.test/privacy',
+                  REVOCRED_TERMS_URL='https://legal.example.test/terms')
     path.write_text(json.dumps(config))
     load_config(path, allow_fixture=True)
 
