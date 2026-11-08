@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../explore/presentation/explore_rewards_entry.dart';
 import '../../../core/logic/wallet_score.dart';
 import '../../../core/logic/card_art.dart';
 import '../../../core/logic/ongoing_value.dart';
@@ -158,6 +159,8 @@ class HomeScreen extends ConsumerWidget {
                 : Column(children: [hero, const SizedBox(height: 14), action]);
           },
         ),
+        SizedBox(height: product.sectionGap),
+        const ExploreRewardsEntry(),
         SizedBox(height: product.sectionGap),
         Row(
           children: [
@@ -453,9 +456,11 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                   Expanded(
                     child: _DecisionMetric(
                       label: 'Estimated ongoing yearly value',
-                      value:
-                          '\$${_WalletFlowHome._spacedAmount(widget.estimatedValue)}',
-                      detail: '\$${widget.projectedValue} cash equivalent',
+                      value: _WalletFlowHome._signedDollars(
+                        widget.estimatedValue,
+                      ),
+                      detail:
+                          '${_WalletFlowHome._signedDollars(widget.projectedValue)} cash equivalent',
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -469,6 +474,8 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                 ],
               ),
               const _HomeValueBreakdown(),
+              const SizedBox(height: 14),
+              const ExploreRewardsEntry(),
               const SizedBox(height: 27),
               _WalletSectionHeader(
                 label: 'Your wallet',
@@ -1264,7 +1271,7 @@ class _StudioValuePanel extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          '\$${_WalletFlowHome._spacedAmount(estimatedValue)}',
+          _WalletFlowHome._signedDollars(estimatedValue),
           style: const TextStyle(
             color: Colors.white,
             fontSize: 43,
@@ -1747,7 +1754,7 @@ class _WalletFlowHome extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                '\$${_spacedAmount(estimatedValue)}',
+                _signedDollars(estimatedValue),
                 key: const ValueKey('wallet-flow-value'),
                 style: TextStyle(
                   color: product.ink,
@@ -1827,6 +1834,10 @@ class _WalletFlowHome extends StatelessWidget {
       ),
     );
   }
+
+  /// Whole dollars with the sign before the symbol: `−$396`, `$1 240`.
+  static String _signedDollars(int value) =>
+      value < 0 ? '−\$${_spacedAmount(-value)}' : '\$${_spacedAmount(value)}';
 
   static String _spacedAmount(int value) {
     final digits = value.toString();
@@ -2038,7 +2049,7 @@ class _WalletPreviewCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '\$${_WalletFlowHome._spacedAmount(value)}',
+                      _WalletFlowHome._signedDollars(value),
                       style: TextStyle(
                         color: product.ink,
                         fontSize: 16,
@@ -2172,7 +2183,7 @@ class _WalletRewardsPanel extends StatelessWidget {
                   painter: const _RewardsRingPainter(),
                   child: Center(
                     child: Text(
-                      '\$$projectedValue',
+                      _WalletFlowHome._signedDollars(projectedValue),
                       style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -2403,7 +2414,7 @@ class _ValueHero extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '\$$estimatedValue',
+            _WalletFlowHome._signedDollars(estimatedValue),
             style: TextStyle(
               color:
                   treatment == HeroTreatment.market ||
@@ -2457,7 +2468,10 @@ class _ValueHero extends StatelessWidget {
             spacing: 24,
             runSpacing: 12,
             children: [
-              _MiniStat(label: 'Cash value', value: '\$$projectedValue'),
+              _MiniStat(
+                label: 'Cash value',
+                value: _WalletFlowHome._signedDollars(projectedValue),
+              ),
               _MiniStat(label: 'Wallet health', value: '$score / 100'),
               _MiniStat(label: 'Active cards', value: '$activeCards'),
             ],

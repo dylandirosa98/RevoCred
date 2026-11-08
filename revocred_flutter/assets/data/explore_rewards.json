@@ -1,0 +1,975 @@
+{
+  "version": "2026-11-07",
+  "source": "Client-supplied Flight Numbers and Hotel Numbers tables (Explore Rewards developer handoff). Historical examples, not live fares or award availability.",
+  "point_baseline_cents": 1,
+  "airports": [
+    {
+      "code": "SFO",
+      "city": "San Francisco"
+    },
+    {
+      "code": "DFW",
+      "city": "Dallas"
+    },
+    {
+      "code": "JFK",
+      "city": "New York"
+    },
+    {
+      "code": "MIA",
+      "city": "Miami"
+    }
+  ],
+  "regions": [
+    {
+      "name": "North America",
+      "flights": [
+        {
+          "name": "South Bimini, Bahamas",
+          "code": "BIM"
+        },
+        {
+          "name": "Toronto, Canada",
+          "code": "YYZ"
+        },
+        {
+          "name": "Vancouver, Canada",
+          "code": "YVR"
+        },
+        {
+          "name": "Mexico City, Mexico",
+          "code": "MEX"
+        },
+        {
+          "name": "Cabo San Lucas, Mexico",
+          "code": "SJD"
+        },
+        {
+          "name": "Miami, United States",
+          "code": "MIA"
+        },
+        {
+          "name": "San Francisco, United States",
+          "code": "SFO"
+        },
+        {
+          "name": "New York, United States",
+          "code": "JFK"
+        },
+        {
+          "name": "Dallas, United States",
+          "code": "DFW"
+        },
+        {
+          "name": "Seattle, United States",
+          "code": "SEA"
+        }
+      ],
+      "hotels": [
+        {
+          "name": "Park Hyatt New York",
+          "place": "New York, United States",
+          "program": "World of Hyatt",
+          "cash": 1345,
+          "points": 45000
+        },
+        {
+          "name": "Hyatt House LA",
+          "place": "Los Angeles, United States",
+          "program": "World of Hyatt",
+          "cash": 158,
+          "points": 12000
+        },
+        {
+          "name": "Hyatt Regency Mexico City",
+          "place": "Mexico City, Mexico",
+          "program": "World of Hyatt",
+          "cash": 167,
+          "points": 6000
+        }
+      ]
+    },
+    {
+      "name": "South America",
+      "flights": [
+        {
+          "name": "Medellín, Colombia",
+          "code": "MDE"
+        },
+        {
+          "name": "Rio de Janeiro, Brazil",
+          "code": "GIG"
+        }
+      ],
+      "hotels": [
+        {
+          "name": "Grand Hyatt Rio",
+          "place": "Rio de Janeiro, Brazil",
+          "program": "World of Hyatt",
+          "cash": 358,
+          "points": 12000
+        },
+        {
+          "name": "Hyatt Place Bogota",
+          "place": "Bogotá, Colombia",
+          "program": "World of Hyatt",
+          "cash": 135,
+          "points": 4500
+        }
+      ]
+    },
+    {
+      "name": "Europe",
+      "flights": [
+        {
+          "name": "London, United Kingdom",
+          "code": "LHR"
+        },
+        {
+          "name": "Barcelona, Spain",
+          "code": "BCN"
+        },
+        {
+          "name": "Paris, France",
+          "code": "CDG"
+        },
+        {
+          "name": "Rome, Italy",
+          "code": "FCO"
+        },
+        {
+          "name": "Athens, Greece",
+          "code": "ATH"
+        },
+        {
+          "name": "Istanbul, Turkey",
+          "code": "IST"
+        }
+      ],
+      "hotels": [
+        {
+          "name": "Park Hyatt Paris",
+          "place": "Paris, France",
+          "program": "World of Hyatt",
+          "cash": 1700,
+          "points": 45000
+        },
+        {
+          "name": "Hyatt Place London",
+          "place": "London, United Kingdom",
+          "program": "World of Hyatt",
+          "cash": 146,
+          "points": 8000
+        },
+        {
+          "name": "Wyndham Istanbul Old City",
+          "place": "Istanbul, Turkey",
+          "program": "Wyndham Rewards",
+          "cash": 390,
+          "points": 5000
+        }
+      ]
+    },
+    {
+      "name": "Asia & Middle East",
+      "flights": [
+        {
+          "name": "Jeddah, Saudi Arabia",
+          "code": "JED"
+        },
+        {
+          "name": "Beirut, Lebanon",
+          "code": "BEY"
+        },
+        {
+          "name": "Mumbai, India",
+          "code": "BOM"
+        },
+        {
+          "name": "Bangkok, Thailand",
+          "code": "BKK"
+        },
+        {
+          "name": "Manila, Philippines",
+          "code": "MNL"
+        },
+        {
+          "name": "Tokyo, Japan",
+          "code": "HND"
+        }
+      ],
+      "hotels": [
+        {
+          "name": "Park Hyatt Tokyo",
+          "place": "Tokyo, Japan",
+          "program": "World of Hyatt",
+          "cash": 839,
+          "points": 35000
+        },
+        {
+          "name": "Hyatt Regency Bangkok",
+          "place": "Bangkok, Thailand",
+          "program": "World of Hyatt",
+          "cash": 211,
+          "points": 12000
+        },
+        {
+          "name": "Hyatt Place Dubai",
+          "place": "Dubai, United Arab Emirates",
+          "program": "World of Hyatt",
+          "cash": 69,
+          "points": 3000
+        }
+      ]
+    },
+    {
+      "name": "Africa",
+      "flights": [
+        {
+          "name": "Rabat, Morocco",
+          "code": "RBA"
+        },
+        {
+          "name": "Cairo, Egypt",
+          "code": "CAI"
+        },
+        {
+          "name": "Cape Town, South Africa",
+          "code": "CPT"
+        }
+      ],
+      "hotels": [
+        {
+          "name": "Park Hyatt Marrakech",
+          "place": "Marrakech, Morocco",
+          "program": "World of Hyatt",
+          "cash": 550,
+          "points": 25000
+        },
+        {
+          "name": "Hyatt Regency Cape Town",
+          "place": "Cape Town, South Africa",
+          "program": "World of Hyatt",
+          "cash": 550,
+          "points": 11000
+        }
+      ]
+    },
+    {
+      "name": "Oceania",
+      "flights": [
+        {
+          "name": "Sydney, Australia",
+          "code": "SYD"
+        },
+        {
+          "name": "Melbourne, Australia",
+          "code": "MEL"
+        }
+      ],
+      "hotels": [
+        {
+          "name": "Park Hyatt Sydney",
+          "place": "Sydney, Australia",
+          "program": "World of Hyatt",
+          "cash": 1200,
+          "points": 35000
+        },
+        {
+          "name": "Grand Hyatt Melbourne",
+          "place": "Melbourne, Australia",
+          "program": "World of Hyatt",
+          "cash": 198,
+          "points": 15000
+        }
+      ]
+    }
+  ],
+  "fares": {
+    "SFO": {
+      "BIM": {
+        "cash": 267,
+        "points": 9500,
+        "fees": 6,
+        "airline": "American"
+      },
+      "YYZ": {
+        "cash": 252,
+        "points": 15000,
+        "fees": 29,
+        "airline": "American"
+      },
+      "YVR": {
+        "cash": 187,
+        "points": 11500,
+        "fees": 56,
+        "airline": "Air Canada"
+      },
+      "MEX": {
+        "cash": 242,
+        "points": 11000,
+        "fees": 90,
+        "airline": "Aeromexico"
+      },
+      "SJD": {
+        "cash": 192,
+        "points": 10000,
+        "fees": 59,
+        "airline": "American"
+      },
+      "MIA": {
+        "cash": 205,
+        "points": 10000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "JFK": {
+        "cash": 194,
+        "points": 9700,
+        "fees": 5,
+        "airline": "JetBlue"
+      },
+      "DFW": {
+        "cash": 160,
+        "points": 10000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "SEA": {
+        "cash": 80,
+        "points": 6500,
+        "fees": 5,
+        "airline": "Alaska Airlines"
+      },
+      "MDE": {
+        "cash": 356,
+        "points": 13500,
+        "fees": 20,
+        "airline": "American"
+      },
+      "GIG": {
+        "cash": 664,
+        "points": 30000,
+        "fees": 12,
+        "airline": "American"
+      },
+      "LHR": {
+        "cash": 552,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "BCN": {
+        "cash": 950,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "CDG": {
+        "cash": 603,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "FCO": {
+        "cash": 700,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "ATH": {
+        "cash": 650,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "IST": {
+        "cash": 495,
+        "points": 30000,
+        "fees": 53,
+        "airline": "American"
+      },
+      "JED": {
+        "cash": 1200,
+        "points": 40000,
+        "fees": 45,
+        "airline": "American"
+      },
+      "BEY": {
+        "cash": 1255,
+        "points": 40000,
+        "fees": 43,
+        "airline": "American"
+      },
+      "BOM": {
+        "cash": 700,
+        "points": 40000,
+        "fees": 46,
+        "airline": "American"
+      },
+      "BKK": {
+        "cash": 419,
+        "points": 50000,
+        "fees": 16,
+        "airline": "United"
+      },
+      "MNL": {
+        "cash": 417,
+        "points": 42000,
+        "fees": 10,
+        "airline": "Velocity"
+      },
+      "HND": {
+        "cash": 635,
+        "points": 35000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "RBA": {
+        "cash": 640,
+        "points": 30000,
+        "fees": 36,
+        "airline": "American"
+      },
+      "CAI": {
+        "cash": 1020,
+        "points": 40000,
+        "fees": 45,
+        "airline": "American"
+      },
+      "CPT": {
+        "cash": 1010,
+        "points": 40000,
+        "fees": 42,
+        "airline": "American"
+      },
+      "SYD": {
+        "cash": 647,
+        "points": 35000,
+        "fees": 27,
+        "airline": "American"
+      },
+      "MEL": {
+        "cash": 622,
+        "points": 48000,
+        "fees": 38,
+        "airline": "Velocity"
+      }
+    },
+    "DFW": {
+      "BIM": {
+        "cash": 375,
+        "points": 9500,
+        "fees": 6,
+        "airline": "American"
+      },
+      "YYZ": {
+        "cash": 337,
+        "points": 9500,
+        "fees": 5,
+        "airline": "American"
+      },
+      "YVR": {
+        "cash": 329,
+        "points": 15000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "MEX": {
+        "cash": 204,
+        "points": 9500,
+        "fees": 60,
+        "airline": "American"
+      },
+      "SJD": {
+        "cash": 284,
+        "points": 10000,
+        "fees": 60,
+        "airline": "American"
+      },
+      "MIA": {
+        "cash": 129,
+        "points": 10000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "SFO": {
+        "cash": 217,
+        "points": 10000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "JFK": {
+        "cash": 260,
+        "points": 9000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "SEA": {
+        "cash": 254,
+        "points": 11000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "MDE": {
+        "cash": 366,
+        "points": 13500,
+        "fees": 20,
+        "airline": "American"
+      },
+      "GIG": {
+        "cash": 767,
+        "points": 22000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "LHR": {
+        "cash": 413,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "BCN": {
+        "cash": 365,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "CDG": {
+        "cash": 334,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "FCO": {
+        "cash": 479,
+        "points": 23000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "ATH": {
+        "cash": 468,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "IST": {
+        "cash": 376,
+        "points": 30000,
+        "fees": 53,
+        "airline": "American"
+      },
+      "JED": {
+        "cash": 656,
+        "points": 40000,
+        "fees": 45,
+        "airline": "American"
+      },
+      "BEY": {
+        "cash": 670,
+        "points": 40000,
+        "fees": 21,
+        "airline": "American"
+      },
+      "BOM": {
+        "cash": 700,
+        "points": 49500,
+        "fees": 9,
+        "airline": "United"
+      },
+      "BKK": {
+        "cash": 493,
+        "points": 37500,
+        "fees": 20,
+        "airline": "American"
+      },
+      "MNL": {
+        "cash": 442,
+        "points": 37500,
+        "fees": 15,
+        "airline": "American"
+      },
+      "HND": {
+        "cash": 677,
+        "points": 35000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "RBA": {
+        "cash": 377,
+        "points": 30000,
+        "fees": 44,
+        "airline": "American"
+      },
+      "CAI": {
+        "cash": 660,
+        "points": 40000,
+        "fees": 66,
+        "airline": "American"
+      },
+      "CPT": {
+        "cash": 932,
+        "points": 40000,
+        "fees": 108,
+        "airline": "American"
+      },
+      "SYD": {
+        "cash": 1162,
+        "points": 35000,
+        "fees": 27,
+        "airline": "American"
+      },
+      "MEL": {
+        "cash": 1161,
+        "points": 40000,
+        "fees": 29,
+        "airline": "American"
+      }
+    },
+    "JFK": {
+      "BIM": {
+        "cash": 355,
+        "points": 9500,
+        "fees": 6,
+        "airline": "American"
+      },
+      "YYZ": {
+        "cash": 204,
+        "points": 7000,
+        "fees": 12,
+        "airline": "Flying Blue"
+      },
+      "YVR": {
+        "cash": 245,
+        "points": 19300,
+        "fees": 5,
+        "airline": "JetBlue"
+      },
+      "MEX": {
+        "cash": 250,
+        "points": 10000,
+        "fees": 59,
+        "airline": "American"
+      },
+      "SJD": {
+        "cash": 223,
+        "points": 15000,
+        "fees": 103,
+        "airline": "American"
+      },
+      "MIA": {
+        "cash": 200,
+        "points": 9500,
+        "fees": 5,
+        "airline": "American"
+      },
+      "SFO": {
+        "cash": 189,
+        "points": 12500,
+        "fees": 5,
+        "airline": "American"
+      },
+      "DFW": {
+        "cash": 260,
+        "points": 8000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "SEA": {
+        "cash": 249,
+        "points": 12500,
+        "fees": 5,
+        "airline": "American"
+      },
+      "MDE": {
+        "cash": 234,
+        "points": 13500,
+        "fees": 20,
+        "airline": "American"
+      },
+      "GIG": {
+        "cash": 397,
+        "points": 22000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "LHR": {
+        "cash": 300,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "BCN": {
+        "cash": 322,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "CDG": {
+        "cash": 300,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "FCO": {
+        "cash": 373,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "ATH": {
+        "cash": 422,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "IST": {
+        "cash": 330,
+        "points": 30000,
+        "fees": 53,
+        "airline": "American"
+      },
+      "JED": {
+        "cash": 510,
+        "points": 40000,
+        "fees": 62,
+        "airline": "American"
+      },
+      "BEY": {
+        "cash": 525,
+        "points": 40000,
+        "fees": 21,
+        "airline": "American"
+      },
+      "BOM": {
+        "cash": 448,
+        "points": 40000,
+        "fees": 23,
+        "airline": "American"
+      },
+      "BKK": {
+        "cash": 426,
+        "points": 37500,
+        "fees": 24,
+        "airline": "American"
+      },
+      "MNL": {
+        "cash": 466,
+        "points": 37500,
+        "fees": 15,
+        "airline": "American"
+      },
+      "HND": {
+        "cash": 828,
+        "points": 35000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "RBA": {
+        "cash": 307,
+        "points": 35000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "CAI": {
+        "cash": 429,
+        "points": 40000,
+        "fees": 22,
+        "airline": "American"
+      },
+      "CPT": {
+        "cash": 1100,
+        "points": 40000,
+        "fees": 108,
+        "airline": "American"
+      },
+      "SYD": {
+        "cash": 735,
+        "points": 35000,
+        "fees": 27,
+        "airline": "American"
+      },
+      "MEL": {
+        "cash": 835,
+        "points": 40000,
+        "fees": 29,
+        "airline": "American"
+      }
+    },
+    "MIA": {
+      "BIM": {
+        "cash": 200,
+        "points": 9500,
+        "fees": 6,
+        "airline": "American"
+      },
+      "YYZ": {
+        "cash": 235,
+        "points": 10000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "YVR": {
+        "cash": 386,
+        "points": 15000,
+        "fees": 5,
+        "airline": "United"
+      },
+      "MEX": {
+        "cash": 289,
+        "points": 10000,
+        "fees": 59,
+        "airline": "American"
+      },
+      "SJD": {
+        "cash": 282,
+        "points": 10500,
+        "fees": 59,
+        "airline": "American"
+      },
+      "SFO": {
+        "cash": 205,
+        "points": 10000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "JFK": {
+        "cash": 200,
+        "points": 9500,
+        "fees": 5,
+        "airline": "American"
+      },
+      "DFW": {
+        "cash": 129,
+        "points": 10000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "SEA": {
+        "cash": 236,
+        "points": 10000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "MDE": {
+        "cash": 210,
+        "points": 13500,
+        "fees": 20,
+        "airline": "American"
+      },
+      "GIG": {
+        "cash": 770,
+        "points": 22000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "LHR": {
+        "cash": 330,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "BCN": {
+        "cash": 404,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "CDG": {
+        "cash": 602,
+        "points": 21000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "FCO": {
+        "cash": 365,
+        "points": 30000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "ATH": {
+        "cash": 490,
+        "points": 30000,
+        "fees": 27,
+        "airline": "American"
+      },
+      "IST": {
+        "cash": 355,
+        "points": 30000,
+        "fees": 41,
+        "airline": "Avianca"
+      },
+      "JED": {
+        "cash": 658,
+        "points": 40000,
+        "fees": 78,
+        "airline": "American"
+      },
+      "BEY": {
+        "cash": 553,
+        "points": 40000,
+        "fees": 76,
+        "airline": "American"
+      },
+      "BOM": {
+        "cash": 663,
+        "points": 40000,
+        "fees": 23,
+        "airline": "American"
+      },
+      "BKK": {
+        "cash": 782,
+        "points": 37500,
+        "fees": 16,
+        "airline": "American"
+      },
+      "MNL": {
+        "cash": 469,
+        "points": 37500,
+        "fees": 15,
+        "airline": "American"
+      },
+      "HND": {
+        "cash": 1247,
+        "points": 35000,
+        "fees": 5,
+        "airline": "American"
+      },
+      "RBA": {
+        "cash": 533,
+        "points": 30000,
+        "fees": 30,
+        "airline": "American"
+      },
+      "CAI": {
+        "cash": 518,
+        "points": 40000,
+        "fees": 22,
+        "airline": "American"
+      },
+      "CPT": {
+        "cash": 1063,
+        "points": 40000,
+        "fees": 108,
+        "airline": "American"
+      },
+      "SYD": {
+        "cash": 1162,
+        "points": 35000,
+        "fees": 27,
+        "airline": "American"
+      },
+      "MEL": {
+        "cash": 1161,
+        "points": 40000,
+        "fees": 29,
+        "airline": "American"
+      }
+    }
+  },
+  "disclaimers": {
+    "flights": "Flight figures come from example route tables. The savings figure compares the cash fare against points valued at 1¢ each plus listed taxes and fees, rather than representing literal cash savings. The points required reflect specific airline rewards programs and may only be accessible through certain credit cards and eligible transfer partners. These are examples of past flight redemptions, not live fares or guaranteed award availability.",
+    "hotels": "Hotel cash prices and award points come from an example hotel table. Parenthetical values use a 1¢/point baseline; the displayed comparison measures value above that baseline, not guaranteed cash savings. Actual rates, fees and award availability vary.",
+    "estimate": "Illustrative redemption range of 1¢–3¢ per point. Higher values are not guaranteed."
+  }
+}

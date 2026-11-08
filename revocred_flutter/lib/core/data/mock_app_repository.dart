@@ -2,8 +2,10 @@ import '../logic/playbook.dart';
 import '../logic/demo_purchase_guide.dart';
 import '../models/app_models.dart';
 import '../models/chat_disclosure.dart';
+import '../models/explore_rewards.dart';
 import 'app_repository.dart';
 import 'demo_seed.dart';
+import 'explore_rewards_asset.dart';
 
 class MockAppRepository implements AppRepository {
   MockAppRepository({AppData? initialData})
@@ -183,6 +185,9 @@ class MockAppRepository implements AppRepository {
   @override
   Future<ChatDisclosure> loadChatDisclosure() async =>
       const ChatDisclosure.basic();
+
+  @override
+  Future<ExploreRewards> loadExploreRewards() => loadBundledExploreRewards();
 
   @override
   Future<ChatMessage> sendMessage(

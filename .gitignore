@@ -14,3 +14,6 @@ backups/
 **/*.mobileprovision
 **/*.ipa
 **/*.xcarchive/
+
+# Client handoff material (private; not for the public repo)
+references/explore-rewards-handoff-*/

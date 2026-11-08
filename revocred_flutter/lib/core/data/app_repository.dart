@@ -1,5 +1,6 @@
 import '../models/app_models.dart';
 import '../models/chat_disclosure.dart';
+import '../models/explore_rewards.dart';
 import 'chat_stream.dart';
 
 export 'chat_stream.dart';
@@ -41,6 +42,9 @@ abstract interface class AppRepository {
   Future<void> addCustomCard(CustomCardDraft card);
   Future<void> removeCard(String walletCardId);
   Future<ChatDisclosure> loadChatDisclosure();
+
+  /// Illustrative flight and hotel redemptions for Explore Rewards.
+  Future<ExploreRewards> loadExploreRewards();
   Future<ChatMessage> sendMessage(String prompt, {String? aiConsentVersion});
 
   /// Sends a message and reports progress before the saved exchange. Closing

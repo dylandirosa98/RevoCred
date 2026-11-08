@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/app_controller.dart';
 
+import '../../features/explore/presentation/explore_rewards_screen.dart';
 import '../../features/cards/presentation/cards_screen.dart';
 import '../../features/auth/presentation/auth_screen.dart';
 import '../../features/auth/presentation/account_screen.dart';
@@ -120,6 +121,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/questionnaire',
       pageBuilder: _detailPage(const QuestionnaireScreen()),
+    ),
+    GoRoute(
+      path: '/explore-rewards',
+      pageBuilder: _detailPage(const _DataReady(child: ExploreRewardsScreen())),
     ),
     GoRoute(
       path: '/strategy-report',

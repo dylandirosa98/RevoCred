@@ -17,17 +17,7 @@ OngoingValue estimateOngoingValue(
   for (final c in cards) {
     rates[c.id] = c.modeledRates.isNotEmpty
         ? c.modeledRates
-        : {
-            for (final label in c.pointMultipliers)
-              if (RegExp(r'^(\d+(?:\.\d+)?)x (.+)$').hasMatch(label))
-                RegExp(
-                  r'^(\d+(?:\.\d+)?)x (.+)$',
-                ).firstMatch(label)!.group(2)!: double.parse(
-                  RegExp(
-                    r'^(\d+(?:\.\d+)?)x (.+)$',
-                  ).firstMatch(label)!.group(1)!,
-                ),
-          };
+        : ratesFromLabels(c.pointMultipliers);
   }
   double rate(Map<String, double> r, String cat) {
     if (cat == 'rent' || cat == 'housing') return 0;
@@ -130,4 +120,56 @@ OngoingValue estimateOngoingValue(
       'Missing/changed evidence, non-cash perks, per-stay benefits, temporary offers and multi-year application-fee credits receive zero annual cash value.',
     ],
   );
+}
+
+/// Turns demo display labels such as `4x U.S. supermarkets` or
+/// `1.5% cash back everywhere` into the server's rate keys. Conditional
+/// bonuses (portal bookings, rotating categories) are skipped, matching the
+/// server's no-conditional-uplift rule.
+Map<String, double> ratesFromLabels(Iterable<String> labels) {
+  final pattern = RegExp(
+    r'^(\d+(?:\.\d+)?)\s*(?:x|%)\s*(?:cash back\s+)?(.+)$',
+    caseSensitive: false,
+  );
+  final rates = <String, double>{};
+  for (final label in labels) {
+    final match = pattern.firstMatch(label.trim());
+    if (match == null) continue;
+    final key = _rateKey(match.group(2)!);
+    if (key == null) continue;
+    final rate = double.parse(match.group(1)!);
+    rates[key] = math.max(rates[key] ?? 0, rate);
+  }
+  return rates;
+}
+
+String? _rateKey(String text) {
+  final label = text.toLowerCase().trim();
+  if (label.startsWith('portal') || label.contains('rotating')) return null;
+  if (label.contains('supermarket') || label.contains('grocer')) {
+    return 'groceries';
+  }
+  if (label.startsWith('everywhere') ||
+      label.startsWith('everything') ||
+      label.contains('all purchases') ||
+      label == 'other') {
+    return 'other';
+  }
+  if (label.startsWith('gas')) return 'gas';
+  if (label.startsWith('dining') || label.startsWith('restaurant')) {
+    return 'dining';
+  }
+  for (final key in const [
+    'flights',
+    'hotels',
+    'travel',
+    'transit',
+    'drugstores',
+    'entertainment',
+    'streaming',
+    'rent',
+  ]) {
+    if (label.startsWith(key)) return key;
+  }
+  return label.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
 }

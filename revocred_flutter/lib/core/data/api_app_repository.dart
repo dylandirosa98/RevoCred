@@ -7,7 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/app_models.dart';
 import '../models/chat_disclosure.dart';
 import '../models/chat_errors.dart';
+import '../models/explore_rewards.dart';
 import 'app_repository.dart';
+import 'explore_rewards_asset.dart';
 
 class ApiAppRepository implements AppRepository {
   ApiAppRepository({
@@ -373,6 +375,27 @@ class ApiAppRepository implements AppRepository {
       throw const FormatException('AI sharing notice is unavailable.');
     }
     return ChatDisclosure.fromJson(data.cast<String, dynamic>());
+  }
+
+  @override
+  Future<ExploreRewards> loadExploreRewards() async {
+    try {
+      final json = await _request(
+        'GET',
+        '/v1/public/explore-rewards',
+        anonymous: true,
+      );
+      final data = json['data'];
+      if (data is Map) {
+        return ExploreRewards.fromJson(data.cast<String, dynamic>());
+      }
+    } on SessionExpiredException {
+      rethrow;
+    } catch (_) {
+      // Examples are not personal data; the bundled copy keeps the screen
+      // usable offline or against an older API.
+    }
+    return loadBundledExploreRewards();
   }
 
   @override

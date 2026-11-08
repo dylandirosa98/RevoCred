@@ -829,6 +829,7 @@ class AppData {
     PlaybookAssignment? playbook,
     List<RoadmapStep>? roadmap,
     PurchaseGuide? purchaseGuide,
+    OngoingValue? ongoingValue,
   }) => AppData(
     profile: profile ?? this.profile,
     wallet: wallet ?? this.wallet,
@@ -838,7 +839,7 @@ class AppData {
     quickPrompts: quickPrompts,
     pointsValue: pointsValue ?? this.pointsValue,
     projectedYearlyValue: projectedYearlyValue ?? this.projectedYearlyValue,
-    ongoingValue: ongoingValue,
+    ongoingValue: ongoingValue ?? this.ongoingValue,
     monthlySpend: monthlySpend ?? this.monthlySpend,
     strategyPlan: strategyPlan ?? this.strategyPlan,
     strategyPreferences: strategyPreferences ?? this.strategyPreferences,

@@ -69,6 +69,7 @@ flutter:
   assets:
     - assets/images/revocred_mark_v2.png
     - assets/images/cards/
+    - assets/data/explore_rewards.json
 
   fonts:
     - family: SpaceGrotesk
