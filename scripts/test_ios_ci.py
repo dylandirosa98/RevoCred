@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -53,6 +54,40 @@ class IOSCITest(unittest.TestCase):
             self.assertEqual(result['status'], 'failed')
             self.assertFalse(result['testflight_ready'])
             self.assertEqual(result['kind'], 'compile-fixture-only')
+
+    def test_launched_pid_is_read_from_simctl_output(self):
+        bundle = 'com.revocred.revocredFlutter'
+        self.assertEqual(ios_ci.launched_pid(f'{bundle}: 27498\n', bundle), 27498)
+        self.assertIsNone(ios_ci.launched_pid('An error was encountered', bundle))
+
+    def test_alive_check_uses_host_pid_before_launchctl(self):
+        sim = ['xcrun', 'simctl']
+        calls = []
+
+        def fake_run(command, **_):
+            calls.append(command)
+            if command[0] == 'ps':
+                return subprocess.CompletedProcess(command, 0, stdout='27498\n', stderr='')
+            raise AssertionError('launchctl should not run when the pid is alive')
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(ios_ci.subprocess, 'run', side_effect=fake_run):
+            log = Path(directory) / 'alive.log'
+            self.assertTrue(ios_ci.app_alive(sim, 'udid', 'bundle', 27498, log))
+            self.assertIn('exit 0', log.read_text())
+        self.assertEqual(calls, [['ps', '-p', '27498', '-o', 'pid=']])
+
+    def test_alive_check_reports_exited_app_and_launchctl_failure(self):
+        def fake_run(command, **_):
+            if command[0] == 'ps':
+                return subprocess.CompletedProcess(command, 1, stdout='', stderr='')
+            return subprocess.CompletedProcess(command, 1, stdout='', stderr='boom')
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(ios_ci.subprocess, 'run', side_effect=fake_run):
+            log = Path(directory) / 'alive.log'
+            self.assertFalse(ios_ci.app_alive(['xcrun', 'simctl'], 'udid', 'bundle', 27498, log))
+            self.assertIn('launchctl list: exit 1', log.read_text())
 
     def test_static_only_never_claims_native_success(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(ios_ci, 'native_build') as native:

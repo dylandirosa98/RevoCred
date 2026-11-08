@@ -74,6 +74,36 @@ def run(command, output, name, *, cwd=APP, timeout=900):
         raise ValueError(name + ' failed; inspect its fixture-only artifact log.')
 
 
+def launched_pid(launch_log, bundle):
+    """`simctl launch` prints `<bundle>: <pid>`; return the pid or None."""
+    match = re.search(re.escape(bundle) + r':\s*(\d+)', launch_log)
+    return int(match.group(1)) if match else None
+
+
+def app_alive(sim, udid, bundle, pid, log_path):
+    """Simulator apps are host processes, so check the launched pid directly.
+
+    `simctl spawn launchctl list` is the fallback only; it has failed on hosted
+    macOS runners even while the app was running. Every probe is logged.
+    """
+    with log_path.open('w') as log:
+        if pid is not None:
+            probe = subprocess.run(['ps', '-p', str(pid), '-o', 'pid='],
+                                   capture_output=True, text=True, timeout=30)
+            log.write(f'host ps for launched pid {pid}: exit {probe.returncode}\n')
+            if probe.returncode == 0 and probe.stdout.strip() == str(pid):
+                return True
+        try:
+            listing = subprocess.run(sim + ['spawn', udid, 'launchctl', 'list'],
+                                     capture_output=True, text=True, timeout=30)
+        except subprocess.TimeoutExpired:
+            log.write('launchctl list timed out\n')
+            return False
+        log.write(f'launchctl list: exit {listing.returncode}\n')
+        return any(bundle in line and line.split()[0].isdigit()
+                   for line in listing.stdout.splitlines())
+
+
 def smoke(device, app, output):
     udid = device['udid']
     family = 'iphone' if device['name'].startswith('iPhone') else 'ipad'
@@ -87,9 +117,9 @@ def smoke(device, app, output):
         run(sim + ['install', udid, str(app)], output, family + '-install', timeout=120)
         run(sim + ['launch', '--terminate-running-process', udid, bundle],
             output, family + '-launch', timeout=60)
+        pid = launched_pid((output / (family + '-launch.log')).read_text(), bundle)
         time.sleep(15)
-        processes = subprocess.check_output(sim + ['spawn', udid, 'launchctl', 'list'], text=True, timeout=30)
-        alive = any(bundle in line and line.split()[0].isdigit() for line in processes.splitlines())
+        alive = app_alive(sim, udid, bundle, pid, output / (family + '-alive.log'))
         run(sim + ['io', udid, 'screenshot', str(output / (family + '-launch.png'))],
             output, family + '-screenshot', timeout=30)
         if not alive:
