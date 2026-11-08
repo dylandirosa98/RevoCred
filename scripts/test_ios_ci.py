@@ -89,6 +89,17 @@ class IOSCITest(unittest.TestCase):
             self.assertFalse(ios_ci.app_alive(['xcrun', 'simctl'], 'udid', 'bundle', 27498, log))
             self.assertIn('launchctl list: exit 1', log.read_text())
 
+    def test_slow_cleanup_is_recorded_not_fatal(self):
+        def slow(command, **_):
+            raise subprocess.TimeoutExpired(command, 60)
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(ios_ci.subprocess, 'run', side_effect=slow):
+            ios_ci.cleanup(['xcrun', 'simctl'], 'udid', 'iphone', Path(directory))
+            notes = (Path(directory) / 'iphone-cleanup.log').read_text()
+        self.assertIn('runtime log incomplete: TimeoutExpired', notes)
+        self.assertIn('shutdown did not finish: TimeoutExpired', notes)
+
     def test_static_only_never_claims_native_success(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(ios_ci, 'native_build') as native:
             self.assertEqual(ios_ci.main(['--output', directory, '--preflight-only']), 0)

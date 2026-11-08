@@ -127,14 +127,27 @@ def smoke(device, app, output):
         return {'device': device['name'], 'udid': udid, 'status': 'launch-process-alive',
                 'acceptance': 'Not a functional/live-service test; inspect launch screenshot.'}
     finally:
-        # Fixture-only Runner logs, not the entire system log or private user files.
-        try:
-            with (output / (family + '-runtime.log')).open('w') as log:
-                subprocess.run(sim + ['spawn', udid, 'log', 'show', '--last', '2m', '--style', 'compact',
-                                      '--predicate', 'process == "Runner"'],
-                               stdout=log, stderr=subprocess.STDOUT, timeout=60, check=False)
-        finally:
-            subprocess.run(sim + ['shutdown', udid], capture_output=True, timeout=60, check=False)
+        # Diagnostics and cleanup are best-effort: a slow simulator must not
+        # turn a passing launch into a failure, so timeouts are only recorded.
+        cleanup(sim, udid, family, output)
+
+
+def cleanup(sim, udid, family, output):
+    notes = []
+    # Fixture-only Runner logs, not the entire system log or private user files.
+    try:
+        with (output / (family + '-runtime.log')).open('w') as log:
+            subprocess.run(sim + ['spawn', udid, 'log', 'show', '--last', '2m', '--style', 'compact',
+                                  '--predicate', 'process == "Runner"'],
+                           stdout=log, stderr=subprocess.STDOUT, timeout=90, check=False)
+    except (subprocess.SubprocessError, OSError) as error:
+        notes.append(f'runtime log incomplete: {type(error).__name__}')
+    try:
+        subprocess.run(sim + ['shutdown', udid], capture_output=True, timeout=120, check=False)
+    except (subprocess.SubprocessError, OSError) as error:
+        notes.append(f'shutdown did not finish: {type(error).__name__}')
+    if notes:
+        (output / (family + '-cleanup.log')).write_text('\n'.join(notes) + '\n')
 
 
 def native_build(output, config, result):
