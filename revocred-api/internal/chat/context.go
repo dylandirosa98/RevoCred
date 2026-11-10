@@ -39,7 +39,7 @@ type snapshot struct {
 	IssuerSources          []issuerSource      `json:"-"`
 	IssuerLookup           *IssuerLookup       `json:"current_official_page,omitempty"`
 	WebLookup              *WebLookup          `json:"web_sources,omitempty"`
-	Disclaimer             string              `json:"model_assumptions"`
+	ModelAssumptions       string              `json:"model_assumptions"`
 
 	AllowedCards       []string         `json:"-"`
 	MonthlySpend       map[string]int64 `json:"-"`
@@ -129,7 +129,7 @@ func Snapshot(input Context) snapshot {
 		WalletRating:           input.Metrics.Rating,
 		YearlyValueUSD:         input.Metrics.YearlyValue,
 		OngoingWalletBreakdown: input.Metrics.OngoingValue,
-		Disclaimer:             "Wallet ongoing value = spending rewards + conditional usable credits (70% assumption for relevant reviewed credits, budget capped) + recurring anniversary rewards - fees. Use the supplied breakdown in cents, divide by 100 for dollars; explain each condition/source and that budget does not prove merchant use. Renewal/anniversary eligibility assumed; welcome bonuses are excluded, automatic bonus eligibility is not implemented. Missing/changed benefit evidence is zero, not no benefit. Application rankings still use the separate conservative rewards-minus-fees model and exclude credits and bonuses. Never convert AI web/marketing prose into modeled value or alter rankings.",
+		ModelAssumptions:       "Wallet ongoing value = spending rewards + conditional usable credits (70% assumption for relevant reviewed credits, budget capped) + recurring anniversary rewards - fees. Use the supplied breakdown in cents, divide by 100 for dollars; explain each condition/source and that budget does not prove merchant use. Renewal/anniversary eligibility assumed; welcome bonuses are excluded, automatic bonus eligibility is not implemented. Missing/changed benefit evidence is zero, not no benefit. Application rankings still use the separate conservative rewards-minus-fees model and exclude credits and bonuses. Never convert AI web/marketing prose into modeled value or alter rankings.",
 	}
 	seen := map[string]bool{}
 	add := func(name string) {

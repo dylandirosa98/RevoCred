@@ -34,24 +34,31 @@ type webSearchClient interface {
 }
 
 type httpWebClient struct {
-	client        *http.Client
-	searchAPIKey  string
-	searchBaseURL string
+	client         *http.Client
+	searchAPIKey   string
+	searchBaseURL  string
+	searchProvider string
 }
 
 func (c httpWebClient) Search(ctx context.Context, query string) (string, error) {
-	if c.searchAPIKey == "" {
+	if c.searchProvider != "searxng" && c.searchAPIKey == "" {
 		return "", fmt.Errorf("search disabled")
 	}
 	base := c.searchBaseURL
 	if base == "" {
 		base = "https://api.search.brave.com/res/v1/web/search"
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"?"+url.Values{"q": {query}, "count": {"5"}}.Encode(), nil)
+	params := url.Values{"q": {query}, "count": {"5"}}
+	if c.searchProvider == "searxng" {
+		params = url.Values{"q": {query}, "format": {"json"}, "categories": {"general"}, "safesearch": {"1"}}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"?"+params.Encode(), nil)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("X-Subscription-Token", c.searchAPIKey)
+	if c.searchProvider != "searxng" {
+		req.Header.Set("X-Subscription-Token", c.searchAPIKey)
+	}
 	req.Header.Set("Accept", "application/json")
 	client := *c.client
 	client.Timeout = 8 * time.Second

@@ -18,8 +18,9 @@ Description draft:
 > category choices and revisit a strategy report you can share as a PDF.
 >
 > REVO explains the information behind your plan. When external AI is enabled,
-> you choose separately for each message whether to share with the named AI
-> service, use a basic server-only reply or cancel.
+> you can agree to sharing with the named AI service or choose a basic
+> server-only answer. Account permission stays on until you turn it off in
+> Profile or the sharing notice changes.
 >
 > RevoCred is an educational planning tool. It does not connect to your bank,
 > issue credit or submit applications. You do not need card numbers, security
@@ -56,16 +57,20 @@ confirm this remains true before answering the corresponding Connect questions.
 > Launch the app. Guest users can choose Build my strategy and complete the
 > questionnaire for a preview. Use the confirmed review login for saved personal
 > features. A new account without a questionnaire goes to onboarding. Complete
-> the questionnaire, open its strategy report, then inspect Home, Cards, Strategy
-> and REVO. Profile contains account settings and strategy report access.
+> the questionnaire, open its strategy report, then inspect Home, Cards, Strategy,
+> Explore Rewards and REVO. Profile contains account settings, strategy report
+> access and the AI answers (REVO) switch.
 >
 > In REVO, enter a question or use a quick prompt. Home's Ask REVO and card-detail
 > Ask REVO shortcuts use the same sharing gate. When external AI is enabled, the
 > dialog identifies its recipient/model and context/web sharing. Cancel posts no
-> message. Use basic reply uses only RevoCred's server. Agree and send permits
-> the named external service for that one message, and the next message asks
-> again. No persistent AI permission is retained. Production is configured for
-> OpenAI, not the developer's OpenCode/DeepSeek testing environment.
+> message. Basic answer instead uses only RevoCred's server and saves no AI
+> permission. Agree and continue enables the named external service for the
+> account until revoked in Profile → AI answers (REVO), or until the sharing
+> notice changes. Guest permission lasts for the app session.
+> [OWNER: replace with the verified launch recipient/model after testing the
+> uploaded build; the November 8 live review observed OpenCode Go/DeepSeek
+> testing, while the final launch provider remains to be accepted.]
 >
 > Open Profile → Account settings to change email/password, export data or delete
 > the account. For deletion, use the disposable account, enter its current password,
@@ -96,7 +101,10 @@ Flutter widget tests or Linux builds.
    completion on cold/warm launch. Set password and sign in again. Verify email
    change confirmation in both inboxes with actual production policy.
 3. Cancel/Basic/Agree from composer, quick prompt, Home and card detail; verify
-   no external requests for Cancel/Basic and per-message prompting for Agree.
+   no external requests for Cancel/Basic; Agree persists for the account across
+   subsequent messages. Turn off Profile → AI answers (REVO), confirm basic
+   answers and renewed prompting on the next send, then verify notice changes
+   require fresh agreement. Check guest session scope and account isolation.
    Repeat provider/disclosure failure, stale consent and logout/account change
    during the dialog and in-flight request.
 4. With disposable accounts, export, delete, confirm old-token and fresh login

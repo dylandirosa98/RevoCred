@@ -64,15 +64,18 @@ func (p goProvider) SharingDisclosure() (SharingDisclosure, error) {
 	}
 	dataUse := sharingDataUse
 	searchProvider := ""
-	if p.searchAPIKey != "" {
+	if p.searchEnabled() {
 		searchProvider = "Brave Search"
-		point := "Brave Search receives minimal public product or topic queries, not your profile or chat history; sources may be incomplete or outdated."
+		if p.searchProvider == "searxng" {
+			searchProvider = "Self-hosted SearXNG and its upstream search engines"
+		}
+		point := searchProvider + " receives minimal public product or topic queries, not your profile or chat history; sources may be incomplete or outdated."
 		points = append(points, point)
 		dataUse += " " + point
 	}
 	result := SharingDisclosure{External: true, Recipient: recipient, Model: p.model, DataUse: dataUse, DataUsePoints: points, SearchProvider: searchProvider}
 	encoded, _ := json.Marshal(result)
-	digest := sha256.Sum256(append([]byte("revo-sharing-v4\n"+p.endpoint+"\n"), encoded...))
+	digest := sha256.Sum256(append([]byte("revo-sharing-v4\n"+p.endpoint+"\n"+p.searchBaseURL+"\n"), encoded...))
 	result.Version = hex.EncodeToString(digest[:])
 	return result, nil
 }

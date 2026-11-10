@@ -7,6 +7,13 @@ IOS_EXPORT_OPTIONS ?= .local/ios/ExportOptions.plist
 
 .PHONY: check flutter-format flutter-analyze flutter-test flutter-web flutter-web-real api-test api-vet api-sqlc-vet api-run api-run-local local-setup local-e2e docker-up docker-down database-test release-check security-check verify-local local-preview local-stop browser-smoke setup-opencode-go
 
+.PHONY: search-up search-down
+search-up:
+	$(DOCKER_COMPOSE) -f compose.search.yaml up --build -d
+
+search-down:
+	$(DOCKER_COMPOSE) -f compose.search.yaml down
+
 check: flutter-format flutter-analyze flutter-test api-sqlc-vet api-test api-vet
 
 .PHONY: database-test

@@ -31,6 +31,37 @@ class IOSReleaseTest(unittest.TestCase):
         self.options.write_bytes(plistlib.dumps(dict(
             method="app-store-connect", destination="export", teamID="AB12345678")))
 
+    def test_prepare_keeps_only_public_values_and_native_callback(self):
+        source = Path(self.temp.name) / "preview.env"
+        output = Path(self.temp.name) / "incomplete.json"
+        source.write_text('\n'.join([
+            'REVOCRED_API_URL="https://api.revocred.com"',
+            'SUPABASE_URL=https://project.supabase.co',
+            'SUPABASE_ANON_KEY=sb_publishable_unit_test_only_123',
+            'REVOCRED_AUTH_REDIRECT_URL=https://web.revocred.com',
+            'DATABASE_URL=private-must-not-copy',
+            'REVOCRED_LEGAL_ENTITY=Unapproved owner',
+        ]))
+        staged = ios_release.prepare_config(source, output)
+        self.assertEqual(set(staged), ios_release.PUBLIC_KEYS)
+        self.assertEqual(staged["REVOCRED_AUTH_REDIRECT_URL"], ios_release.MOBILE_AUTH_CALLBACK)
+        self.assertEqual(staged["REVOCRED_LEGAL_ENTITY"], "")
+        self.assertNotIn("private-must-not-copy", output.read_text())
+        with self.assertRaisesRegex(ValueError, "required"):
+            ios_release.load_config(output)
+        with self.assertRaisesRegex(ValueError, "already exists"):
+            ios_release.prepare_config(source, output)
+
+    def test_prepare_rejects_secret_key_and_shell_expansion(self):
+        source = Path(self.temp.name) / "preview.env"
+        output = Path(self.temp.name) / "incomplete.json"
+        for key in ("sb_secret_must_not_copy", "$(cat private)", "`cat private`"):
+            source.write_text("REVOCRED_API_URL=https://api.revocred.com\n"
+                              "SUPABASE_URL=https://project.supabase.co\nSUPABASE_ANON_KEY=" + key)
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                ios_release.prepare_config(source, output)
+            self.assertFalse(output.exists())
+
     def test_public_config_and_native_project(self):
         self.assertEqual(ios_release.load_config(self.config, allow_fixture=True), self.values)
         ios_release.validate_project()

@@ -4,7 +4,7 @@ The repository can validate public iOS configuration on Linux and build a signed
 IPA on a configured Mac. It does **not** upload, submit for review, prove hosted
 readiness or guarantee approval. Resolve the findings in
 [iOS review readiness](ios-review-readiness.md) before distributing real-user
-builds. Per-message AI permission is implemented locally but still needs native
+builds. Account-scoped, revocable AI permission is implemented locally but still needs native
 acceptance testing; final legal/support facts remain open.
 
 ## 1. Apple setup (operator, once)
@@ -44,19 +44,31 @@ acceptance testing; final legal/support facts remain open.
 
 ## 2. Configure the installed app (public values only)
 
-From the repository root:
+From the repository root, stage known public service inputs from the gitignored
+production preview without sourcing shell code or copying backend secrets:
 
 ```sh
-cp config/ios-release.example.json .env.ios.json
+python3 scripts/ios_release.py --prepare
 ```
 
-Edit the three empty values in `.env.ios.json`: the stable HTTPS API domain,
-Supabase HTTPS URL, and **public** publishable/anon key. Keep JSON values as
-strings, including `"false"` and `"true"`. Never copy the server `.env`; the
-validator rejects extra keys. This file is gitignored, but **everything in it
-is embedded in the app and readable by users**.
+This creates gitignored `.local/ios/public-config.incomplete.json` exclusively
+(no overwrite). It copies only the API URL, Supabase URL and public publishable/anon
+key from `.env.prod-preview`, sets production/no-mocks flags and preserves the native
+callback below. It deliberately leaves six fields empty: legal entity, monitored
+support email, jurisdiction, effective date, privacy URL and terms URL. The staged
+file **fails release validation** until the owner supplies those approved facts and
+published policy destinations. Preparation is offline and establishes no hosted,
+legal or signing acceptance. Never substitute guessed facts or placeholder URLs.
 
-The script does not read `.env`, `.env.local`, `.env.share`, Railway secrets or
+After those inputs are approved, copy the staged file to `.env.ios.json`, fill the
+six empty fields, and run the validation below. Alternatively start from
+`config/ios-release.example.json` and replace every empty/template value. Keep JSON
+values as strings, including `"false"` and `"true"`. Never copy the server `.env`;
+the validator rejects extra keys. Both local files are gitignored, but **everything
+in them is embedded in the app and readable by users**.
+
+Outside explicit `--prepare`, the release script does not read `.env.prod-preview`.
+It does not read `.env`, `.env.local`, `.env.share`, Railway secrets or
 production database credentials. It does not contact any services for preflight.
 Configure the exact Supabase redirect allowlist entry:
 

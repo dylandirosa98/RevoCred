@@ -5,6 +5,11 @@ This is a source/local acceptance record, not a signed-native, legal or hosted
 certification. No hosted user was created, no production setting changed, no
 publication/submission performed, and no provider request purchased for this audit.
 
+Current handoff note (November 8, 2026): execution counts below are the earlier
+local record, not a fresh rerun. See [the dated review](review-2026-11-08.md) for
+newer verification and live availability evidence. The consent and blocker
+summaries below reflect current source; signed/native acceptance remains open.
+
 ## Changes and verified evidence
 
 - `AppController`: an expired/signed-out session now clears the persisted personal
@@ -15,9 +20,11 @@ publication/submission performed, and no provider request purchased for this aud
   Functionality for credit information, entered financial information and other
   user content. These inputs customize card plans/recommendations, matching
   Apple's definition. The new manifest regression failed before the change.
-- Expanded consent tests exercise Cancel, Use basic reply and Agree and send for
+- The earlier consent tests exercised Cancel, basic reply and agreement for
   Home, card detail and REVO quick prompts; composer tests cover these choices,
-  per-message permission, malformed/unavailable disclosure and account change.
+  malformed/unavailable disclosure and account change. Current permission is
+  account-scoped until revoked in Profile or the notice changes; guest permission
+  lasts for the app session.
   Source search found all UI sends funnel through `sendRevoMessage`; Home's
   dynamic purchase-guide prompt uses the same gate. This is not native testing.
 - `scripts/auth_privacy_smoke.py` loads only local configuration internally,
@@ -51,7 +58,7 @@ other workers' shared preview to hide this acceptance gap.
 | Email/password/session; optional display name/notification choice in signup metadata (`api_app_repository.dart`) | Supabase Auth for credentials/session; RevoCred profile for display name | Email, name, user ID linked; functionality. No card numbers/bank credentials needed. Notification choice is not proof of a deployed marketing campaign. |
 | Credit band, life stage, goals, entered monthly spend, wallet/custom card terms and questionnaire (`app_models.dart`, API onboarding/store) | RevoCred Go API/PostgreSQL for saved plans and deterministic recommendations | Credit info, other financial info, other user content linked; functionality and personalization. Life stage is a broad questionnaire preference, not verified birth date. |
 | Guest questionnaire | API for transient plan; device draft for up to 24 hours | No account records created by guest preview. Do not claim processors never retain traffic until hosting logs are verified. |
-| Chat + context (`internal/chat/context.go`, `disclosure.go`, provider) | RevoCred stores signed-in chat. Only affirmative per-message consent enables configured OpenAI production service; OpenCode/DeepSeek is developer testing, not production policy | Other user content and financial/profile context remain linked. No promise of zero retention. Context includes first name, life stage, credit band, spend, wallet terms, strategy, ranking and up to eight recent messages. |
+| Chat + context (`internal/chat/context.go`, `disclosure.go`, provider) | RevoCred stores signed-in chat. Affirmative account permission enables the disclosed external service until revoke/notice change; guests agree per app session. Live review observed OpenCode/DeepSeek testing; final launch recipient remains pending | Other user content and financial/profile context remain linked. No promise of zero retention. Context includes first name, life stage, credit band, spend, wallet terms, strategy, ranking and up to eight recent messages. |
 | Optional model-directed web tools (`docs/revo-web-lookup.md`) | DuckDuckGo public-topic queries and public HTTPS sources/readable PDFs | Included in v3 sharing notice. Tool instructions minimize personal information and block clear sensitive identifiers; **not a guarantee** that generated queries cannot reveal private details. Search/source services receive request metadata. Sources cannot change deterministic scores/rankings. |
 | Affiliate redirects (`internal/affiliate`, offers endpoints) | Aggregate offer/day/screen counters, then external issuer/partner site | Product interaction, unlinked analytics in inspected application. No user ID, cookie/IP/device ID in affiliate counter records. External site/hosting logs require separate verification. |
 | Client errors (`operations.go`, `reportClientError`) | Authenticated request containing only flutter/platform category; aggregate metrics | Other diagnostics, unlinked in source aggregate counters; no client message/stack trace. Hosting/Auth access logs not yet verified. |
@@ -111,21 +118,22 @@ collection includes third-party retention beyond real-time request servicing.
    expiration and deletion/recovery handling, Auth and SMTP logs, API/CDN logs,
    support ticket retention, geography/transfers and applicable rights handling.
    Source record caps are not a time-based retention policy.
-4. **Hosted backend unavailable:** parent discovery reports Supabase project
-   `jylwvumrzgihfndpurvq` INACTIVE, backup list null/PITR disabled (WALG flag is
-   not recovery proof), linked Railway production has no services, and
-   `revocred.app`, `api.revocred.app` and Supabase host DNS unresolved. No hosted
-   availability, live privacy policy, working reviewer access or recovery proof.
-   Do not resume/recreate/purchase hosting as part of this audit.
+4. **Hosted operational acceptance:** November 8 live public API and Supabase
+   Auth settings respond, superseding earlier inactive/empty-hosting observations.
+   Public policy/support URLs, hosted recovery proof, billing/monitoring ownership
+   and installed authenticated journeys remain unverified. See
+   [current hosting handoff](hosting-status.md).
 5. **Auth/email:** verify deployed SMTP/secure-email-change/password policies,
    email confirmation and resend, update-email double confirmation, recovery,
    expiry and deletion with disposable accounts on native cold/warm launch.
    Register both the base callback and recovery query variant with exact intended
    Supabase allowlist behavior; do not rely on local broad glob as hosted proof.
-6. **AI controls/safety:** owner verifies actual OpenAI project/model/endpoint,
+6. **AI controls/safety:** owner finalizes and verifies actual launch recipient/model/endpoint,
    retention/training controls, subprocessors, web-tool availability and safe
    outputs/support escalation. Native Cancel/Basic/Agree for all entry points
-   must match source tests. Do not enable developer testing service in production.
+   must match source tests, including account persistence, Profile revoke and
+   renewed notice agreement. Align final disclosure and policies with the chosen
+   recipient; do not describe the observed testing service as accepted for launch.
 7. **Signed artifact:** native acceptance, aggregate SDK manifest/privacy report,
    encryption, entitlement verification and accessibility/device tests still
    required. Linux/static tests cannot complete this.

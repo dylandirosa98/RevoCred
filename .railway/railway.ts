@@ -46,8 +46,10 @@ export default defineRailway((ctx) => {
       AI_BASE_URL: ctx.shared.AI_BASE_URL,
       AI_MODEL: ctx.shared.AI_MODEL,
       AI_REASONING_EFFORT: ctx.shared.AI_REASONING_EFFORT,
-      // Optional Brave Search key; empty disables REVO web search.
+      // SearXNG needs only a private service URL; Brave additionally needs a key.
       SEARCH_API_KEY: ctx.shared.SEARCH_API_KEY,
+      SEARCH_PROVIDER: ctx.shared.SEARCH_PROVIDER,
+      SEARCH_BASE_URL: ctx.shared.SEARCH_BASE_URL,
       CHAT_DAILY_AI_LIMIT: ctx.shared.CHAT_DAILY_AI_LIMIT,
       // Browser origins allowed to call the API (comma-separated HTTPS origins).
       // Native apps send no Origin; leave empty unless a web build is in use.

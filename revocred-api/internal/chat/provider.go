@@ -54,7 +54,8 @@ func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedCon
 	if strings.Contains(normalized, "score") {
 		return finish([]Block{{Type: "paragraph", Text: fmt.Sprintf("Your wallet score is %d. It measures reward coverage and optimization, not creditworthiness. The saved plan does not provide an exact score breakdown.", facts.WalletScore)}})
 	}
-	if strings.Contains(normalized, "fees") || strings.Contains(normalized, "total annual") {
+	if strings.Contains(normalized, "total annual") || strings.Contains(normalized, "fees") &&
+		(strings.Contains(normalized, "wallet") || strings.Contains(normalized, "my cards") || strings.Contains(normalized, "my total")) {
 		total := 0
 		unknown := false
 		for _, w := range groundedContext.Wallet {
@@ -170,7 +171,7 @@ func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedCon
 			Bars:  spendBars(facts),
 		}})
 	}
-	blocks = append(blocks, Block{Type: "note", Text: facts.Disclaimer})
+	blocks = append(blocks, Block{Type: "note", Text: estimateNotice})
 	return finish(blocks)
 }
 
@@ -194,6 +195,7 @@ var cardNameNoise = map[string]bool{
 	"world": true, "elite": true, "bank": true, "american": true, "express": true, "capital": true, "chase": true,
 	"citi": true, "discover": true, "wells": true, "fargo": true, "america": true, "dining": true, "groceries": true,
 	"grocery": true, "hotel": true, "hotels": true, "airline": true, "airlines": true, "miles": true, "points": true,
+	"gold": true, "platinum": true, "reserve": true, "preferred": true, "premium": true, "amex": true,
 	"with": true, "from": true, "your": true, "card's": true,
 }
 

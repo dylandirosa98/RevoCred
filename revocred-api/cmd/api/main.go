@@ -103,13 +103,15 @@ func run(logger *slog.Logger) error {
 		BaseURL:         cfg.AIBaseURL,
 		ReasoningEffort: cfg.AIReasoningEffort,
 		SearchAPIKey:    cfg.SearchAPIKey,
+		SearchProvider:  cfg.SearchProvider,
+		SearchBaseURL:   cfg.SearchBaseURL,
 		Logger:          logger,
 	})
 	if err != nil {
 		return err
 	}
-	if cfg.AIAPIKey != "" && cfg.SearchAPIKey == "" {
-		logger.Warn("REVO web search is disabled; set SEARCH_API_KEY to enable Brave Search")
+	if cfg.AIAPIKey != "" && cfg.SearchAPIKey == "" && cfg.SearchProvider != "searxng" {
+		logger.Warn("REVO web search is disabled; configure SearXNG or a Brave Search key")
 	}
 	handler := httpapi.New(
 		repository,

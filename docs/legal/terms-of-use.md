@@ -6,7 +6,7 @@ RevoCred is operated by {{LEGAL_ENTITY}}. Contact: {{SUPPORT_EMAIL}}. These term
 
 RevoCred provides educational credit-card rewards estimates, not financial, tax or legal advice. It does not pull credit, issue credit or process applications. Approval, rewards and savings are not guaranteed. Verify issuer terms, fees, eligibility, enrollment conditions and benefit limits before acting. Do not spend or borrow solely to earn rewards. Demo data is unverified and is not an offer.
 
-Recommendations and scoring are deterministic and server-owned. Optional REVO AI explanations may be inaccurate or outdated and do not determine rankings. OpenAI receives relevant context only after explicit permission; account permission can be turned off in Profile. Consult the Privacy Policy for data use and account controls.
+Recommendations and scoring are deterministic and server-owned. Optional REVO AI explanations may be inaccurate or outdated and do not determine rankings. The AI service identified in the REVO sharing notice receives relevant context only after explicit permission; account permission can be turned off in Profile. Consult the Privacy Policy for data use and account controls.
 
 Provide only information you are authorized to use, protect your credentials and do not access other accounts, misuse the service or disrupt its operation. Do not submit card numbers, security codes or bank credentials. Account settings offer export and deletion.
 

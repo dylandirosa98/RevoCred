@@ -38,11 +38,12 @@ these or other sensitive credentials into chat or custom card fields.
 
 ### External AI and public web sources
 
-Production REVO is configured for OpenAI when external AI is enabled. Before
-each message the app identifies the configured service/model and describes the
-sharing. **Agree and send** permits external AI for that message only. **Use basic
-reply** uses RevoCred's deterministic server explainer without external AI.
-**Cancel** sends no chat message. Permission is not saved for future messages.
+When external AI is enabled, the app identifies the configured recipient/model
+and describes the sharing before permission is granted. **Agree and continue**
+enables external AI for your account until you turn off **Profile → AI answers
+(REVO)** or the sharing notice changes. Guest permission lasts for the app
+session. **Basic answer instead** uses RevoCred's server without external AI and
+saves no AI permission. **Cancel** sends no chat message.
 
 If you agree, the request includes your question and, when signed in, your first
 name, life stage, credit band, entered spend, wallet terms, strategy,
@@ -54,11 +55,12 @@ sensitive identifiers; these safeguards are not a promise of perfect removal.
 Search/source services may receive request metadata. Web results are evidence
 for explanations, not inputs that can change deterministic rankings/scores.
 
-**[OWNER: confirm actual OpenAI project/model, contractual retention, training
-controls, geography/transfers, service-provider terms and web-tool providers. Do
-not promise zero retention or no model training without evidence.]** OpenCode Go /
-DeepSeek is developer testing only and must not silently substitute for the
-production disclosure; its terms are not OpenAI production terms.
+**[OWNER: confirm the actual launch recipient, project/model, contractual
+retention, training controls, geography/transfers, service-provider terms and
+web-tool providers. Do not promise zero retention or no model training without
+evidence.]** The November 8 live review observed OpenCode Go/DeepSeek testing;
+OpenAI is a planned launch configuration, not verified deployed-provider evidence.
+Align this policy, in-app disclosure and Connect answers with the chosen service.
 
 ### Device storage, export and deletion
 
@@ -118,8 +120,9 @@ Operator: **[OWNER: approved legal identity]**
   private JSON export. **Delete my account** asks for your current password and
   confirmation before deleting the live account/data. Backup handling follows
   the final privacy policy, not an instant-erasure guarantee.
-- **REVO:** Cancel sends nothing; Use basic reply avoids external AI; Agree and
-  send permits external AI for this message only. If sending fails, your plan and
+- **REVO:** Cancel sends nothing; Basic answer instead avoids external AI; Agree and
+  continue enables account permission until revoked in Profile → AI answers
+  (REVO) or the notice changes (guests: app session). If sending fails, your plan and
   wallet remain available. Do not send private financial credentials in chat.
 - **Incorrect or unsafe information:** report the screen/feature, app version,
   approximate time and a redacted description through the contact above. Do not

@@ -1,63 +1,53 @@
 # Hosted release state
 
-Verified through authenticated Supabase/Railway CLIs during this readiness pass.
-No hosted data, service, plan, DNS, or credentials were changed.
+Current handoff updated November 8, 2026 from the evidence in
+[the dated App Store review](review-2026-11-08.md). No hosting configuration,
+account, DNS, plan or credentials were changed by this documentation update.
 
-## Intended resources found
+## Current evidence
 
-- Supabase organization: **RevoCred**; existing **RevoCred** project in
-  **us-east-2**. The CLI reports **INACTIVE**. Its API hostname did not resolve
-  from the build workstation.
-- Railway workspace: **RevoCred's Projects**; existing **loving-generosity**
-  project, **production** environment. Authenticated inspection found **zero
-  services**. This is not a deployed Go backend.
-- `api.revocred.app` and `revocred.app` are examples in older documentation, not
-  verified configured domains: DNS did not resolve in this pass.
-- GitHub `dylandirosa98/RevoCred`: public; current operator has ADMIN permission;
-  Actions enabled. Standard public-repository macOS runners need no paid runner
-  purchase. Repository secret/variable inventories were empty when inspected.
+- Live API health/readiness, public catalog/index, offers and Explore Rewards
+  responded during that review. Supabase Auth settings also responded.
+- Unauthenticated bootstrap/export/wallet/chat/consent requests returned 401;
+  metrics returned 404. These are public boundary checks, not authenticated
+  hosted account-lifecycle acceptance.
+- Live chat disclosure named **OpenCode Go and DeepSeek (testing)** with
+  `deepseek-v4.1-flash`. Final launch-provider selection, data controls and
+  acceptance remain open; do not present planned OpenAI settings as deployed fact.
+- The landing page loaded over HTTPS, but tested `/privacy`, `/privacy-policy`,
+  `/terms` and `/support` paths returned 404. Alternate approved URLs and mailbox
+  delivery remain unverified.
 
-Exact project/environment identifiers and CLI evidence are retained locally in
-`.local/release-readiness/hosting.json`; do not confuse other client projects
-with these resources.
+Earlier `.local/release-readiness/hosting.json` observations of inactive Supabase,
+empty Railway and unresolved domains are historical and superseded for service
+availability. They do not describe the current deployment. Exact current hosting
+configuration, billing continuity and monitoring ownership still need owner
+verification; live endpoint success alone does not establish those facts.
 
-## Database safety gate
+## Database and operational gate
 
-Supabase backup inspection returned `backups: null`, `pitr_enabled: false` and
-`walg_enabled: true`. The last flag alone does **not** prove that a usable backup
-can be restored. No hosted migration history was obtained while the project was
-inactive. Do not run migrations or assume that local tables are deployed.
+Local database restore tests do not prove hosted recoverability. Earlier backup
+flags (`backups: null`, `pitr_enabled: false`, `walg_enabled: true`) are historical,
+not a current backup inventory or recovery guarantee. Before any hosted database
+write, inspect current schemas/migrations/roles without logging private rows,
+verify a recoverable backup and rollback plan, and use the migration owner rather
+than the restricted API runtime role. Do not infer migration state from local tests.
 
-Before a hosted database write:
+Verify hosted SMTP, native callback allowlists, confirmation, recovery, email
+changes and deletion with disposable accounts on the exact processed iOS build.
+No installed hosted lifecycle pass is established by the public endpoint checks.
+Confirm monitoring/alerts, support/report ownership and a hosted recovery point.
 
-1. Recover/activate the intended existing project through its authorized owner;
-   verify recovery options and any cost first. Do not create a replacement or
-   upgrade a plan without authorization.
-2. Inspect existing schemas, migration history, roles and real-user data without
-   exporting private rows into build logs.
-3. Obtain and verify a recovery point or encrypted backup; establish how rollback
-   would work before applying forward migrations.
-4. Apply the reviewed missing migrations with the migration owner, never the API
-   runtime role. Provision the restricted runtime role described in operations.
-5. Configure and verify native auth redirect, email confirmation/recovery, SMTP,
-   password policy and deletion against disposable accounts only.
+## Release configuration gate
 
-## Backend/release configuration gate
+Use the actual stable HTTPS API URL and public Supabase values in the release
+configuration. Keep database credentials, service-role keys, AI credentials and
+metrics secrets server-side. Finalize the launch AI recipient and align its
+runtime disclosure, legal pages and Connect privacy answers with actual processor
+practices. Do not substitute fixture values or developer credentials for approved
+release configuration.
 
-The empty Railway project still needs a Go API service and server-side production
-configuration. Provisioning/starting hosting can consume billable resources;
-this pass did not create services or enable spending without a confirmed budget.
-The server needs its dedicated database connection/CA, Supabase URL/public key,
-metrics secret and the client's production OpenAI settings when AI is enabled.
-Never copy a developer's OpenCode credentials into production.
-
-Use a stable HTTPS API URL in installed builds. Verify `/readyz`, actual AI
-recipient disclosure, cold/warm native callbacks and account lifecycle before
-building the distributable artifact. Do not replace missing production settings
-with localhost, a quick tunnel, a demo backend or compile-test fixture values.
-
-## Result
-
-**Hosted end-to-end release readiness is blocked.** Local and CI fixture builds
-can validate code, native linking and app launch; they do not establish usable
-production services or a distributable TestFlight release.
+**Hosted services respond, but end-to-end release readiness remains unverified.**
+The review found `.env.ios.json` absent and no signed, processed TestFlight build
+with device acceptance. Public policy/support publication, final provider testing,
+hosted native account journeys, signing and Connect metadata remain release gates.

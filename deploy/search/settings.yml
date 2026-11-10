@@ -1,0 +1,22 @@
+# Private service: reachable only from the API or loopback, never a public proxy.
+use_default_settings:
+  engines:
+    keep_only:
+      - yahoo
+      - duckduckgo
+      - brave
+engines:
+  - name: yahoo
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+  - name: brave
+    disabled: false
+search:
+  formats: [json]
+  safe_search: 1
+server:
+  limiter: false
+  public_instance: false
+outgoing:
+  request_timeout: 5.0

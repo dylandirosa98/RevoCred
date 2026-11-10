@@ -1,0 +1,10 @@
+# Standalone local search: does not start the application or contact production.
+name: revocred-research
+services:
+  search:
+    build: ./deploy/search
+    ports:
+      - "127.0.0.1:8096:8080"
+    restart: unless-stopped
+    mem_limit: 512m
+    pids_limit: 128

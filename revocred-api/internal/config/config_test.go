@@ -44,6 +44,21 @@ func TestMobileOnlyProductionNeedsNoBrowserOrigins(t *testing.T) {
 	}
 }
 
+func TestKeylessSearchConfiguration(t *testing.T) {
+	setMobileProductionEnv(t)
+	t.Setenv("SEARCH_PROVIDER", "searxng")
+	t.Setenv("SEARCH_API_KEY", "")
+	t.Setenv("SEARCH_BASE_URL", "http://search.railway.internal:8080/search")
+	cfg, err := Load()
+	if err != nil || cfg.SearchProvider != "searxng" || cfg.SearchAPIKey != "" || cfg.SearchBaseURL == "" {
+		t.Fatal("keyless search configuration was not retained", err)
+	}
+	t.Setenv("SEARCH_BASE_URL", "")
+	if _, err := Load(); err == nil {
+		t.Fatal("keyless search requires an explicit service URL")
+	}
+}
+
 func TestDatabaseCACertificate(t *testing.T) {
 	setMobileProductionEnv(t)
 	t.Setenv("DATABASE_CA_CERT", "not a certificate")

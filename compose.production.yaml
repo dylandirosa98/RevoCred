@@ -52,7 +52,9 @@ services:
       AI_MODEL: ${AI_MODEL:-}
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_REASONING_EFFORT: ${AI_REASONING_EFFORT:-}
-      # Brave Search API key for REVO web lookups; empty disables web search.
+      # For keyless search deploy the private service from deploy/search first.
+      SEARCH_PROVIDER: ${SEARCH_PROVIDER:-brave}
+      SEARCH_BASE_URL: ${SEARCH_BASE_URL:-}
       SEARCH_API_KEY: ${SEARCH_API_KEY:-}
       CHAT_DAILY_AI_LIMIT: ${CHAT_DAILY_AI_LIMIT:-60}
 volumes:

@@ -32,7 +32,9 @@ type Config struct {
 	AIReasoningEffort string
 	// SearchAPIKey enables REVO web search through the Brave Search API.
 	// Empty disables search; the model can still read public pages.
-	SearchAPIKey string
+	SearchAPIKey   string
+	SearchProvider string
+	SearchBaseURL  string
 	// ChatDailyAILimit caps external-AI chat replies per user per rolling day.
 	ChatDailyAILimit int
 	// DatabaseRootCAs verifies the database server when the provider's CA is
@@ -56,9 +58,14 @@ func Load() (Config, error) {
 		AIBaseURL:         strings.TrimRight(firstValue("AI_BASE_URL", "OPENCODE_GO_BASE_URL"), "/"),
 		AIReasoningEffort: strings.ToLower(strings.TrimSpace(os.Getenv("AI_REASONING_EFFORT"))),
 		SearchAPIKey:      strings.TrimSpace(os.Getenv("SEARCH_API_KEY")),
+		SearchProvider:    strings.ToLower(valueOrDefault("SEARCH_PROVIDER", "brave")),
+		SearchBaseURL:     strings.TrimSpace(os.Getenv("SEARCH_BASE_URL")),
 	}
-	if provider := strings.ToLower(valueOrDefault("SEARCH_PROVIDER", "brave")); provider != "brave" {
-		return Config{}, errors.New("SEARCH_PROVIDER must be brave")
+	if cfg.SearchProvider != "brave" && cfg.SearchProvider != "searxng" {
+		return Config{}, errors.New("SEARCH_PROVIDER must be brave or searxng")
+	}
+	if cfg.SearchProvider == "searxng" && cfg.SearchBaseURL == "" {
+		return Config{}, errors.New("SEARCH_BASE_URL is required for searxng")
 	}
 	chatLimit, err := strconv.Atoi(valueOrDefault("CHAT_DAILY_AI_LIMIT", "60"))
 	if err != nil || chatLimit < 1 {

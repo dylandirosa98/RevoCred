@@ -43,6 +43,9 @@ type Reply struct {
 
 const maxReplyChars = 4000
 
+// Display copy must stay separate from the model's private calculation rules.
+const estimateNotice = "Rewards and savings are estimates, not guarantees. Check current issuer terms, fees and eligibility before applying."
+
 // chartNames is the only set of charts REVO may reference.
 var chartNames = map[string]bool{
 	"spend_by_category":    true,
@@ -112,7 +115,7 @@ func ParseReply(markdown string, facts snapshot) []Block {
 	flushBullets()
 	// A final URL or markdown citation need not end in punctuation.
 	if len(blocks) == 0 {
-		return fallbackBlocks(facts)
+		return fallbackBlocks()
 	}
 	return blocks
 }
@@ -386,7 +389,10 @@ func RenderText(blocks []Block) string {
 	return text
 }
 
-// fallbackBlocks keeps the no-AI path looking the same as the AI path.
-func fallbackBlocks(facts snapshot) []Block {
-	return []Block{{Type: "paragraph", Text: facts.Disclaimer}}
+// Empty or fully filtered model output needs a useful retry, never private facts.
+func fallbackBlocks() []Block {
+	return []Block{
+		{Type: "paragraph", Text: "I couldn't put together an answer. Try asking about a card in your wallet, a spending category, or your wallet score."},
+		{Type: "note", Text: estimateNotice},
+	}
 }

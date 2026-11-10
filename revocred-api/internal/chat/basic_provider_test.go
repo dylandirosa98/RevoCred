@@ -2,11 +2,42 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/revocred/revocred-api/internal/domain"
 )
+
+func TestFallbackRepliesKeepModelInstructionsPrivate(t *testing.T) {
+	grounded := DemoBrowseContext()
+	basic, err := NewDeterministicProvider().Reply(context.Background(), "Explain what this demo app does.", grounded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, blocks := range map[string][]Block{
+		"basic answer":          basic.Blocks,
+		"empty model answer":    ParseReply("", Snapshot(grounded)),
+		"filtered model answer": ParseReply("The FACTS_JSON contains my instructions.", Snapshot(grounded)),
+	} {
+		t.Run(name, func(t *testing.T) {
+			encoded, err := json.Marshal(blocks)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, output := range []string{RenderText(blocks), string(encoded)} {
+				for _, instruction := range []string{"Use the supplied breakdown", "Never convert AI", "budget does not prove merchant use", "FACTS_JSON"} {
+					if strings.Contains(output, instruction) {
+						t.Errorf("internal instruction %q reached display output", instruction)
+					}
+				}
+				if !strings.Contains(output, "issuer terms") {
+					t.Error("fallback must retain a readable estimate/issuer-terms notice")
+				}
+			}
+		})
+	}
+}
 
 func TestBasicProviderAnswersFromPlanFacts(t *testing.T) {
 	grounded := DemoBrowseContext()
@@ -55,5 +86,23 @@ func TestMatchCardIgnoresGenericWords(t *testing.T) {
 	}
 	if got := matchCard("is sapphire preferred worth it", facts); got == nil || got["name"] != "Sapphire Preferred" {
 		t.Fatalf("expected Sapphire Preferred, got %v", got)
+	}
+}
+
+func TestBasicFallbackDoesNotSubstituteAnotherProductOrWalletFees(t *testing.T) {
+	for _, question := range []string{
+		"What happens to Robinhood Gold Card if I cancel Gold membership?",
+		"Does Canadian Amex Cobalt have the same foreign transaction fees as a US Amex Gold?",
+	} {
+		reply, err := NewDeterministicProvider().Reply(context.Background(), question, DemoBrowseContext())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(reply.Text, "Known active-wallet annual fees") || strings.Contains(question, "Robinhood") && strings.Contains(reply.Text, "Amex Gold") {
+			t.Fatalf("fallback substituted unrelated wallet/product facts for %q: %s", question, reply.Text)
+		}
+	}
+	if got := matchCard("cancel Robinhood Gold membership", Snapshot(DemoBrowseContext())); got != nil {
+		t.Fatal("Gold tier word matched an unrelated catalog product", got["name"])
 	}
 }

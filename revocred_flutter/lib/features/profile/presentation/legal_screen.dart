@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/models/affiliate_offer.dart';
+import '../../../core/models/chat_disclosure.dart';
+import '../../../core/state/app_controller.dart';
 
-class LegalScreen extends StatelessWidget {
+// Reads only the public notice; opening legal information never grants consent.
+final legalChatDisclosureProvider = FutureProvider.autoDispose<ChatDisclosure>(
+  (ref) => ref.watch(appRepositoryProvider).loadChatDisclosure(),
+);
+
+class LegalScreen extends ConsumerWidget {
   const LegalScreen({
     super.key,
     this.config = const AppConfig.fromEnvironment(),
@@ -12,7 +20,7 @@ class LegalScreen extends StatelessWidget {
   String value(String configured, String demo) =>
       config.useMocks ? 'Demo: $demo' : configured;
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
     appBar: AppBar(title: const Text('Privacy & Terms')),
     body: Center(
       child: ConstrainedBox(
@@ -43,8 +51,45 @@ class LegalScreen extends StatelessWidget {
               'REVO and external services',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
+            ref
+                .watch(legalChatDisclosureProvider)
+                .when(
+                  loading: () =>
+                      const Text('Loading the current AI sharing notice…'),
+                  error: (_, _) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'The current AI sharing notice is unavailable. Review the notice in REVO before enabling external AI. Opening this page does not enable AI sharing.',
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            ref.invalidate(legalChatDisclosureProvider),
+                        child: const Text('Retry AI sharing notice'),
+                      ),
+                    ],
+                  ),
+                  data: (notice) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        notice.external
+                            ? 'Current AI service: ${notice.recipient}. Model: ${notice.model}.'
+                            : 'REVO currently uses basic replies from our server without external AI.',
+                      ),
+                      if (notice.external) ...[
+                        Text(notice.dataUse),
+                        if (notice.searchProvider.isNotEmpty)
+                          Text('Search service: ${notice.searchProvider}.'),
+                        const Text(
+                          'External AI is used only after your explicit permission. Account permission lasts until you turn it off in Profile or the sharing notice changes. Guest permission lasts for the app session. Basic replies use our server without external AI. Provider retention follows its service agreement; zero retention is not promised.',
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
             const Text(
-              'Only after your explicit permission does OpenAI process your REVO question and relevant context: first name, life stage, credit band, spending, wallet details, strategy, recommendation ranking and up to eight recent messages. Permission is saved per account and can be turned off in Profile. Basic replies use our server without external AI. Guest chat uses demo context but still shares your question if you agree. Provider retention follows its service agreement; zero retention is not promised. Web search uses a third-party search API with public product/topic queries only; your profile and chat history are not sent wholesale to search providers. Public sources may be incomplete or outdated. Recommendations and scores are selected deterministically by our server, never by AI.',
+              'Do not enter card numbers, security codes or bank credentials in chat. Public sources may be incomplete or outdated. Recommendations and scores are selected deterministically by our server, never by AI.',
             ),
             const SizedBox(height: 16),
             const Text(
@@ -64,7 +109,7 @@ class LegalScreen extends StatelessWidget {
             TextButton(
               onPressed: config.useMocks
                   ? null
-                  : () => _open(Uri.parse(config.privacyUrl)),
+                  : () => _openLegalLink(context, config.privacyUrl),
               child: Text(
                 config.useMocks
                     ? 'Full privacy policy (demo)'
@@ -74,15 +119,21 @@ class LegalScreen extends StatelessWidget {
             TextButton(
               onPressed: config.useMocks
                   ? null
-                  : () => _open(Uri.parse(config.termsUrl)),
+                  : () => _openLegalLink(context, config.termsUrl),
               child: Text(config.useMocks ? 'Full terms (demo)' : 'Full terms'),
             ),
             Text(value(config.supportEmail, 'support@example.invalid')),
             TextButton(
               onPressed: config.useMocks
                   ? null
-                  : () =>
-                        _open(Uri(scheme: 'mailto', path: config.supportEmail)),
+                  : () => _openLegalLink(
+                      context,
+                      Uri(
+                        scheme: 'mailto',
+                        path: config.supportEmail,
+                      ).toString(),
+                      mail: true,
+                    ),
               child: const Text('Contact support'),
             ),
             const _CardDataCredit(),
@@ -91,9 +142,6 @@ class LegalScreen extends StatelessWidget {
       ),
     ),
   );
-  Future<void> _open(Uri uri) async {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
 }
 
 class _CardDataCredit extends StatelessWidget {
@@ -113,21 +161,46 @@ class _CardDataCredit extends StatelessWidget {
         spacing: 8,
         children: [
           TextButton(
-            onPressed: () =>
-                _open('https://github.com/thedavidweng/opencard-db'),
+            onPressed: () => _openLegalLink(
+              context,
+              'https://github.com/thedavidweng/opencard-db',
+            ),
             child: const Text('Original card data'),
           ),
           TextButton(
-            onPressed: () =>
-                _open('https://creativecommons.org/licenses/by/4.0/'),
+            onPressed: () => _openLegalLink(
+              context,
+              'https://creativecommons.org/licenses/by/4.0/',
+            ),
             child: const Text('CC BY 4.0 license'),
           ),
         ],
       ),
     ],
   );
+}
 
-  Future<void> _open(String url) async {
-    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+Future<void> _openLegalLink(
+  BuildContext context,
+  String url, {
+  bool mail = false,
+}) async {
+  try {
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        (mail
+            ? uri.scheme != 'mailto' || uri.path.trim().isEmpty
+            : uri.scheme != 'https' || uri.host.isEmpty)) {
+      throw const FormatException('Unavailable link');
+    }
+    if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
+  } catch (_) {
+    // Show the same actionable failure for platform errors and invalid config.
   }
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Could not open this link. Please try again later.'),
+    ),
+  );
 }

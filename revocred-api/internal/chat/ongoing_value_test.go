@@ -13,7 +13,7 @@ func TestChatGetsActualOngoingBreakdownAndSeparateRankingModel(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 	for _, s := range []string{"70%", "budget does not prove merchant use", "welcome bonuses are excluded", "Application rankings still use"} {
-		if !strings.Contains(got.Disclaimer, s) {
+		if !strings.Contains(got.ModelAssumptions, s) {
 			t.Fatalf("missing %q", s)
 		}
 	}

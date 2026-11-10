@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"html"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -23,7 +24,7 @@ type completionMessage struct {
 	ReasoningContent string     `json:"reasoning_content,omitempty"`
 }
 
-// searchTools offers web_search only when a search API key is configured.
+// searchTools offers web_search only when a search service is configured.
 func searchTools(searchEnabled bool) []map[string]any {
 	tools := []map[string]any{{"type": "function", "function": map[string]any{
 		"name": "web_search", "description": "Search the public web for current card terms or general information. Use a minimal standalone public-topic query, never personal/profile/history data. Returns source URLs and snippets; snippets are not full benefit guides.",
@@ -103,29 +104,62 @@ func runWebTool(ctx context.Context, call toolCall, client webSearchClient, fact
 }
 
 func searchSources(page string) []WebSource {
+	type result struct {
+		URL         string `json:"url"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Content     string `json:"content"`
+	}
 	var response struct {
 		Web struct {
-			Results []struct {
-				URL         string `json:"url"`
-				Title       string `json:"title"`
-				Description string `json:"description"`
-			} `json:"results"`
+			Results []result `json:"results"`
 		} `json:"web"`
+		Results []result `json:"results"`
 	}
 	if json.Unmarshal([]byte(page), &response) != nil {
 		return nil
 	}
 	sources := []WebSource{}
 	seen := map[string]bool{}
-	for _, r := range response.Web.Results {
-		if _, err := publicURL(r.URL); err != nil || seen[r.URL] {
+	for _, r := range append(response.Web.Results, response.Results...) {
+		clean := searchSourceURL(r.URL)
+		if clean == "" || seen[clean] {
 			continue
 		}
-		seen[r.URL] = true
-		sources = append(sources, WebSource{Title: plainWebText(r.Title), SourceURL: r.URL, Excerpt: clip(plainWebText(r.Description), 1200), CheckedAt: time.Now().UTC()})
+		seen[clean] = true
+		excerpt := r.Description
+		if excerpt == "" {
+			excerpt = r.Content
+		}
+		sources = append(sources, WebSource{Title: plainWebText(r.Title), SourceURL: clean, Excerpt: clip(plainWebText(excerpt), 1200), CheckedAt: time.Now().UTC()})
 		if len(sources) == 5 {
 			break
 		}
 	}
 	return sources
+}
+
+// Discard only known tracking parameters, so issuer pages do not disappear
+// from search results. Semantic/unknown query parameters still fail publicURL.
+func searchSourceURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	params, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return ""
+	}
+	for key := range params {
+		name := strings.ToLower(key)
+		if strings.HasPrefix(name, "utm_") || name == "msockid" || name == "gclid" || name == "fbclid" || name == "intcmp" || name == "inav" || name == "linknav" {
+			params.Del(key)
+		}
+	}
+	u.RawQuery = params.Encode()
+	u.Fragment = ""
+	if _, err := publicURL(u.String()); err != nil {
+		return ""
+	}
+	return u.String()
 }

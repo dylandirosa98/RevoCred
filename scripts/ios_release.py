@@ -12,7 +12,7 @@ import re
 import shutil
 import subprocess
 
-from check_release_config import MOBILE_AUTH_CALLBACK, validate
+from check_release_config import MOBILE_AUTH_CALLBACK, validate, validate_public_key
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "revocred_flutter"
@@ -57,6 +57,51 @@ def load_config(path, *, allow_fixture=False):
                 raise ValueError("Real release requires stable public DNS, not local/tunnel/fixture endpoints.")
         if any(word in config["SUPABASE_ANON_KEY"].lower() for word in ("fixture", "example", "replace")):
             raise ValueError("Real release cannot embed a fixture public key.")
+    return config
+
+
+def prepare_config(source, destination):
+    """Stage only public preview values, never infer legal or signing facts."""
+    names = ("REVOCRED_API_URL", "SUPABASE_URL", "SUPABASE_ANON_KEY")
+    values = {}
+    try:
+        lines = Path(source).read_text().splitlines()
+    except OSError:
+        raise ValueError("Cannot read public preview configuration.") from None
+    for line in lines:
+        name, separator, value = line.partition("=")
+        name = name.strip()
+        if not separator or name not in names:
+            continue
+        if name in values:
+            raise ValueError("Duplicate public preview key; resolve it before preparing iOS configuration.")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("\"", "'"):
+            value = value[1:-1]
+        # This is data, never shell code or variable interpolation.
+        if not value or any(token in value for token in ("$", "`", "\\")):
+            raise ValueError("Public preview values must be literal, nonempty values.")
+        values[name] = value
+    if set(values) != set(names):
+        raise ValueError("Preview must supply API URL, Supabase URL and public key.")
+    for name in names[:2]:
+        url = urlparse(values[name])
+        if url.scheme != "https" or not url.hostname or url.username or url.password or url.fragment:
+            raise ValueError("Preview public service URLs must use HTTPS without credentials or fragments.")
+    validate_public_key(values["SUPABASE_ANON_KEY"])
+    config = {key: "" for key in sorted(PUBLIC_KEYS)}
+    config.update(values)
+    config.update(REVOCRED_USE_MOCKS="false", REVOCRED_PRODUCTION="true",
+                  REVOCRED_AUTH_REDIRECT_URL=MOBILE_AUTH_CALLBACK)
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    # Exclusive creation protects previously reviewed owner input.
+    try:
+        with destination.open("x", encoding="utf-8") as stream:
+            json.dump(config, stream, indent=2)
+            stream.write("\n")
+    except FileExistsError:
+        raise ValueError("Staging output already exists; preserve or remove it explicitly before preparing again.") from None
     return config
 
 
@@ -155,8 +200,16 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true", help="Offline config/static checks only; works on Linux")
     parser.add_argument("--build-number", default="")
     parser.add_argument("--export-options", default=str(ROOT / ".local/ios/ExportOptions.plist"))
+    parser.add_argument("--prepare", action="store_true", help="Stage incomplete public config; never builds")
+    parser.add_argument("--preview-config", default=str(ROOT / ".env.prod-preview"))
+    parser.add_argument("--staging-output", default=str(ROOT / ".local/ios/public-config.incomplete.json"))
     args = parser.parse_args(argv)
     try:
+        if args.prepare:
+            prepare_config(args.preview_config, args.staging_output)
+            print("INCOMPLETE public iOS inputs staged; legal/support fields are empty and release validation must fail.")
+            print("Supply owner-approved legal entity, support email, jurisdiction, effective date, privacy URL and terms URL before creating .env.ios.json.")
+            return 0
         load_config(args.config)
         validate_project()
         if args.check:

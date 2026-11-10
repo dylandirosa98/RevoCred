@@ -26,7 +26,10 @@ def validate(env):
             raise ValueError(key + " must be a public HTTPS URL without credentials or fragments")
         if key in ("REVOCRED_PRIVACY_URL", "REVOCRED_TERMS_URL") and (value.hostname == "example.com" or value.hostname.endswith(".example.com")):
             raise ValueError(key + " must point at the hosted policy, not the example placeholder")
-    key = env.get("SUPABASE_ANON_KEY", "")
+    validate_public_key(env.get("SUPABASE_ANON_KEY", ""))
+
+
+def validate_public_key(key):
     if key.startswith("sb_publishable_") and len(key) > 20:
         return
     try:

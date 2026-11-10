@@ -37,6 +37,37 @@ func consentHandler(provider chat.Provider) http.Handler {
 		fakeRecommender{}, provider, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, time.Second)
 }
 
+func TestBasicChatResponsesDoNotExposeModelInstructions(t *testing.T) {
+	for _, path := range []string{"/v1/public/explain", "/v1/chat/messages"} {
+		for _, accept := range []string{"application/json", "text/event-stream"} {
+			t.Run(path+"/"+accept, func(t *testing.T) {
+				provider := &consentSpy{version: strings.Repeat("a", 64)}
+				req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"content":"Explain what this app does."}`))
+				req.Header.Set("Authorization", "Bearer test-token")
+				req.Header.Set("Accept", accept)
+				response := httptest.NewRecorder()
+				consentHandler(provider).ServeHTTP(response, req)
+				wantStatus := http.StatusCreated
+				if accept == "text/event-stream" {
+					wantStatus = http.StatusOK
+				}
+				body := response.Body.String()
+				if response.Code != wantStatus || provider.calls != 0 {
+					t.Fatalf("status=%d external calls=%d body=%s", response.Code, provider.calls, body)
+				}
+				if !strings.Contains(body, `"mode":"basic"`) || !strings.Contains(body, "issuer terms") {
+					t.Fatalf("missing readable basic answer: %s", body)
+				}
+				for _, instruction := range []string{"Use the supplied breakdown", "Never convert AI", "budget does not prove merchant use"} {
+					if strings.Contains(body, instruction) {
+						t.Errorf("model instruction %q reached the HTTP response", instruction)
+					}
+				}
+			})
+		}
+	}
+}
+
 func TestChatRequiresCurrentPermissionForEachExternalRequest(t *testing.T) {
 	for _, path := range []string{"/v1/public/explain", "/v1/chat/messages"} {
 		t.Run(path, func(t *testing.T) {

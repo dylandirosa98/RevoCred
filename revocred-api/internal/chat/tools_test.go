@@ -98,6 +98,14 @@ func TestSearchSourcesKeepTitlesAndMatchingSnippets(t *testing.T) {
 	}
 }
 
+func TestSearchSourcesStripTrackingButRejectSemanticQueries(t *testing.T) {
+	page := `{"results":[{"url":"https://issuer.example/guide?utm_source=search&msockid=tracking#benefits","title":"Issuer guide","content":"Terms"},{"url":"https://issuer.example/guide","title":"Duplicate"},{"url":"https://issuer.example/account?token=private","title":"Private"},{"url":"https://issuer.example/article?id=123","title":"Semantic query"}]}`
+	got := searchSources(page)
+	if len(got) != 1 || got[0].SourceURL != "https://issuer.example/guide" {
+		t.Fatalf("tracking cleanup weakened query policy or lost issuer page: %+v", got)
+	}
+}
+
 func TestSearchDisabledWithoutKey(t *testing.T) {
 	tools := searchTools(false)
 	if len(tools) != 1 || tools[0]["function"].(map[string]any)["name"] != "read_public_page" {

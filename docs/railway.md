@@ -36,7 +36,9 @@ TLS, issues certificates and routes the custom domain to the container.
    | `AI_BASE_URL` | `https://api.openai.com/v1` |
     | `AI_MODEL` | Explicit OpenAI model enabled for the client's project; verify with a staging request |
     | `AI_REASONING_EFFORT` | Optional. Defaults to `low` for OpenAI to keep REVO replies fast; `none` sends temperature 0.2 |
-    | `SEARCH_API_KEY` | Optional Brave Search API key. Empty disables REVO web search (the AI can still read public pages) and removes search from the sharing notice |
+    | `SEARCH_PROVIDER` | `searxng` for keyless private search, or `brave` (default) |
+    | `SEARCH_BASE_URL` | SearXNG only: private search service URL, e.g. `http://search.railway.internal:8080/search`; see [setup](revo-web-lookup.md#keyless-search-setup) |
+    | `SEARCH_API_KEY` | Only needed for Brave. SearXNG needs no key; Brave without a key disables search |
     | `CHAT_DAILY_AI_LIMIT` | External-AI REVO replies per user per rolling 24 hours (default 60). Basic answers are not capped |
 
    Never add the Supabase service-role key or the owner database login.
