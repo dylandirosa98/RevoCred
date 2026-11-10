@@ -35,8 +35,10 @@ type Config struct {
 	SearchAPIKey   string
 	SearchProvider string
 	SearchBaseURL  string
-	// ChatDailyAILimit caps external-AI chat replies per user per rolling day.
-	ChatDailyAILimit int
+	// ChatDailyAILimit caps external-AI chat replies per subscriber per
+	// rolling day; ChatFreeDailyAILimit is the allowance without one.
+	ChatDailyAILimit     int
+	ChatFreeDailyAILimit int
 	// DatabaseRootCAs verifies the database server when the provider's CA is
 	// not in the system bundle (Supabase). Nil means use system roots.
 	DatabaseRootCAs *x509.CertPool
@@ -72,6 +74,11 @@ func Load() (Config, error) {
 		return Config{}, errors.New("CHAT_DAILY_AI_LIMIT must be a positive integer")
 	}
 	cfg.ChatDailyAILimit = chatLimit
+	freeLimit, err := strconv.Atoi(valueOrDefault("CHAT_FREE_DAILY_AI_LIMIT", "3"))
+	if err != nil || freeLimit < 0 {
+		return Config{}, errors.New("CHAT_FREE_DAILY_AI_LIMIT must be zero or a positive integer")
+	}
+	cfg.ChatFreeDailyAILimit = freeLimit
 	if cfg.RequestTimeout, err = durationOrDefault("REQUEST_TIMEOUT", 30*time.Second); err != nil {
 		return Config{}, err
 	}

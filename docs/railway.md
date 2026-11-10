@@ -39,7 +39,8 @@ TLS, issues certificates and routes the custom domain to the container.
     | `SEARCH_PROVIDER` | `searxng` for keyless private search, or `brave` (default) |
     | `SEARCH_BASE_URL` | SearXNG only: private search service URL, e.g. `http://search.railway.internal:8080/search`; see [setup](revo-web-lookup.md#keyless-search-setup) |
     | `SEARCH_API_KEY` | Only needed for Brave. SearXNG needs no key; Brave without a key disables search |
-    | `CHAT_DAILY_AI_LIMIT` | External-AI REVO replies per user per rolling 24 hours (default 60). Basic answers are not capped |
+    | `CHAT_DAILY_AI_LIMIT` | External-AI REVO replies per subscriber per rolling 24 hours (default 60). Basic answers are not capped |
+    | `CHAT_FREE_DAILY_AI_LIMIT` | External-AI REVO replies per signed-in member without an AI subscription (default 3; 0 turns free AI off). Guests always get basic answers. Testers get the subscriber allowance through a `manual` row in `revocred.ai_entitlements` |
 
    Never add the Supabase service-role key or the owner database login.
 6. **Create the service.**

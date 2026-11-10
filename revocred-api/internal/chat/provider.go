@@ -48,7 +48,7 @@ func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedCon
 	normalized := strings.ToLower(prompt)
 	facts := Snapshot(groundedContext)
 	finish := func(blocks []Block) (Reply, error) {
-		blocks = append([]Block{{Type: "note", Text: "Basic answer — AI is off, so this comes straight from your plan."}}, blocks...)
+		blocks = append([]Block{{Type: "note", Text: "Basic answer — this comes straight from your plan, without AI."}}, blocks...)
 		return Reply{Basic: true, Blocks: blocks, Text: RenderText(blocks)}, nil
 	}
 	if strings.Contains(normalized, "score") {

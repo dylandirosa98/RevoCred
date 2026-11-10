@@ -187,6 +187,10 @@ func (p goProvider) Reply(ctx context.Context, prompt string, groundedContext Co
 		return limited("Full answers are unavailable right now, so here is a quick summary from your plan.")
 	}
 
+	if p.flagged(ctx, prompt) {
+		return declined(), nil
+	}
+
 	messages := []map[string]string{{"role": "system", "content": p.systemPrompt(facts)}}
 	history := groundedContext.History
 	if len(history) > maxHistoryTurns {
@@ -324,9 +328,62 @@ func (p goProvider) Reply(ctx context.Context, prompt string, groundedContext Co
 		}
 		ReportProgress(ctx, "writing", "Writing your answer…")
 		blocks := ParseReply(reply, facts)
-		return Reply{Blocks: blocks, Text: RenderText(blocks)}, nil
+		answer := Reply{Blocks: blocks, Text: RenderText(blocks)}
+		if p.flagged(ctx, answer.Text) {
+			return declined(), nil
+		}
+		return answer, nil
 	}
 	return unavailable("tool limit")
+}
+
+const moderationModel = "omni-moderation-latest"
+
+// declined answers flagged requests without the AI. It is marked basic so it
+// does not use up the member's AI allowance.
+func declined() Reply {
+	blocks := []Block{{Type: "paragraph", Text: "I can't help with that. Ask me about your cards, rewards, travel or money."}}
+	return Reply{Blocks: blocks, Text: RenderText(blocks), Basic: true}
+}
+
+// flagged runs OpenAI's moderation check on a message or answer. Only the
+// OpenAI provider has it; a failed check does not block the answer because the
+// system prompt already limits REVO to cards and money topics.
+func (p goProvider) flagged(ctx context.Context, text string) bool {
+	if !p.openAI || strings.TrimSpace(text) == "" {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	body, err := json.Marshal(map[string]any{"model": moderationModel, "input": clip(text, 4000)})
+	if err != nil {
+		return false
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(p.endpoint, "/chat/completions")+"/moderations", bytes.NewReader(body))
+	if err != nil {
+		return false
+	}
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := p.client.Do(req)
+	if err != nil {
+		p.logger.WarnContext(ctx, "moderation unavailable", "error", err.Error())
+		return false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		p.logger.WarnContext(ctx, "moderation unavailable", "status", resp.StatusCode)
+		return false
+	}
+	var result struct {
+		Results []struct {
+			Flagged bool `json:"flagged"`
+		} `json:"results"`
+	}
+	if json.NewDecoder(io.LimitReader(resp.Body, 1<<16)).Decode(&result) != nil {
+		return false
+	}
+	return len(result.Results) > 0 && result.Results[0].Flagged
 }
 
 // replyReserve is kept back from the request deadline for the fallback, the
@@ -353,7 +410,7 @@ func systemPrompt(facts snapshot) string {
 	if err != nil {
 		encoded = []byte("{}")
 	}
-	return `You are REVO, a helpful assistant inside RevoCred. Answer a broad range of questions: credit cards, credit building, fees and interest, budgeting, points and miles, travel, purchase decisions, benefits, unfamiliar products and everyday general knowledge. Do not refuse a question just because a card or topic is outside the catalog. Use the member's wallet, profile and recent conversation when relevant; do not force unrelated questions into their saved strategy. Resolve short follow-ups using the conversation. Ask one short clarification only when ambiguity would materially change the answer; never invent missing personal facts. General education needs no search; use web_search for current or missing product details, including unfamiliar cards. Also search for time-sensitive facts, changing rules, prices, recent news or anything you are unsure about. Prefer primary sources, especially issuer terms, government consumer guidance and official travel policies. Cite one or two supporting URLs next to researched claims. Distinguish what a source says from modeled estimates and assumptions. Never invent terms, sources or successful searches. A focused benefit question usually needs one search and one relevant page; answer once the available evidence supports it instead of repeatedly trying to eliminate every uncertainty. If search fails or the evidence is incomplete, say what could not be verified; do not substitute remembered current terms.
+	return `You are REVO, a helpful assistant inside RevoCred. Answer questions about credit cards, credit building, fees and interest, budgeting and everyday money decisions, points and miles, travel bookings and benefits, purchase decisions and unfamiliar card products. Do not refuse a question just because a card or topic is outside the catalog. For anything unrelated to cards, rewards, travel or money (for example coding, homework, health, relationships or general trivia), decline in one short sentence and offer a related money or card question instead. Use the member's wallet, profile and recent conversation when relevant; do not force unrelated questions into their saved strategy. Resolve short follow-ups using the conversation. Ask one short clarification only when ambiguity would materially change the answer; never invent missing personal facts. General education needs no search; use web_search for current or missing product details, including unfamiliar cards. Also search for time-sensitive facts, changing rules, prices, recent news or anything you are unsure about. Prefer primary sources, especially issuer terms, government consumer guidance and official travel policies. Cite one or two supporting URLs next to researched claims. Distinguish what a source says from modeled estimates and assumptions. Never invent terms, sources or successful searches. A focused benefit question usually needs one search and one relevant page; answer once the available evidence supports it instead of repeatedly trying to eliminate every uncertainty. If search fails or the evidence is incomplete, say what could not be verified; do not substitute remembered current terms.
 
 Answer first, then give only the explanation needed. Default to 40-100 words; a simple question or follow-up usually needs one to three sentences. Use a short example or two to four bullets when helpful. Expand when the user requests detail or the question needs it; do not cut off a necessary condition or source to meet a word target. Do not repeat the question, introduce yourself, dump the wallet/profile, append generic disclaimers, or end every reply with another question. For calculations, show the result and essential assumptions. Explain financial concepts without promising approval, returns or credit-score changes. Never encourage fraud, evasion, harmful conduct or borrowing/spending solely for rewards; give a brief safe alternative. Do not present personalized legal, tax or investment conclusions as professional advice.
 

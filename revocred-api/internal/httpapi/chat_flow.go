@@ -6,18 +6,22 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/revocred/revocred-api/internal/chat"
 	"github.com/revocred/revocred-api/internal/domain"
+	"github.com/revocred/revocred-api/internal/store"
 )
 
 const (
-	defaultChatDailyAILimit = 60
-	chatKeepAlive           = 10 * time.Second
-	chatDailyLimitMessage   = "You've reached today's REVO AI limit. Basic answers are still available."
+	defaultChatDailyAILimit     = 60
+	defaultChatFreeDailyAILimit = 3
+	chatKeepAlive               = 10 * time.Second
+	chatDailyLimitMessage       = "You've reached today's REVO AI limit. Basic answers are still available."
+	chatFreeLimitMessage        = "You've used today's free REVO AI answers. Basic answers are still available, and AI answers reset within 24 hours."
 )
 
 type chatInput struct {
@@ -38,8 +42,9 @@ func (a *API) decodeChatInput(w http.ResponseWriter, r *http.Request) (chatInput
 	return input, true
 }
 
-// publicExplain answers guests from demo context. Guests have no stored
-// permission, so external AI needs the per-message consent version.
+// publicExplain answers guests from demo context with basic answers only.
+// External AI costs money per message, so it needs a signed-in account (and
+// its daily allowance); a consent version sent by an older client is ignored.
 func (a *API) publicExplain(w http.ResponseWriter, r *http.Request) {
 	if !a.limits.allow("explain:"+a.clientIP(r), 20, time.Now()) {
 		a.tooMany(w, r)
@@ -49,11 +54,16 @@ func (a *API) publicExplain(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	provider, permitted := a.consentedChatProvider(w, r, input.AIConsentVersion)
-	if !permitted {
-		return
+	var provider chat.Provider = chat.NewDeterministicProvider()
+	if a.chatProvider.Mode() == "deterministic" {
+		provider = a.chatProvider
 	}
 	a.runChat(w, r, provider, input.Content, chat.DemoBrowseContext(), func(_ context.Context, reply chat.Reply, mode string) ([]domain.ChatMessage, error) {
+		if a.chatProvider.Mode() != "deterministic" && a.chatFreeDailyAILimit > 0 {
+			note := chat.Block{Type: "note", Text: "Create a free account to get AI answers about your own cards."}
+			reply.Blocks = append(reply.Blocks, note)
+			reply.Text = chat.RenderText(reply.Blocks)
+		}
 		return []domain.ChatMessage{
 			{ID: "demo-user", Role: "user", Content: input.Content},
 			{ID: "demo-assistant", Role: "assistant", Content: reply.Text, Blocks: replyBlocks(reply), Mode: mode},
@@ -85,16 +95,24 @@ func (a *API) postMessage(w http.ResponseWriter, r *http.Request) {
 		// answers; the client asks again when it sees the new version.
 		provider = a.storedConsentProvider(stored)
 	}
+	var reservation store.AIUse
 	if provider.Mode() != "deterministic" {
-		count, err := a.repository.ChatAICount(r.Context(), userID)
+		use, err := a.repository.ReserveAIUse(r.Context(), userID, a.chatFreeDailyAILimit, a.chatDailyAILimit)
 		if err != nil {
 			a.internalError(w, r, err)
 			return
 		}
-		if count >= a.chatDailyAILimit {
-			writeError(w, r, http.StatusTooManyRequests, "chat_daily_limit", chatDailyLimitMessage, nil)
+		if !use.Allowed {
+			message := chatDailyLimitMessage
+			if !use.Subscriber {
+				message = chatFreeLimitMessage
+			}
+			writeError(w, r, http.StatusTooManyRequests, "chat_daily_limit", message, map[string]string{
+				"limit": strconv.Itoa(use.Limit), "plan": map[bool]string{true: "subscriber", false: "free"}[use.Subscriber],
+			})
 			return
 		}
+		reservation = use
 	}
 	bootstrap, err := a.repository.Bootstrap(r.Context(), userID)
 	if err != nil {
@@ -122,6 +140,13 @@ func (a *API) postMessage(w http.ResponseWriter, r *http.Request) {
 		Playbook:        bootstrap.Playbook,
 	}
 	a.runChat(w, r, provider, input.Content, grounded, func(ctx context.Context, reply chat.Reply, mode string) ([]domain.ChatMessage, error) {
+		// A provider failure falls back to a basic answer; that is not an AI
+		// answer, so the reserved use is given back.
+		if reservation.Allowed && mode != "ai" {
+			if err := a.repository.ReleaseAIUse(ctx, userID, reservation.ID); err != nil {
+				a.logger.Warn("release ai use failed", "error", err)
+			}
+		}
 		return a.repository.AppendChatExchange(ctx, userID, input.Content, reply.Text, replyBlocks(reply), mode)
 	})
 }

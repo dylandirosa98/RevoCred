@@ -17,9 +17,12 @@ type Options struct {
 	// ClientIPHeader names a header set by a trusted edge proxy (for example
 	// Railway's X-Real-IP). Leave empty when clients can reach the API directly.
 	ClientIPHeader string
-	// ChatDailyAILimit caps external-AI chat replies per user in a rolling
-	// 24 hours. Zero uses defaultChatDailyAILimit.
+	// ChatDailyAILimit caps external-AI chat replies per subscriber in a
+	// rolling 24 hours. Zero uses defaultChatDailyAILimit.
 	ChatDailyAILimit int
+	// ChatFreeDailyAILimit is the allowance for signed-in members without an
+	// AI subscription. Nil uses defaultChatFreeDailyAILimit; zero means none.
+	ChatFreeDailyAILimit *int
 }
 
 type window struct {

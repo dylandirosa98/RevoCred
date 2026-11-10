@@ -21,7 +21,12 @@ type SharingDisclosure struct {
 	DataUse        string   `json:"data_use"`
 }
 
-const sharingDataUse = "Your message and saved plan context, including first name, life stage, credit band, spending, wallet, strategy, ranking and up to eight recent messages, are shared with the AI service. Guest messages use demo context. OpenCode Go testing also sends an account-linked session identifier. RevoCred may read public HTTPS pages and readable PDFs; private identifiers are blocked in tool requests. Public sources may be outdated and never change scores or ranking. Do not share card numbers, security codes or passwords. Basic answers use the server without external AI. Permission is saved for your account until you turn it off in Profile. You will be asked again if the AI service or this notice changes."
+const (
+	sharingContext = "Your message and saved plan context, including first name, life stage, credit band, spending, wallet, strategy, ranking and up to eight recent messages, are shared with the AI service."
+	sharingSession = "OpenCode Go testing also sends an account-linked session identifier."
+	sharingRest    = "RevoCred may read public HTTPS pages and readable PDFs; private identifiers are blocked in tool requests. Public sources may be outdated and never change scores or ranking. Do not share card numbers, security codes or passwords. Basic answers use the server without external AI. Permission is saved for your account until you turn it off in Profile. You will be asked again if the AI service or this notice changes."
+	sharingSafety  = "OpenAI also checks messages and answers for harmful content."
+)
 
 // Disclosure fails closed for providers whose actual recipient we cannot name.
 func Disclosure(provider Provider) (SharingDisclosure, error) {
@@ -42,6 +47,7 @@ func (p goProvider) SharingDisclosure() (SharingDisclosure, error) {
 		return SharingDisclosure{}, errors.New("AI recipient disclosure is unavailable")
 	}
 	recipient := ""
+	openCode := u.Hostname() == "opencode.ai"
 	switch u.Hostname() {
 	case "api.openai.com":
 		recipient = "OpenAI"
@@ -56,13 +62,24 @@ func (p goProvider) SharingDisclosure() (SharingDisclosure, error) {
 	}
 	points := []string{
 		"Your message and saved plan context are shared with the AI service.",
-		"Context includes first name, life stage, credit band, spending, wallet, strategy, ranking and up to eight recent messages; guests use demo context.",
-		"OpenCode Go testing also sends an account-linked session identifier.",
+		"Context includes first name, life stage, credit band, spending, wallet, strategy, ranking and up to eight recent messages.",
+	}
+	dataUse := sharingContext
+	// Only OpenCode receives the session header (see Reply); OpenAI does not.
+	if openCode {
+		points = append(points, sharingSession)
+		dataUse += " " + sharingSession
+	}
+	if p.openAI {
+		points = append(points, sharingSafety)
+		dataUse += " " + sharingSafety
+	}
+	points = append(points,
 		"Public HTTPS pages and readable PDFs may be read; private identifiers are blocked in tool requests and sources never change scores or ranking.",
 		"Do not share card numbers, security codes or passwords. Basic answers use the server without external AI.",
 		"Permission is saved for your account until you turn it off in Profile; you will be asked again if the AI service or notice changes.",
-	}
-	dataUse := sharingDataUse
+	)
+	dataUse += " " + sharingRest
 	searchProvider := ""
 	if p.searchEnabled() {
 		searchProvider = "Brave Search"

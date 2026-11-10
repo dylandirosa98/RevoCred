@@ -42,9 +42,21 @@ type Repository interface {
 	// SetChatConsent stores a version; "" revokes.
 	SetChatConsent(ctx context.Context, userID, version string) error
 	ClearChat(ctx context.Context, userID string) error
-	// ChatAICount counts external-AI replies in the last 24 hours.
-	ChatAICount(ctx context.Context, userID string) (int, error)
+	// ReserveAIUse reserves one external-AI answer against the account's
+	// rolling 24-hour allowance: paidLimit with an active AI entitlement,
+	// otherwise freeLimit. Use.Allowed is false when the allowance is spent.
+	ReserveAIUse(ctx context.Context, userID string, freeLimit, paidLimit int) (AIUse, error)
+	// ReleaseAIUse gives back a reservation that produced no AI answer.
+	ReleaseAIUse(ctx context.Context, userID, useID string) error
 	// ChatFeedback upserts feedback on the caller's own assistant message and
 	// reports whether such a message exists.
 	ChatFeedback(ctx context.Context, userID, messageID, rating, reason string) (bool, error)
+}
+
+// AIUse is the outcome of reserving an external-AI answer.
+type AIUse struct {
+	Allowed    bool
+	ID         string
+	Subscriber bool
+	Limit      int
 }

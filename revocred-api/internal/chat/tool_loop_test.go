@@ -28,6 +28,10 @@ func TestModelDirectedSearchFollowup(t *testing.T) {
 		t.Run(fmt.Sprintf("openai=%v", openAI), func(t *testing.T) {
 			calls, searches := 0, 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasSuffix(r.URL.Path, "/moderations") {
+					_, _ = io.WriteString(w, `{"results":[{"flagged":false}]}`)
+					return
+				}
 				calls++
 				var body map[string]any
 				_ = json.NewDecoder(r.Body).Decode(&body)
@@ -78,5 +82,60 @@ func TestModelDirectedSearchFollowup(t *testing.T) {
 				t.Fatalf("calls=%d searches=%d reply=%+v err=%v", calls, searches, reply, err)
 			}
 		})
+	}
+}
+
+func TestModerationDeclinesFlaggedMessagesAndAnswers(t *testing.T) {
+	for _, flag := range []string{"input", "output"} {
+		t.Run(flag, func(t *testing.T) {
+			chats, checks := 0, 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasSuffix(r.URL.Path, "/moderations") {
+					checks++
+					var body struct {
+						Input string `json:"input"`
+					}
+					_ = json.NewDecoder(r.Body).Decode(&body)
+					flagged := (flag == "input" && body.Input == "bad request") || (flag == "output" && strings.Contains(body.Input, "harmful answer"))
+					fmt.Fprintf(w, `{"results":[{"flagged":%v}]}`, flagged)
+					return
+				}
+				chats++
+				_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"harmful answer"},"finish_reason":"stop"}]}`)
+			}))
+			defer server.Close()
+			provider, _ := New(Options{APIKey: "test-key", BaseURL: server.URL})
+			p := provider.(goProvider)
+			p.openAI = true
+			prompt := "fine request"
+			if flag == "input" {
+				prompt = "bad request"
+			}
+			reply, err := p.Reply(context.Background(), prompt, Context{})
+			if err != nil || !reply.Basic || !strings.Contains(reply.Text, "can't help with that") || strings.Contains(reply.Text, "harmful") {
+				t.Fatalf("not declined: %+v err=%v", reply, err)
+			}
+			if flag == "input" && chats != 0 {
+				t.Fatal("flagged message still reached the model")
+			}
+			if flag == "output" && (chats != 1 || checks != 2) {
+				t.Fatalf("chats=%d checks=%d", chats, checks)
+			}
+		})
+	}
+}
+
+func TestOpenCodeSkipsModeration(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/moderations") {
+			t.Error("OpenCode has no moderation endpoint")
+		}
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"Use the Gold card."},"finish_reason":"stop"}]}`)
+	}))
+	defer server.Close()
+	provider, _ := New(Options{APIKey: "test-key", BaseURL: server.URL})
+	reply, err := provider.Reply(context.Background(), "groceries?", Context{})
+	if err != nil || reply.Basic {
+		t.Fatalf("reply=%+v err=%v", reply, err)
 	}
 }

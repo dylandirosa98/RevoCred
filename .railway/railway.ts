@@ -51,6 +51,7 @@ export default defineRailway((ctx) => {
       SEARCH_PROVIDER: ctx.shared.SEARCH_PROVIDER,
       SEARCH_BASE_URL: ctx.shared.SEARCH_BASE_URL,
       CHAT_DAILY_AI_LIMIT: ctx.shared.CHAT_DAILY_AI_LIMIT,
+      CHAT_FREE_DAILY_AI_LIMIT: ctx.shared.CHAT_FREE_DAILY_AI_LIMIT,
       // Browser origins allowed to call the API (comma-separated HTTPS origins).
       // Native apps send no Origin; leave empty unless a web build is in use.
       CORS_ALLOWED_ORIGINS: ctx.shared.CORS_ALLOWED_ORIGINS,

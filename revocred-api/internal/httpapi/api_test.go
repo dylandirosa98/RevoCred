@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -36,7 +37,9 @@ type fakeRepository struct {
 	savedInput  domain.RecommendationInput
 	savedResult domain.RecommendationResult
 	chatConsent string
-	chatAICount int
+	aiUsed      int
+	subscriber  bool
+	released    []string
 	chatCleared bool
 	savedModes  []string
 	feedback    string
@@ -115,8 +118,22 @@ func (f *fakeRepository) ClearChat(context.Context, string) error {
 	f.chatCleared = true
 	return nil
 }
-func (f *fakeRepository) ChatAICount(context.Context, string) (int, error) {
-	return f.chatAICount, nil
+func (f *fakeRepository) ReserveAIUse(_ context.Context, _ string, freeLimit, paidLimit int) (store.AIUse, error) {
+	use := store.AIUse{Subscriber: f.subscriber, Limit: freeLimit}
+	if f.subscriber {
+		use.Limit = paidLimit
+	}
+	if f.aiUsed >= use.Limit {
+		return use, nil
+	}
+	f.aiUsed++
+	use.Allowed, use.ID = true, fmt.Sprintf("use-%d", f.aiUsed)
+	return use, nil
+}
+func (f *fakeRepository) ReleaseAIUse(_ context.Context, _ string, useID string) error {
+	f.aiUsed--
+	f.released = append(f.released, useID)
+	return nil
 }
 func (f *fakeRepository) ChatFeedback(_ context.Context, _ string, messageID, rating, reason string) (bool, error) {
 	if messageID != "a1" {

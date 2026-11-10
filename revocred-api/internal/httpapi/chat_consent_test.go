@@ -18,6 +18,9 @@ import (
 type consentSpy struct {
 	calls   int
 	version string
+	// basic makes the provider fall back to a basic answer, as when the AI
+	// service fails.
+	basic bool
 }
 
 func (*consentSpy) Mode() string { return "openai" }
@@ -28,7 +31,7 @@ func (p *consentSpy) SharingDisclosure() (chat.SharingDisclosure, error) {
 }
 func (p *consentSpy) Reply(context.Context, string, chat.Context) (chat.Reply, error) {
 	p.calls++
-	return chat.Reply{Text: "External answer"}, nil
+	return chat.Reply{Text: "External answer", Basic: p.basic}, nil
 }
 
 func consentHandler(provider chat.Provider) http.Handler {
@@ -68,8 +71,21 @@ func TestBasicChatResponsesDoNotExposeModelInstructions(t *testing.T) {
 	}
 }
 
+func TestGuestsAlwaysGetBasicAnswers(t *testing.T) {
+	provider := &consentSpy{version: strings.Repeat("a", 64)}
+	handler := consentHandler(provider)
+	for _, consent := range []string{"", "old-version", provider.version} {
+		body, _ := json.Marshal(map[string]string{"content": "Explain my plan", "ai_consent_version": consent})
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/v1/public/explain", strings.NewReader(string(body))))
+		if response.Code != http.StatusCreated || provider.calls != 0 || !strings.Contains(response.Body.String(), `"mode":"basic"`) {
+			t.Fatalf("consent %q: guest reached the AI: status=%d calls=%d", consent, response.Code, provider.calls)
+		}
+	}
+}
+
 func TestChatRequiresCurrentPermissionForEachExternalRequest(t *testing.T) {
-	for _, path := range []string{"/v1/public/explain", "/v1/chat/messages"} {
+	for _, path := range []string{"/v1/chat/messages"} {
 		t.Run(path, func(t *testing.T) {
 			provider := &consentSpy{version: strings.Repeat("a", 64)}
 			handler := consentHandler(provider)

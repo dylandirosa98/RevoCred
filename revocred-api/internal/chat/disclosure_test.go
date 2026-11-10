@@ -49,3 +49,19 @@ func TestUnidentifiedRecipientCannotBeDisclosedAsOpenAI(t *testing.T) {
 		t.Fatal("deterministic replies incorrectly require AI sharing")
 	}
 }
+
+func TestOnlyOpenCodeDisclosesTheSessionIdentifier(t *testing.T) {
+	openAI, _ := New(Options{APIKey: "test-only-key", BaseURL: "https://api.openai.com/v1", Model: "production-model"})
+	openCode, _ := New(Options{APIKey: "test-only-key", BaseURL: defaultGoBaseURL, Model: defaultGoModel})
+	a, _ := Disclosure(openAI)
+	o, _ := Disclosure(openCode)
+	if strings.Contains(a.DataUse, "OpenCode") || strings.Contains(strings.Join(a.DataUsePoints, " "), "OpenCode") {
+		t.Fatalf("OpenAI notice mentions OpenCode: %q", a.DataUse)
+	}
+	if !strings.Contains(a.DataUse, "checks messages and answers for harmful content") {
+		t.Fatal("OpenAI notice omits the moderation check")
+	}
+	if !strings.Contains(o.DataUse, "session identifier") || strings.Contains(o.DataUse, "harmful content") {
+		t.Fatalf("OpenCode notice wrong: %q", o.DataUse)
+	}
+}

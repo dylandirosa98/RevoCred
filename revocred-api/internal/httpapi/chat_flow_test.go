@@ -37,9 +37,15 @@ func (p *progressSpy) Reply(ctx context.Context, prompt string, grounded chat.Co
 	return chat.Reply{Text: "External answer", Basic: p.basic}, nil
 }
 
+// chatFlowHandler gives free members and subscribers the same allowance;
+// tests that compare the two use chatFlowHandlerWithFree.
 func chatFlowHandler(repo *fakeRepository, provider chat.Provider, limit int) http.Handler {
+	return chatFlowHandlerWithFree(repo, provider, limit, limit)
+}
+
+func chatFlowHandlerWithFree(repo *fakeRepository, provider chat.Provider, limit, free int) http.Handler {
 	return New(repo, &fakeAuthenticator{user: auth.User{ID: testUser}}, fakeRecommender{}, provider,
-		slog.New(slog.NewTextHandler(io.Discard, nil)), nil, 5*time.Second, Options{ChatDailyAILimit: limit})
+		slog.New(slog.NewTextHandler(io.Discard, nil)), nil, 5*time.Second, Options{ChatDailyAILimit: limit, ChatFreeDailyAILimit: &free})
 }
 
 func chatRequest(method, path, body string) *http.Request {
@@ -120,7 +126,7 @@ func TestConsentUnavailableWithoutExternalAI(t *testing.T) {
 
 func TestDailyAILimit(t *testing.T) {
 	provider := &progressSpy{consentSpy: consentSpy{version: strings.Repeat("a", 64)}}
-	repo := &fakeRepository{chatConsent: provider.version, chatAICount: 3}
+	repo := &fakeRepository{chatConsent: provider.version, aiUsed: 3}
 	handler := chatFlowHandler(repo, provider, 3)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, chatRequest(http.MethodPost, "/v1/chat/messages", `{"content":"Explain"}`))
@@ -133,6 +139,35 @@ func TestDailyAILimit(t *testing.T) {
 	handler.ServeHTTP(response, chatRequest(http.MethodPost, "/v1/chat/messages", `{"content":"Explain"}`))
 	if response.Code != http.StatusCreated {
 		t.Fatalf("basic answer blocked by AI limit: %d", response.Code)
+	}
+}
+
+func TestFreeMembersGetASmallerAllowanceThanSubscribers(t *testing.T) {
+	provider := &progressSpy{consentSpy: consentSpy{version: strings.Repeat("a", 64)}}
+	repo := &fakeRepository{chatConsent: provider.version, aiUsed: 3}
+	handler := chatFlowHandlerWithFree(repo, provider, 60, 3)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, chatRequest(http.MethodPost, "/v1/chat/messages", `{"content":"Explain"}`))
+	body := response.Body.String()
+	if response.Code != http.StatusTooManyRequests || !strings.Contains(body, "free REVO AI answers") || !strings.Contains(body, `"plan":"free"`) || provider.calls != 0 {
+		t.Fatalf("free allowance not enforced: %d %s", response.Code, body)
+	}
+	repo.subscriber = true
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, chatRequest(http.MethodPost, "/v1/chat/messages", `{"content":"Explain"}`))
+	if response.Code != http.StatusCreated || provider.calls != 1 || repo.aiUsed != 4 {
+		t.Fatalf("subscriber blocked: %d calls=%d used=%d %s", response.Code, provider.calls, repo.aiUsed, response.Body)
+	}
+}
+
+func TestBasicFallbackGivesTheAIUseBack(t *testing.T) {
+	provider := &consentSpy{version: strings.Repeat("a", 64), basic: true}
+	repo := &fakeRepository{chatConsent: provider.version}
+	handler := chatFlowHandlerWithFree(repo, provider, 60, 3)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, chatRequest(http.MethodPost, "/v1/chat/messages", `{"content":"Explain"}`))
+	if response.Code != http.StatusCreated || repo.aiUsed != 0 || len(repo.released) != 1 {
+		t.Fatalf("fallback still counted: %d used=%d released=%v", response.Code, repo.aiUsed, repo.released)
 	}
 }
 
@@ -158,11 +193,8 @@ func TestChatStreamsProgressThenDone(t *testing.T) {
 	repo := &fakeRepository{chatConsent: provider.version}
 	server := httptest.NewServer(chatFlowHandler(repo, provider, 60))
 	defer server.Close()
-	for _, path := range []string{"/v1/chat/messages", "/v1/public/explain"} {
+	for _, path := range []string{"/v1/chat/messages"} {
 		body := `{"content":"Explain"}`
-		if path == "/v1/public/explain" {
-			body = `{"content":"Explain","ai_consent_version":"` + provider.version + `"}`
-		}
 		req, _ := http.NewRequest(http.MethodPost, server.URL+path, strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer test-token")
 		req.Header.Set("Accept", "text/event-stream")

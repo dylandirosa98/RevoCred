@@ -15,19 +15,18 @@ class ChatConsentState {
   bool get external => disclosure.external;
 }
 
-/// Guests have no stored permission; theirs lasts for this app session only.
-class _GuestConsent {
-  String version = '';
-}
-
-final _guestConsentProvider = Provider((ref) => _GuestConsent());
-
-/// The current AI sharing notice and whether this account (or guest session)
-/// has agreed to it. Rebuilt when the signed-in state changes, so permission
+/// The current AI sharing notice and whether this account has agreed to it.
+/// Guests always get basic answers (AI needs an account), so they are never
+/// asked. Rebuilt when the signed-in state changes, so permission
 /// never carries across accounts.
+///
+/// Automatic retry is off: a send awaits this provider without listening, and
+/// a retry nobody listens to never runs, which left Send stuck after an
+/// offline attempt. Failures surface at once and the next send reloads.
 final chatConsentProvider =
     AsyncNotifierProvider<ChatConsentController, ChatConsentState>(
       ChatConsentController.new,
+      retry: (_, _) => null,
     );
 
 class ChatConsentController extends AsyncNotifier<ChatConsentState> {
@@ -36,16 +35,16 @@ class ChatConsentController extends AsyncNotifier<ChatConsentState> {
   @override
   Future<ChatConsentState> build() async {
     ref.watch(appControllerProvider.select((state) => state.isAuthenticated));
+    if (!_signedIn) {
+      return const ChatConsentState(
+        disclosure: ChatDisclosure.basic(),
+        granted: false,
+      );
+    }
     final repository = ref.read(appRepositoryProvider);
     final disclosure = await repository.loadChatDisclosure();
     if (!disclosure.external) {
       return ChatConsentState(disclosure: disclosure, granted: false);
-    }
-    if (!_signedIn) {
-      return ChatConsentState(
-        disclosure: disclosure,
-        granted: ref.read(_guestConsentProvider).version == disclosure.version,
-      );
     }
     final status = await repository.loadChatConsent();
     return ChatConsentState(
@@ -57,16 +56,12 @@ class ChatConsentController extends AsyncNotifier<ChatConsentState> {
   /// Saves agreement to the current notice.
   Future<void> grant() async {
     final current = await future;
-    if (!current.external) return;
-    var granted = true;
-    if (_signedIn) {
-      final status = await ref
-          .read(appRepositoryProvider)
-          .grantChatConsent(current.disclosure.version);
-      granted = status.granted && status.version == current.disclosure.version;
-    } else {
-      ref.read(_guestConsentProvider).version = current.disclosure.version;
-    }
+    if (!current.external || !_signedIn) return;
+    final status = await ref
+        .read(appRepositoryProvider)
+        .grantChatConsent(current.disclosure.version);
+    final granted =
+        status.granted && status.version == current.disclosure.version;
     state = AsyncData(
       ChatConsentState(disclosure: current.disclosure, granted: granted),
     );
@@ -77,8 +72,6 @@ class ChatConsentController extends AsyncNotifier<ChatConsentState> {
     final current = await future;
     if (_signedIn) {
       await ref.read(appRepositoryProvider).revokeChatConsent();
-    } else {
-      ref.read(_guestConsentProvider).version = '';
     }
     state = AsyncData(
       ChatConsentState(disclosure: current.disclosure, granted: false),

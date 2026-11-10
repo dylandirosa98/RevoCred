@@ -37,8 +37,10 @@ type API struct {
 	stats          counters
 	metricsToken   string
 	clientIPHeader string
-	// chatDailyAILimit caps external-AI replies per user per rolling day.
-	chatDailyAILimit int
+	// chatDailyAILimit caps external-AI replies per subscriber per rolling
+	// day; chatFreeDailyAILimit is the allowance without a subscription.
+	chatDailyAILimit     int
+	chatFreeDailyAILimit int
 }
 
 func New(
@@ -63,6 +65,10 @@ func New(
 	}
 	if api.chatDailyAILimit <= 0 {
 		api.chatDailyAILimit = defaultChatDailyAILimit
+	}
+	api.chatFreeDailyAILimit = defaultChatFreeDailyAILimit
+	if len(options) > 0 && options[0].ChatFreeDailyAILimit != nil && *options[0].ChatFreeDailyAILimit >= 0 {
+		api.chatFreeDailyAILimit = *options[0].ChatFreeDailyAILimit
 	}
 	for _, origin := range allowedOrigins {
 		api.allowedOrigins[strings.TrimRight(origin, "/")] = struct{}{}

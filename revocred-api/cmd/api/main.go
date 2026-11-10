@@ -121,7 +121,7 @@ func run(logger *slog.Logger) error {
 		logger,
 		cfg.AllowedOrigins,
 		cfg.RequestTimeout,
-		httpapi.Options{MetricsToken: cfg.MetricsToken, ClientIPHeader: cfg.ClientIPHeader, ChatDailyAILimit: cfg.ChatDailyAILimit},
+		httpapi.Options{MetricsToken: cfg.MetricsToken, ClientIPHeader: cfg.ClientIPHeader, ChatDailyAILimit: cfg.ChatDailyAILimit, ChatFreeDailyAILimit: &cfg.ChatFreeDailyAILimit},
 	)
 
 	server := &http.Server{
