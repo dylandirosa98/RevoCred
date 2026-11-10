@@ -31,6 +31,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool obscurePassword = true;
   bool notificationsOptIn = false;
   String? message;
+  bool messageIsError = true;
 
   @override
   void initState() {
@@ -92,6 +93,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         onNotificationsChanged: (value) =>
                             setState(() => notificationsOptIn = value),
                         message: message,
+                        messageIsError: messageIsError,
                         onBack: () {
                           if (widget.returnToReport) {
                             context.go('/strategy-report');
@@ -153,26 +155,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Future<void> _submit({required bool signUp}) async {
     if (submitting) return;
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email.text.trim())) {
-      setState(() => message = 'Enter a valid email address.');
+      setState(() {
+        messageIsError = true;
+        message = 'Enter a valid email address.';
+      });
       return;
     }
     if (password.text.isEmpty || (signUp && password.text.length < 12)) {
-      setState(
-        () => message = signUp
+      setState(() {
+        messageIsError = true;
+        message = signUp
             ? 'Enter an email and a password of at least 12 characters.'
-            : 'Enter your email and password.',
-      );
+            : 'Enter your email and password.';
+      });
       return;
     }
-    // Ask for a name up front so the greeting is never a placeholder, and so it
-    // survives the email-confirmation round trip with the saved plan.
+    // The name is optional; when given it survives the email-confirmation
+    // round trip with the saved plan.
     final displayName = name.text.trim();
-    if (signUp && displayName.isEmpty) {
-      setState(() => message = 'Enter the name you want to see in RevoCred.');
-      return;
-    }
     if (signUp && displayName.runes.length > 60) {
-      setState(() => message = 'That name is too long.');
+      setState(() {
+        messageIsError = true;
+        message = 'That name is too long.';
+      });
       return;
     }
     setState(() {
@@ -192,6 +197,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (mounted) {
         final authenticated = ref.read(appControllerProvider).isAuthenticated;
         setState(() {
+          messageIsError = !result.success;
           if (result.success && signUp && !authenticated) {
             signingUp = false;
             password.clear();
@@ -210,10 +216,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
     } catch (_) {
       if (mounted) {
-        setState(
-          () => message =
-              'Unable to reach the authentication service. Check your connection and try again.',
-        );
+        setState(() {
+          messageIsError = true;
+          message =
+              'Unable to reach the authentication service. Check your connection and try again.';
+        });
       }
     } finally {
       if (mounted) setState(() => submitting = false);
@@ -508,6 +515,7 @@ class _AuthFormPage extends StatelessWidget {
     required this.notificationsOptIn,
     required this.onNotificationsChanged,
     this.message,
+    this.messageIsError = true,
     super.key,
   });
 
@@ -518,6 +526,7 @@ class _AuthFormPage extends StatelessWidget {
   final bool submitting;
   final bool obscurePassword;
   final String? message;
+  final bool messageIsError;
   final VoidCallback onBack;
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
@@ -609,9 +618,8 @@ class _AuthFormPage extends StatelessWidget {
           onSubmitted: (_) => FocusScope.of(context).nextFocus(),
           maxLength: 60,
           decoration: const InputDecoration(
-            labelText: 'Full name',
-            helperText:
-                'Used for your strategy and greeting. Never shown publicly.',
+            labelText: 'Name (optional)',
+            helperText: 'Used for your greeting. Never shown publicly.',
           ),
         ),
         const SizedBox(height: 12),
@@ -659,7 +667,7 @@ class _AuthFormPage extends StatelessWidget {
         Text(
           message!,
           style: TextStyle(
-            color: _isError(message!)
+            color: messageIsError
                 ? context.product.danger
                 : context.product.muted,
           ),
@@ -717,13 +725,6 @@ class _AuthFormPage extends StatelessWidget {
       ],
     ],
   );
-
-  static bool _isError(String value) {
-    final text = value.toLowerCase();
-    return text.contains('requires') ||
-        text.contains('failed') ||
-        text.contains('enter an email');
-  }
 }
 
 class _AuthSideNote extends StatelessWidget {

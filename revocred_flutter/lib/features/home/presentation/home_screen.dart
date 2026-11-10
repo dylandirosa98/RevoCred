@@ -1874,20 +1874,27 @@ class _WalletGreeting extends StatelessWidget {
         child: InkWell(
           onTap: onProfile,
           borderRadius: BorderRadius.circular(999),
-          child: Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Color(0xFF8267E8),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              initials.isEmpty ? 'R' : initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+          // 44pt tap area (Apple's minimum) around a smaller avatar.
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(
+              child: Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF7051E5),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  initials.isEmpty ? 'R' : initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           ),
@@ -1947,8 +1954,10 @@ class _WalletSectionHeader extends StatelessWidget {
       if (action != null)
         InkWell(
           onTap: onAction,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
               action!,
               style: TextStyle(

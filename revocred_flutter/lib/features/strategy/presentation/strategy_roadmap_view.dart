@@ -359,7 +359,15 @@ class _StrategyHero extends StatelessWidget {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: [_HeroPill(label: '${plan.code} STRATEGY')],
+              children: [
+                // The client refers to strategies by number; the title says
+                // what the number means.
+                _HeroPill(
+                  label: plan.title.isEmpty
+                      ? '${plan.code} STRATEGY'
+                      : '${plan.code} · ${plan.title.toUpperCase()}',
+                ),
+              ],
             ),
           if (showStatus) const SizedBox(height: 18),
           Text.rich(

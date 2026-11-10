@@ -163,7 +163,7 @@ class _StrategyScreenState extends ConsumerState<StrategyScreen> {
             Text(
               ref.watch(appConfigProvider).useMocks
                   ? 'DEMO CATALOG'
-                  : 'ISSUER SNAPSHOTS',
+                  : 'ISSUER TERMS',
               style: TextStyle(
                 color: product.muted,
                 fontSize: 9,

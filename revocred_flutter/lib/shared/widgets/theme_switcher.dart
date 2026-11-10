@@ -4,6 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/state/theme_controller.dart';
 import '../../core/theme/app_theme.dart';
 
+/// Appearance choices: follow the phone (null), or a fixed light/dark theme.
+const _choices = <AppThemeVariant?>[null, ...availableAppThemeVariants];
+
+String _label(AppThemeVariant? variant) => variant?.label ?? 'Match phone';
+IconData _icon(AppThemeVariant? variant) =>
+    variant?.icon ?? Icons.brightness_auto_outlined;
+
 class ThemeSwitcher extends ConsumerWidget {
   const ThemeSwitcher({super.key, this.compact = false});
 
@@ -14,24 +21,26 @@ class ThemeSwitcher extends ConsumerWidget {
     final selected = ref.watch(themeControllerProvider);
     if (compact) {
       return Semantics(
-        label: 'Theme selection. Current theme ${selected.label}',
+        label: 'Theme selection. Current theme ${_label(selected)}',
         button: true,
-        child: PopupMenuButton<AppThemeVariant>(
+        child: PopupMenuButton<int>(
           key: const ValueKey('theme-switcher-compact'),
           tooltip: 'Choose appearance',
-          icon: Icon(selected.icon),
-          onSelected: ref.read(themeControllerProvider.notifier).select,
-          itemBuilder: (context) => availableAppThemeVariants
+          icon: Icon(_icon(selected)),
+          onSelected: (index) => ref
+              .read(themeControllerProvider.notifier)
+              .select(_choices[index]),
+          itemBuilder: (context) => _choices.indexed
               .map(
-                (variant) => PopupMenuItem(
-                  value: variant,
+                (entry) => PopupMenuItem(
+                  value: entry.$1,
                   child: Row(
                     children: [
-                      Icon(variant.icon),
+                      Icon(_icon(entry.$2)),
                       const SizedBox(width: 10),
-                      Text(variant.label),
+                      Text(_label(entry.$2)),
                       const Spacer(),
-                      if (variant == selected)
+                      if (entry.$2 == selected)
                         const Icon(Icons.check, semanticLabel: 'Selected'),
                     ],
                   ),
@@ -52,7 +61,7 @@ class ThemeSwitcher extends ConsumerWidget {
           return Wrap(
             spacing: gap,
             runSpacing: gap,
-            children: availableAppThemeVariants
+            children: _choices
                 .map(
                   (variant) => SizedBox(
                     width: width,
@@ -80,20 +89,20 @@ class _ThemeOption extends StatelessWidget {
     required this.onTap,
   });
 
-  final AppThemeVariant variant;
+  final AppThemeVariant? variant;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Theme(
-    data: AppTheme.forVariant(variant),
+    data: variant == null ? Theme.of(context) : AppTheme.forVariant(variant!),
     child: Builder(
       builder: (context) {
         final product = context.product;
         return Semantics(
           button: true,
           selected: selected,
-          label: '${variant.label} theme',
+          label: '${_label(variant)} theme',
           child: Material(
             color: product.surface,
             shape: RoundedRectangleBorder(
@@ -105,7 +114,7 @@ class _ThemeOption extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              key: ValueKey('theme-option-${variant.name}'),
+              key: ValueKey('theme-option-${variant?.name ?? 'system'}'),
               onTap: onTap,
               child: Padding(
                 padding: const EdgeInsets.all(14),
@@ -124,7 +133,7 @@ class _ThemeOption extends StatelessWidget {
                         border: Border.all(color: product.border),
                       ),
                       child: Icon(
-                        variant.icon,
+                        _icon(variant),
                         size: 19,
                         color: product.action,
                       ),
@@ -135,7 +144,7 @@ class _ThemeOption extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            variant.label,
+                            _label(variant),
                             style: TextStyle(
                               color: product.ink,
                               fontFamily: product.headingFontFamily,
@@ -144,7 +153,8 @@ class _ThemeOption extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            variant.description,
+                            variant?.description ??
+                                'Light or dark, following your phone setting',
                             style: TextStyle(
                               color: product.muted,
                               fontSize: 12,

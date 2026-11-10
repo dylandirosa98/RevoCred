@@ -450,9 +450,10 @@ abstract final class AppTheme {
     actionInk: Colors.white,
     brightAccent: Color(0xFF8C72EA),
     secondary: Color(0xFFF17E50),
-    success: Color(0xFF238372),
-    warning: Color(0xFFAD6529),
-    danger: Color(0xFFD83F67),
+    // Darkened to reach WCAG AA (4.5:1) on the light canvas and surfaces.
+    success: Color(0xFF207969),
+    warning: Color(0xFF9D5B25),
+    danger: Color(0xFFCA2953),
     userQuery: Color(0xFFECE7FB),
     pagePadding: 18,
     sectionGap: 24,
@@ -533,7 +534,11 @@ abstract final class AppTheme {
       secondary: product.secondary,
       onSecondary: product.actionInk,
       error: product.danger,
-      onError: Colors.white,
+      // The dark theme's error colour is light pink; dark text keeps buttons
+      // like "Delete my account" readable.
+      onError: brightness == Brightness.dark
+          ? const Color(0xFF17121F)
+          : Colors.white,
       surface: product.surface,
       onSurface: product.ink,
       surfaceContainerHighest: product.raised,

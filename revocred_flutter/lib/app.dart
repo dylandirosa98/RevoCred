@@ -44,6 +44,8 @@ class RevoCredApp extends ConsumerStatefulWidget {
 }
 
 class _RevoCredAppState extends ConsumerState<RevoCredApp> {
+  final _messenger = GlobalKey<ScaffoldMessengerState>();
+
   @override
   void initState() {
     super.initState();
@@ -64,11 +66,33 @@ class _RevoCredAppState extends ConsumerState<RevoCredApp> {
         });
       }
     });
+    // Confirm finished actions (card added, name updated, signed out…).
+    ref.listen(appControllerProvider.select((state) => state.actionMessage), (
+      _,
+      message,
+    ) {
+      if (message == null || message.isEmpty) return;
+      _messenger.currentState
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      ref.read(appControllerProvider.notifier).clearActionMessage();
+    });
     final variant = ref.watch(themeControllerProvider);
     return MaterialApp.router(
+      scaffoldMessengerKey: _messenger,
       title: 'RevoCred',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.forVariant(variant),
+      theme: variant == null
+          ? AppTheme.decisionFlow
+          : AppTheme.forVariant(variant),
+      darkTheme: AppTheme.decisionFlowDark,
+      themeMode: variant == null ? ThemeMode.system : ThemeMode.light,
       themeAnimationDuration: Duration.zero,
       routerConfig: appRouter,
       builder: (context, child) => ListenableBuilder(

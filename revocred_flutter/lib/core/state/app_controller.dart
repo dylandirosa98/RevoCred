@@ -319,6 +319,14 @@ class AppController extends Notifier<AppState> {
     }
   }
 
+  /// Called once a confirmation has been shown, so the same message can show
+  /// again for a later action.
+  void clearActionMessage() {
+    if (state.actionMessage != null) {
+      state = state.copyWith(clearActionMessage: true);
+    }
+  }
+
   Future<bool> removeCard(String walletCardId) async {
     final generation = _sessionGeneration;
     try {
@@ -544,7 +552,7 @@ class AppController extends Notifier<AppState> {
       clearRecommendation: recommendation == null,
       actionMessage: _config.useMocks
           ? 'Demo recommendation calculated locally. Answers were not sent.'
-          : 'Answers saved and recommendation calculated by the Go API.',
+          : 'Your plan is updated.',
     );
     return recommendation;
   }

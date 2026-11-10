@@ -180,7 +180,7 @@ void main() {
     expect(find.text('Invalid login credentials'), findsNothing);
   });
 
-  testWidgets('signup name and password requirements do not apply to login', (
+  testWidgets('signup password rules do not apply to login; name is optional', (
     tester,
   ) async {
     final repository = RecordingRepository();
@@ -196,11 +196,9 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('auth-submit')));
     await tester.pumpAndSettle();
-    expect(repository.calls, 0);
-    expect(
-      find.text('Enter the name you want to see in RevoCred.'),
-      findsOneWidget,
-    );
+    // The name is optional: a blank name still signs up.
+    expect(repository.calls, 1);
+    repository.calls = 0;
     await tester.tap(find.byKey(const ValueKey('auth-switch-mode')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('auth-password')), 'old');

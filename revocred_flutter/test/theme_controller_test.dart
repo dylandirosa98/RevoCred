@@ -26,7 +26,7 @@ void main() {
     expect(AppTheme.decisionFlowDark.brightness, Brightness.dark);
   });
 
-  test('defaults to Decision Flow light and persists dark mode', () async {
+  test('defaults to following the phone and persists choices', () async {
     SharedPreferences.setMockInitialValues({});
     final preferences = await SharedPreferences.getInstance();
     final container = ProviderContainer(
@@ -34,10 +34,7 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    expect(
-      container.read(themeControllerProvider),
-      AppThemeVariant.decisionFlow,
-    );
+    expect(container.read(themeControllerProvider), isNull);
 
     await container
         .read(themeControllerProvider.notifier)
@@ -47,6 +44,10 @@ void main() {
       AppThemeVariant.decisionFlowDark,
     );
     expect(preferences.getString(themePreferenceKey), 'decisionFlowDark');
+
+    await container.read(themeControllerProvider.notifier).select(null);
+    expect(container.read(themeControllerProvider), isNull);
+    expect(preferences.getString(themePreferenceKey), 'system');
   });
 
   test('loads persisted dark mode synchronously', () async {
@@ -65,7 +66,7 @@ void main() {
     );
   });
 
-  test('migrates retired themes to Decision Flow light', () async {
+  test('retired themes follow the phone', () async {
     SharedPreferences.setMockInitialValues({
       themePreferenceKey: 'walletStudio',
     });
@@ -75,9 +76,6 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    expect(
-      container.read(themeControllerProvider),
-      AppThemeVariant.decisionFlow,
-    );
+    expect(container.read(themeControllerProvider), isNull);
   });
 }

@@ -55,8 +55,10 @@ class ProfileScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          !state.isAuthenticated || config.useMocks
-              ? 'Demo profile | Sign in to use your live account'
+          config.useMocks
+              ? 'Demo mode'
+              : !state.isAuthenticated
+              ? 'Guest preview · Sign in to save your plan'
               : 'Signed in',
           style: TextStyle(color: product.success, fontWeight: FontWeight.w700),
         ),
@@ -73,7 +75,7 @@ class ProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Use the same Decision Flow interface in the appearance that fits your environment.',
+                'Match your phone, or always use light or dark.',
                 style: TextStyle(color: product.muted),
               ),
               const SizedBox(height: 16),

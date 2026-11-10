@@ -28,7 +28,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // The answer comes first: the strategy and the single next move.
-    expect(find.textContaining(RegExp(r'^S\d\d STRATEGY$')), findsOneWidget);
+    expect(
+      find.textContaining(RegExp(r'^S\d\d (STRATEGY$|· )')),
+      findsOneWidget,
+    );
     expect(
       find.textContaining(
         RegExp('^(Consider next: |No new application is recommended)'),
