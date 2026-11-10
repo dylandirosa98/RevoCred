@@ -24,10 +24,11 @@ acceptance testing; final legal/support facts remain open.
 - Active Apple Developer membership; accepted current agreements and an
   appropriate seller/legal entity for the app's sensitive financial information.
 - Register the final bundle ID and create the matching App Store Connect app.
-  Current Runner ID: `com.revocred.revocredFlutter`. Confirm it before the first
-  upload. If changing it, change Debug/Profile/Release consistently in Xcode;
-  the script verifies they agree. The auth URL scheme `com.revocred.app` is a
-  separate identifier and need not equal the bundle ID.
+  Runner ID: `com.revocred.app` (decided 2026-11-10; permanent after the first
+  upload). The release script rejects any other ID and checks that
+  Debug/Profile/Release agree. The auth URL scheme is also `com.revocred.app`.
+- Version 1 is iPhone-only (`TARGETED_DEVICE_FAMILY = 1`). iPads run it in
+  iPhone mode; shipping iPad support later is allowed, removing it is not.
 - Install full Xcode **26+**, iOS **26+** SDK and compatible macOS. Complete
   Xcode's first-launch setup and select it with `xcode-select`. These are the
   upload requirements checked on 2026-10-19; recheck Apple's requirements before
@@ -136,8 +137,8 @@ release provenance; record the exact release commit and avoid uncommitted cuts.
 ## 4. Native acceptance gate
 
 Record device/OS, build number, date, result and evidence for each row. All rows
-start **unverified**, not passed. Use iPhone and iPad (both are supported by the
-current target), a small screen, increased text size and VoiceOver.
+start **unverified**, not passed. Use iPhones (version 1 is iPhone-only), a small
+screen, increased text size and VoiceOver; spot-check iPhone mode on an iPad.
 
 | Journey | Required evidence |
 | --- | --- |
@@ -148,7 +149,7 @@ current target), a small screen, increased text size and VoiceOver.
 | Wallet add/edit/remove and plan refresh | Account-isolated saved values; consistent deterministic results |
 | AI consent/decline/revoke/account switch | No external AI calls without permission; planning still usable |
 | REVO slow/failing/offline | Recoverable error; no duplicate sends or private cross-account data |
-| Strategy PDF export/share | Native share sheet works on iPhone and iPad |
+| Strategy PDF export/share | Native share sheet works on iPhone |
 | Apply links/privacy/support | Correct destinations, actual disclosure, no dead links |
 | Account export/delete | Export readable; deletion removes hosted auth/live data and local private state |
 | Airplane mode/poor network/IPv6-only | No crash; clear retry/errors and no endless loader |

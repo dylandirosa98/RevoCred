@@ -83,7 +83,7 @@ class IOSReleaseTest(unittest.TestCase):
 
     def test_native_project_rejects_missing_or_drifting_release_metadata(self):
         for old, new in (("IPHONEOS_DEPLOYMENT_TARGET = 13.0;", "IPHONEOS_DEPLOYMENT_TARGET = 12.0;"),
-                         ("PRODUCT_BUNDLE_IDENTIFIER = com.revocred.revocredFlutter;", "PRODUCT_BUNDLE_IDENTIFIER = wrong.bundle;"),
+                         ("PRODUCT_BUNDLE_IDENTIFIER = com.revocred.app;", "PRODUCT_BUNDLE_IDENTIFIER = wrong.bundle;"),
                          ("PrivacyInfo.xcprivacy in Resources", "Missing.xcprivacy in Resources")):
             with self.subTest(old=old), tempfile.TemporaryDirectory() as directory:
                 app = Path(directory)

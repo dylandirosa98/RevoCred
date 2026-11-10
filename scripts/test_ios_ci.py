@@ -34,14 +34,14 @@ class IOSCITest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ios_release.load_config(path)
 
-    def test_simulators_require_ios26_and_both_device_families(self):
+    def test_simulators_require_an_ios26_iphone(self):
         devices = {'devices': {
             'com.apple.CoreSimulator.SimRuntime.iOS-18-5': [
                 {'name': 'iPhone old', 'udid': 'old', 'isAvailable': True}],
             'com.apple.CoreSimulator.SimRuntime.iOS-26-0': [
                 {'name': 'iPhone 17', 'udid': 'phone', 'isAvailable': True},
                 {'name': 'iPad Pro', 'udid': 'pad', 'isAvailable': True}]}}
-        self.assertEqual([x['udid'] for x in ios_ci.choose_simulators(devices)], ['phone', 'pad'])
+        self.assertEqual([x['udid'] for x in ios_ci.choose_simulators(devices)], ['phone'])
         devices['devices'].pop('com.apple.CoreSimulator.SimRuntime.iOS-26-0')
         with self.assertRaises(ValueError):
             ios_ci.choose_simulators(devices)

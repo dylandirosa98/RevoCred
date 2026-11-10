@@ -25,9 +25,10 @@ Toolchain:
 - App deployment minimum remains **iOS 13.0**, matching the pinned Flutter
   SDK's `ios_deployment_target_migration.dart` minimum. The build SDK requirement
   is **not** a reason to raise the app deployment target to iOS 26.
-- Debug/Profile/Release Runner bundle ID remains
-  `com.revocred.revocredFlutter`. `Info.plist` inherits it. The independent native
-  auth scheme remains `com.revocred.app`. Neither identifier has been renamed.
+- Debug/Profile/Release Runner bundle ID is `com.revocred.app`, and the app is
+  iPhone-only (`TARGETED_DEVICE_FAMILY = 1`); `scripts/ios_release.py` enforces
+  both. `Info.plist` inherits the ID. The native auth scheme is also
+  `com.revocred.app`.
 
 `python3 scripts/ios_ci.py` creates a temporary public compile fixture with
 production code-path flags (`REVOCRED_PRODUCTION=true`, mocks disabled), but
@@ -42,9 +43,9 @@ The runner performs:
 2. Unsigned device release compilation. The built app must retain the expected
    bundle ID, encryption declaration, and bundled non-tracking privacy manifest.
 3. Debug simulator compilation with the same fixture, not live credentials.
-4. Cold installation/launch on an available iOS 26+ **iPhone and iPad** simulator.
-   Each app process must remain alive after 15 seconds; each produces a launch
-   screenshot and fixture-only Runner runtime log. Missing either family fails
+4. Cold installation/launch on an available iOS 26+ **iPhone** simulator.
+   The app process must remain alive after 15 seconds; it produces a launch
+   screenshot and fixture-only Runner runtime log. A missing iPhone simulator fails
    rather than silently marking smoke passed.
 
 This is **launch-process smoke**, not an automated UI journey or proof of the
@@ -64,7 +65,7 @@ Only these allowlisted files are uploaded from `.local/release-readiness/`:
   start as `unverified`; errors never produce a success status.
 - `unsigned-device-compile-fixture.zip`: unsigned release `Runner.app`.
 - `simulator-compile-fixture.zip`: debug simulator `Runner.app`.
-- `iphone-launch.png`, `ipad-launch.png`, and named fixture-only `*.log` files.
+- `iphone-launch.png` and named fixture-only `*.log` files.
 
 App bundles are zipped with `ditto` to retain framework symlinks. Whole
 workspaces, keychains, provisioning profiles, `.env*`, and signing material are

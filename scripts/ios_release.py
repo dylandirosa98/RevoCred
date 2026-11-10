@@ -16,6 +16,7 @@ from check_release_config import MOBILE_AUTH_CALLBACK, validate, validate_public
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "revocred_flutter"
+BUNDLE_ID = "com.revocred.app"
 FLUTTER_REVISION = "6b182d2c7585eba26d4edce0f97630effd256c33"
 PUBLIC_KEYS = frozenset((
     "REVOCRED_LEGAL_ENTITY",
@@ -125,6 +126,13 @@ def validate_project(app=APP):
     runner_ids = [value.strip('"') for value in ids if not value.endswith(".RunnerTests")]
     if len(runner_ids) != 3 or len(set(runner_ids)) != 1 or not runner_ids[0]:
         raise ValueError("Runner bundle identifiers must agree across all three build configurations.")
+    # Permanent once the first build is uploaded to App Store Connect.
+    if runner_ids[0] != BUNDLE_ID:
+        raise ValueError(f"The Runner bundle identifier must be {BUNDLE_ID}.")
+    # Version 1 is iPhone-only; shipping iPad support can never be undone.
+    families = re.findall(r"TARGETED_DEVICE_FAMILY = ([^;]+);", project)
+    if len(families) != 3 or {value.strip('"') for value in families} != {"1"}:
+        raise ValueError("Version 1 is iPhone-only: TARGETED_DEVICE_FAMILY must be 1 in all configurations.")
     if info.get("CFBundleIdentifier") != "$(PRODUCT_BUNDLE_IDENTIFIER)":
         raise ValueError("Info.plist must inherit the project bundle identifier.")
     targets = re.findall(r"IPHONEOS_DEPLOYMENT_TARGET = ([^;]+);", project)

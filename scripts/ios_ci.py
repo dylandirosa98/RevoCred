@@ -31,17 +31,18 @@ def write_fixture(path):
 
 
 def choose_simulators(payload):
+    """Version 1 is iPhone-only, so the launch smoke runs on an iPhone."""
     candidates = []
     for runtime, devices in payload['devices'].items():
         match = re.search(r'iOS-(\d+)-(\d+)', runtime)
         if match and int(match[1]) >= 26:
             candidates.append((tuple(map(int, match.groups())), devices))
     for _, devices in sorted(candidates, key=lambda pair: pair[0], reverse=True):
-        chosen = [next((d for d in devices if d.get('isAvailable') and
-                        d['name'].startswith(family)), None) for family in ('iPhone', 'iPad')]
-        if all(chosen):
-            return chosen
-    raise ValueError('Require available iOS 26+ iPhone AND iPad simulators; no smoke silently skipped.')
+        phone = next((d for d in devices if d.get('isAvailable') and
+                      d['name'].startswith('iPhone')), None)
+        if phone:
+            return [phone]
+    raise ValueError('Require an available iOS 26+ iPhone simulator; no smoke silently skipped.')
 
 
 def select_xcode():
