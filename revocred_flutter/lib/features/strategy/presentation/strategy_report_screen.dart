@@ -11,6 +11,7 @@ import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/content_layout.dart';
 import 'strategy_roadmap_view.dart';
+import '../../../core/logic/friendly_error.dart';
 
 class StrategyReportScreen extends ConsumerStatefulWidget {
   const StrategyReportScreen({super.key});
@@ -158,7 +159,11 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not export the report: $error')),
+          SnackBar(
+            content: Text(
+              'Could not export the report. ${friendlyError(error)}',
+            ),
+          ),
         );
       }
     } finally {

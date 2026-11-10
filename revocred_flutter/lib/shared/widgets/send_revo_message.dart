@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -53,7 +55,7 @@ Future<bool> sendRevoMessage(
       if (ref.read(chatConsentProvider).hasError || attempt > 0) {
         ref.invalidate(chatConsentProvider);
       }
-      final consent = await ref.read(chatConsentProvider.future);
+      final consent = await _currentConsent(ref);
       if (!context.mounted) return false;
       var useAI = consent.granted;
       if (consent.external && !consent.granted) {
@@ -107,5 +109,21 @@ Future<bool> sendRevoMessage(
     return false;
   } finally {
     gate.busy = false;
+  }
+}
+
+/// Loads the sharing notice while listening, so the load always completes,
+/// with a ceiling so Send can never stay disabled.
+Future<ChatConsentState> _currentConsent(WidgetRef ref) async {
+  final subscription = ref.listenManual(chatConsentProvider, (_, _) {});
+  try {
+    return await ref
+        .read(chatConsentProvider.future)
+        .timeout(const Duration(seconds: 45));
+  } on TimeoutException {
+    ref.invalidate(chatConsentProvider);
+    rethrow;
+  } finally {
+    subscription.close();
   }
 }

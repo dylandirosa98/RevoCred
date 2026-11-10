@@ -10,6 +10,7 @@ import '../../../core/logic/strategy_digest.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/content_layout.dart';
 import '../../../shared/widgets/theme_switcher.dart';
+import '../../../core/logic/friendly_error.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -146,7 +147,7 @@ class ProfileScreen extends ConsumerWidget {
           // go, not push: the questionnaire is a full-screen route outside the
           // shell, so pushing it left the URL on /profile and stacked a screen
           // the back button would return to.
-          onTap: () => context.go('/questionnaire'),
+          onTap: () => context.go('/questionnaire?from=profile'),
           borderRadius: BorderRadius.circular(product.radius),
           child: AppPanel(
             child: Row(
@@ -321,7 +322,7 @@ Future<void> _editName(
     if (!context.mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('$error')));
+    ).showSnackBar(SnackBar(content: Text(friendlyError(error))));
   }
 }
 

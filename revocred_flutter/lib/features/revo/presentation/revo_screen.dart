@@ -53,6 +53,13 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
       }
     }
+    // On small phones, large text or with the keyboard open, the header gives
+    // its space to the conversation and composer.
+    final media = MediaQuery.of(context);
+    final keyboardOpen = media.viewInsets.bottom > 0;
+    final shortScreen =
+        media.size.height - media.viewInsets.bottom <
+        640 * media.textScaler.scale(1).clamp(1.0, 2.0);
     return SafeArea(
       child: Center(
         child: ConstrainedBox(
@@ -62,69 +69,78 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
               Padding(
                 padding: EdgeInsets.fromLTRB(
                   product.pagePadding,
+                  keyboardOpen ? 8 : product.pagePadding,
                   product.pagePadding,
-                  product.pagePadding,
-                  product.compact ? 12 : 18,
+                  keyboardOpen ? 8 : (product.compact ? 12 : 18),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Ask REVO',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    if (data.messages.isNotEmpty)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: submitting ? null : _clearConversation,
-                          child: const Text('Clear conversation'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Ask REVO',
+                            style: keyboardOpen
+                                ? Theme.of(context).textTheme.titleLarge
+                                : Theme.of(context).textTheme.headlineMedium,
+                          ),
                         ),
+                        if (data.messages.isNotEmpty)
+                          TextButton(
+                            onPressed: submitting ? null : _clearConversation,
+                            child: const Text('Clear'),
+                          ),
+                      ],
+                    ),
+                    if (!keyboardOpen && !shortScreen) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        !config.useMocks
+                            ? 'Explains your cards, spending and plan.'
+                            : 'Explains the demo wallet and plan.',
+                        style: TextStyle(color: product.muted),
                       ),
-                    const SizedBox(height: 5),
-                    Text(
-                      !config.useMocks
-                          ? 'Explains your cards, spending, strategy and ranking. RevoCred picks the cards; REVO explains them.'
-                          : 'Explains your wallet and server ranking. It does not pick cards.',
-                      style: TextStyle(color: product.muted),
-                    ),
-                    const SizedBox(height: 14),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final prompts = data.quickPrompts
-                            .map(
-                              (prompt) => _QuickPromptButton(
-                                label: Text(prompt),
-                                onPressed: submitting
-                                    ? null
-                                    : () => _submit(prompt),
-                              ),
-                            )
-                            .toList();
-                        if (constraints.maxWidth < 600) {
-                          return SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                for (
-                                  var index = 0;
-                                  index < prompts.length;
-                                  index++
-                                ) ...[
-                                  if (index > 0) const SizedBox(width: 12),
-                                  prompts[index],
+                    ],
+                    if (!keyboardOpen) ...[
+                      const SizedBox(height: 14),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final prompts = data.quickPrompts
+                              .map(
+                                (prompt) => _QuickPromptButton(
+                                  label: Text(prompt),
+                                  onPressed: submitting
+                                      ? null
+                                      : () => _submit(prompt),
+                                ),
+                              )
+                              .toList();
+                          if (constraints.maxWidth < 600) {
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  for (
+                                    var index = 0;
+                                    index < prompts.length;
+                                    index++
+                                  ) ...[
+                                    if (index > 0) const SizedBox(width: 12),
+                                    prompts[index],
+                                  ],
                                 ],
-                              ],
-                            ),
+                              ),
+                            );
+                          }
+                          return Wrap(
+                            spacing: 10,
+                            runSpacing: 6,
+                            children: prompts,
                           );
-                        }
-                        return Wrap(
-                          spacing: 10,
-                          runSpacing: 6,
-                          children: prompts,
-                        );
-                      },
-                    ),
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),

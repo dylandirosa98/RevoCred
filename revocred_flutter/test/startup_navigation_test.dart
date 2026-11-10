@@ -54,7 +54,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('nav-ask-revo-idle')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('does not pick cards'), findsOneWidget);
+    expect(find.byKey(const ValueKey('revo-composer')), findsOneWidget);
 
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();

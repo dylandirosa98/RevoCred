@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/card_terms_sheet.dart';
 import '../../../shared/widgets/custom_card_form.dart';
 import '../../../shared/widgets/issuer_mark.dart';
+import '../../../core/logic/friendly_error.dart';
 
 class QuestionnaireScreen extends ConsumerStatefulWidget {
   const QuestionnaireScreen({super.key});
@@ -162,12 +163,41 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
     super.dispose();
   }
 
+  /// The questionnaire is often opened with `go`, which leaves nothing to pop
+  /// back to. Always offer a way out to where the user came from.
+  Widget _exitButton(BuildContext context) {
+    if (context.canPop()) return const BackButton();
+    return IconButton(
+      key: const ValueKey('questionnaire-close'),
+      tooltip: 'Close',
+      icon: const Icon(Icons.close),
+      onPressed: saving
+          ? null
+          : () {
+              final signedIn = ref.read(appControllerProvider).isAuthenticated;
+              final from = GoRouterState.of(
+                context,
+              ).uri.queryParameters['from'];
+              context.go(
+                !signedIn
+                    ? '/welcome'
+                    : from == 'profile'
+                    ? '/profile'
+                    : '/home',
+              );
+            },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final data = ref.watch(appControllerProvider).data!;
-    if (!catalogReady) {
+    final data = ref.watch(appControllerProvider).data;
+    if (data == null || !catalogReady) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Build your strategy')),
+        appBar: AppBar(
+          leading: _exitButton(context),
+          title: const Text('Build your strategy'),
+        ),
         body: Center(
           child: loadError == null
               ? const CircularProgressIndicator()
@@ -183,6 +213,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
     }
     return Scaffold(
       appBar: AppBar(
+        leading: _exitButton(context),
         title: Text(
           MediaQuery.sizeOf(context).width < 360
               ? 'Your strategy'
@@ -847,7 +878,11 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save preferences: $error')),
+          SnackBar(
+            content: Text(
+              'Could not save your answers. ${friendlyError(error)}',
+            ),
+          ),
         );
       }
     } finally {

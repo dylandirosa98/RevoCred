@@ -9,6 +9,7 @@ import '../data/demo_seed.dart';
 import '../data/onboarding_draft_store.dart';
 import '../logic/demo_recommendation.dart';
 import '../logic/playbook.dart';
+import '../logic/friendly_error.dart';
 import '../models/app_models.dart';
 import '../models/chat_errors.dart';
 
@@ -291,7 +292,9 @@ class AppController extends Notifier<AppState> {
       return true;
     } catch (error) {
       if (generation != _sessionGeneration) return false;
-      state = state.copyWith(error: 'Could not add card: $error');
+      state = state.copyWith(
+        error: 'Could not add card. ${friendlyError(error)}',
+      );
       return false;
     }
   }
@@ -309,7 +312,9 @@ class AppController extends Notifier<AppState> {
       return true;
     } catch (error) {
       if (generation != _sessionGeneration) return false;
-      state = state.copyWith(error: 'Could not add custom card: $error');
+      state = state.copyWith(
+        error: 'Could not add custom card. ${friendlyError(error)}',
+      );
       return false;
     }
   }
@@ -325,7 +330,9 @@ class AppController extends Notifier<AppState> {
       return true;
     } catch (error) {
       if (generation != _sessionGeneration) return false;
-      state = state.copyWith(error: 'Could not remove card: $error');
+      state = state.copyWith(
+        error: 'Could not remove card. ${friendlyError(error)}',
+      );
       return false;
     }
   }
@@ -561,7 +568,9 @@ class AppController extends Notifier<AppState> {
       );
     } catch (error) {
       if (generation != _sessionGeneration) rethrow;
-      state = state.copyWith(error: 'Could not update your name: $error');
+      state = state.copyWith(
+        error: 'Could not update your name. ${friendlyError(error)}',
+      );
       rethrow;
     }
   }
