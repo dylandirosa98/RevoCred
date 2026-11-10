@@ -32,7 +32,7 @@ RUN flutter build web --release --no-web-resources-cdn \
     --dart-define=SUPABASE_URL=${SUPABASE_URL} \
     --dart-define=SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
 
-FROM nginx:1.29-alpine
+FROM nginx:1.31-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build/web /usr/share/nginx/html
