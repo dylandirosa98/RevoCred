@@ -107,6 +107,7 @@ class CreditCard {
     this.communityData,
     this.minimumCreditTier = '',
     this.modeledRates = const {},
+    this.rewardsType = '',
   });
 
   factory CreditCard.fromJson(Map<String, dynamic> json) => CreditCard(
@@ -128,6 +129,7 @@ class CreditCard {
     feeTier: (json['feeTier'] ?? json['annual_fee_tier'] ?? '0') as String,
     walletCardId: (json['walletCardId'] ?? json['wallet_card_id']) as String?,
     termsUnknown: json['termsUnknown'] == true || json['terms_unknown'] == true,
+    rewardsType: (json['rewardsType'] ?? json['rewards_type'] ?? '').toString(),
     communityData: json['community_data'] is Map
         ? CommunityCardData.fromJson(
             (json['community_data'] as Map).cast<String, dynamic>(),
@@ -194,6 +196,7 @@ class CreditCard {
             )
           : null,
       minimumCreditTier: (json['minimum_credit_tier'] ?? '').toString(),
+      rewardsType: (json['rewards_type'] ?? '').toString(),
     );
   }
 
@@ -217,6 +220,13 @@ class CreditCard {
   /// Minimum qualifying credit tier from the versioned catalog
   /// (building, fair, good, excellent). Empty when unknown.
   final String minimumCreditTier;
+
+  /// Catalog rewards type: `cash_back`, `travel` or `hybrid`. Empty when unknown.
+  final String rewardsType;
+
+  /// Whether rewards come as travel points or miles rather than plain cash.
+  bool get earnsTravelPoints => transferablePoints || rewardsType == 'travel';
+
   // True when the cardholder chose not to supply terms. Such a card is listed
   // as owned but is left out of the score, because no known rate is not a
   // low rate.
@@ -246,6 +256,7 @@ class CreditCard {
     termsUnknown: termsUnknown ?? this.termsUnknown,
     communityData: communityData,
     minimumCreditTier: minimumCreditTier ?? this.minimumCreditTier,
+    rewardsType: rewardsType,
   );
 }
 

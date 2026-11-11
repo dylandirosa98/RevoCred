@@ -43,6 +43,7 @@ class WalletEarning {
     required this.monthlySpend,
     required this.annualPoints,
     this.source = EarningSource.wallet,
+    this.cashBack = false,
   });
 
   /// Shown when there is no spending or no scoreable card yet.
@@ -59,6 +60,13 @@ class WalletEarning {
   /// rewards estimate in cents).
   final int annualPoints;
   final EarningSource source;
+
+  /// True when every scored card pays plain cash back, so the yearly figure
+  /// is dollars (in cents), not travel points.
+  final bool cashBack;
+
+  /// Yearly rewards in dollars at face value (1¢ per point).
+  double get annualDollars => annualPoints / 100;
 
   /// True when these are the member's own numbers.
   bool get personalized => source == EarningSource.wallet;
@@ -83,10 +91,12 @@ WalletEarning walletEarning(AppData data, {bool ownWallet = true}) {
         data.questionnaireAnswers?.travelScope ?? '',
       );
   if (spend <= 0 || value.rewardsCents <= 0) return WalletEarning.example;
+  final scored = data.wallet.where((c) => c.isActive && !c.termsUnknown);
   return WalletEarning(
     monthlySpend: spend,
     annualPoints: value.rewardsCents,
     source: ownWallet ? EarningSource.wallet : EarningSource.sample,
+    cashBack: scored.isNotEmpty && !scored.any((c) => c.earnsTravelPoints),
   );
 }
 

@@ -185,6 +185,9 @@ class _ExploreBodyState extends State<_ExploreBody> {
   );
   bool get isStartingView => fixedMultiplier == null && spend == _startSpend;
 
+  /// The wallet pays plain cash back, so amounts are dollars, not points.
+  bool get cash => wallet.cashBack;
+
   /// Who "your" refers to in copy.
   String get _whose => switch (wallet.source) {
     EarningSource.wallet => 'your cards',
@@ -233,13 +236,18 @@ class _ExploreBodyState extends State<_ExploreBody> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                wallet.personalized
-                    ? 'See how many points your cards earn in a year, then what those points could book.'
-                    : 'See how many points cards can earn in a year, then what those points could book.',
+                !wallet.personalized
+                    ? 'See how many points cards can earn in a year, then what those points could book.'
+                    : cash
+                    ? 'See how much cash back your cards earn in a year, and the trips it could pay for.'
+                    : 'See how many points your cards earn in a year, then what those points could book.',
                 style: TextStyle(color: product.muted, fontSize: 15),
               ),
               const SizedBox(height: 18),
-              const _StepTitle(number: 1, title: 'Your yearly points'),
+              _StepTitle(
+                number: 1,
+                title: cash ? 'Your yearly cash back' : 'Your yearly points',
+              ),
               const SizedBox(height: 10),
               _simulator(context),
               const SizedBox(height: 26),
@@ -317,7 +325,9 @@ class _ExploreBodyState extends State<_ExploreBody> {
     final monthlyPoints = (annualPoints / 12).round();
     final basis = switch (wallet.source) {
       EarningSource.wallet =>
-        'Starting from your wallet: about ${_money(wallet.monthlySpend)} a month on cards, earning ${_rate(wallet.multiplier)} points per \$1 on average.',
+        cash
+            ? 'Starting from your wallet: about ${_money(wallet.monthlySpend)} a month on cards, earning ${_rate(wallet.multiplier)}% cash back on average.'
+            : 'Starting from your wallet: about ${_money(wallet.monthlySpend)} a month on cards, earning ${_rate(wallet.multiplier)} points per \$1 on average.',
       EarningSource.sample =>
         'Starting from a sample wallet. Create an account or answer a few questions to see your own numbers.',
       EarningSource.example =>
@@ -335,14 +345,18 @@ class _ExploreBodyState extends State<_ExploreBody> {
           ),
           const SizedBox(height: 14),
           _Metric(
-            label: 'Points a year',
-            value: _count(annualPoints),
+            label: cash ? 'Cash back a year' : 'Points a year',
+            value: cash
+                ? _money((annualPoints / 100).round())
+                : _count(annualPoints),
             valueKey: const ValueKey('explore-annual-points'),
           ),
           const SizedBox(height: 4),
           Text(
             key: const ValueKey('explore-value-range'),
-            'Worth about ${_money(annualPoints * .01)} as cash back, or up to ${_money(annualPoints * .03)}+ on travel.',
+            cash
+                ? 'Cash back is worth its face value toward any trip.'
+                : 'Worth about ${_money(annualPoints * .01)} at 1¢ each, and often more when booked as travel.',
             style: TextStyle(
               color: product.action,
               fontWeight: FontWeight.w700,
@@ -350,7 +364,9 @@ class _ExploreBodyState extends State<_ExploreBody> {
           ),
           const SizedBox(height: 2),
           Text(
-            '${_count(monthlyPoints)} points a month · ${rewards.estimateDisclaimer}',
+            cash
+                ? '${_money((annualPoints / 1200).round())} a month · ${rewards.estimateDisclaimer}'
+                : '${_count(monthlyPoints)} points a month · ${rewards.estimateDisclaimer}',
             style: TextStyle(color: product.muted, fontSize: 12),
           ),
           const Divider(height: 28),
@@ -394,7 +410,9 @@ class _ExploreBodyState extends State<_ExploreBody> {
                 '${_money(value.round())} a month',
             onChanged: (value) => setState(() => spend = value.round()),
           ),
-          const Text('Points per \$1 (average)'),
+          Text(
+            cash ? 'Cash back per \$1 (average)' : 'Points per \$1 (average)',
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -402,14 +420,17 @@ class _ExploreBodyState extends State<_ExploreBody> {
             children: [
               ChoiceChip(
                 key: const ValueKey('explore-mult-wallet'),
-                label: Text('$_walletChipLabel · ${_rate(wallet.multiplier)}x'),
+                label: Text(
+                  '$_walletChipLabel · ${_rate(wallet.multiplier)}${cash ? '%' : 'x'}',
+                ),
                 selected: fixedMultiplier == null,
                 onSelected: (_) => setState(() => fixedMultiplier = null),
               ),
-              for (final value in const [1, 2, 3, 4, 5])
+              // Few wallets average more than 3x across all spending.
+              for (final value in const [1, 2, 3])
                 ChoiceChip(
                   key: ValueKey('explore-mult-$value'),
-                  label: Text('${value}x'),
+                  label: Text(cash ? '$value%' : '${value}x'),
                   selected: fixedMultiplier == value,
                   onSelected: (_) => setState(() => fixedMultiplier = value),
                 ),
@@ -484,23 +505,40 @@ class _ExploreBodyState extends State<_ExploreBody> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Booked through ${fare.airline}’s rewards program',
+              cash
+                  ? 'Example ${fare.airline} fare'
+                  : 'Booked through ${fare.airline}’s rewards program',
               style: TextStyle(color: product.muted, fontSize: 13),
             ),
             const Divider(height: 24),
-            _Comparison(
-              cashLabel: 'Pay cash',
-              cash: fare.cash,
-              pointsLabel: 'Or use points',
-              points: fare.points,
-              fees: fare.fees,
-            ),
-            _Summary(cash: fare.cash, points: fare.points, fees: fare.fees),
-            _Affordability(
-              points: fare.points,
-              annualPoints: annualPoints,
-              whose: _whose,
-            ),
+            if (cash) ...[
+              _CashPrice(cash: fare.cash),
+              _Affordability(
+                points: fare.cash * 100,
+                annualPoints: annualPoints,
+                whose: _whose,
+                cashBack: true,
+              ),
+              _TravelCardTip(
+                cash: fare.cash,
+                points: fare.points,
+                fees: fare.fees,
+              ),
+            ] else ...[
+              _Comparison(
+                cashLabel: 'Pay cash',
+                cash: fare.cash,
+                pointsLabel: 'Or use points',
+                points: fare.points,
+                fees: fare.fees,
+              ),
+              _Summary(cash: fare.cash, points: fare.points, fees: fare.fees),
+              _Affordability(
+                points: fare.points,
+                annualPoints: annualPoints,
+                whose: _whose,
+              ),
+            ],
           ],
         ),
       ),
@@ -545,36 +583,49 @@ class _ExploreBodyState extends State<_ExploreBody> {
               style: TextStyle(color: product.muted, fontSize: 13),
             ),
             const Divider(height: 24),
-            _Comparison(
-              cashLabel: 'Pay cash',
-              cash: selected.cash,
-              pointsLabel: 'Or use points',
-              points: selected.points,
-            ),
-            _Summary(cash: selected.cash, points: selected.points),
-            _Affordability(
-              points: selected.points,
-              annualPoints: annualPoints,
-              whose: _whose,
-              unit: 'night',
-            ),
+            if (cash) ...[
+              _CashPrice(cash: selected.cash),
+              _Affordability(
+                points: selected.cash * 100,
+                annualPoints: annualPoints,
+                whose: _whose,
+                unit: 'night',
+                cashBack: true,
+              ),
+              _TravelCardTip(cash: selected.cash, points: selected.points),
+            ] else ...[
+              _Comparison(
+                cashLabel: 'Pay cash',
+                cash: selected.cash,
+                pointsLabel: 'Or use points',
+                points: selected.points,
+              ),
+              _Summary(cash: selected.cash, points: selected.points),
+              _Affordability(
+                points: selected.points,
+                annualPoints: annualPoints,
+                whose: _whose,
+                unit: 'night',
+              ),
+            ],
           ],
         ),
       ),
       const SizedBox(height: 12),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.lightbulb_outline, color: product.action, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Eligible credit card points may also transfer to this hotel’s loyalty program, depending on the card and program.',
-              style: TextStyle(color: product.muted, fontSize: 13),
+      if (!cash)
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.lightbulb_outline, color: product.action, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Eligible credit card points may also transfer to this hotel’s loyalty program, depending on the card and program.',
+                style: TextStyle(color: product.muted, fontSize: 13),
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       const SizedBox(height: 12),
       _Disclaimer(rewards.hotelDisclaimer),
     ];
@@ -900,11 +951,15 @@ class _Affordability extends StatelessWidget {
     required this.annualPoints,
     required this.whose,
     this.unit = 'trip',
+    this.cashBack = false,
   });
+
+  /// Points needed, or for cash back the price in cents.
   final int points;
   final int annualPoints;
   final String whose;
   final String unit;
+  final bool cashBack;
 
   @override
   Widget build(BuildContext context) {
@@ -918,9 +973,10 @@ class _Affordability extends StatelessWidget {
         ? 'about 1 month'
         : 'about ${months.round()} months';
     final plural = perYear == 1 ? unit : '${unit}s';
+    final earn = cashBack ? 'enough cash back' : 'enough';
     final text = perYear >= 1
-        ? 'With $whose, you earn enough for this $unit in $timing — about $perYear $plural a year.'
-        : 'With $whose, this $unit takes $timing of earning.';
+        ? 'With $whose, you earn $earn for this $unit in $timing — about $perYear $plural a year.'
+        : 'With $whose, this $unit takes $timing of earning${cashBack ? ' cash back' : ''}.';
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
@@ -938,6 +994,69 @@ class _Affordability extends StatelessWidget {
               text,
               key: const ValueKey('explore-affordability'),
               style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The cash price of an example, for a cash-back wallet.
+class _CashPrice extends StatelessWidget {
+  const _CashPrice({required this.cash});
+  final int cash;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          'Cash price',
+          style: TextStyle(color: context.product.muted),
+        ),
+      ),
+      Text(
+        _money(cash),
+        key: const ValueKey('explore-cash-price'),
+        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
+      ),
+    ],
+  );
+}
+
+/// For a cash-back wallet: what travel points would get on the same booking.
+class _TravelCardTip extends StatelessWidget {
+  const _TravelCardTip({
+    required this.cash,
+    required this.points,
+    this.fees = 0,
+  });
+  final int cash;
+  final int points;
+  final int fees;
+
+  @override
+  Widget build(BuildContext context) {
+    final cents = redemptionCentsPerPoint(
+      cash: cash,
+      points: points,
+      fees: fees,
+    );
+    if (cents < 1.2) return const SizedBox.shrink();
+    final product = context.product;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lightbulb_outline, color: product.action, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'With travel points instead, this booking gets about ${cents.toStringAsFixed(1)}¢ a point, versus 1¢ for cash back. A travel card could stretch your rewards further.',
+              key: const ValueKey('explore-travel-tip'),
+              style: TextStyle(color: product.muted, fontSize: 13),
             ),
           ),
         ],

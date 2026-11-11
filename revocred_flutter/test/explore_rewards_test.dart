@@ -108,6 +108,40 @@ void main() {
       );
     });
 
+    test('an all cash-back wallet is shown in dollars, not points', () {
+      CreditCard card(String id, {String type = 'cash_back', bool t = false}) =>
+          CreditCard.fromApiJson({
+            'id': id,
+            'name': id,
+            'issuer': 'Test',
+            'rewards_type': type,
+            'transferable_points': t,
+            'reward_rates': {'other': 2},
+          }, isActive: true);
+      final spend = const {'other': 1000};
+      const value = OngoingValue(rewardsCents: 24000);
+      final cash = walletEarning(
+        _member(spend: spend, value: value, wallet: [card('double')]),
+      );
+      expect(cash.cashBack, isTrue);
+      expect(cash.annualDollars, 240);
+      final travel = walletEarning(
+        _member(
+          spend: spend,
+          value: value,
+          wallet: [
+            card('double'),
+            card('sapphire', type: 'travel', t: true),
+          ],
+        ),
+      );
+      expect(travel.cashBack, isFalse);
+      expect(
+        walletEarning(_member(spend: spend, value: value)).cashBack,
+        isFalse,
+      );
+    });
+
     test('the wallet view reproduces the wallet estimate exactly', () {
       const earning = WalletEarning(monthlySpend: 900, annualPoints: 21601);
       expect(

@@ -59,9 +59,11 @@ class ExploreRewardsEntry extends ConsumerWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      wallet.personalized
-                          ? 'Your cards earn about $points points a year. See the flights and hotels they could cover.'
-                          : 'See the flights and hotels credit card points could cover.',
+                      !wallet.personalized
+                          ? 'See the flights and hotels credit card rewards could cover.'
+                          : wallet.cashBack
+                          ? 'Your cards earn about \$${wallet.annualDollars.round()} cash back a year. See the trips it could pay for.'
+                          : 'Your cards earn about $points points a year. See the flights and hotels they could cover.',
                       style: TextStyle(color: product.muted, fontSize: 13),
                     ),
                   ],
