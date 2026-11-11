@@ -1,27 +1,34 @@
 # RevoCred Support
 
-Contact: {{SUPPORT_EMAIL}}
+Email [support@revocred.com](mailto:support@revocred.com). We aim to reply within [[SUPPORT RESPONSE TIME]].
 
-Operator: {{LEGAL_ENTITY}}
+RevoCred is operated by [[COMPANY LEGAL NAME]], [[MAILING ADDRESS]].
 
-## Account access
+When you write, include your iPhone model and iOS version, what you were doing, and roughly when. Never send your password, sign-in or reset links, card numbers, account exports or unredacted financial screenshots.
 
-Use account recovery on the welcome screen to resend confirmation or request a password reset. Check the email address you entered and your spam folder. If a link expires, request another. Never forward confirmation or reset links to support.
+## Signing in
 
-## Export and deletion
+- **No confirmation email?** Check the address you entered and your spam folder. On the welcome screen, open account recovery and choose Resend account confirmation.
+- **Forgot your password?** Open account recovery on the welcome screen and choose Send password reset. Open the email on the same iPhone. If the link has expired, request a new one.
+- **Still stuck?** Email us from the address on your account.
 
-Open Profile, then Account settings to export your application data as JSON or delete your account. Deletion asks for your current password and confirmation. Your exported files and shared PDFs are not recalled. See the privacy policy for backup and retention details.
+## Export or delete your data
 
-If you cannot access your account, contact {{SUPPORT_EMAIL}} for help. [OWNER: confirm monitored channel, identity-verification procedure and deletion assistance before publication.]
+- **Export:** Profile → Account settings → Export my data.
+- **Delete your account:** Profile → Account settings → Delete my account. Enter your password and confirm. This permanently deletes your account and its data. See the [Privacy Policy](/privacy) for backups.
+- If you cannot sign in and want your account deleted, email us from the address on the account.
 
-## REVO and reporting
+## REVO, the AI assistant
 
-Basic replies use RevoCred's server without external AI. Agree and continue enables external AI for your account until you turn off Profile → AI answers (REVO) or the sharing notice changes. Guest permission lasts for the app session. The sharing notice identifies the configured service and shared context. Cancel sends no message. Confirm these controls in the final release.
+- Guests get basic answers from our server. Create a free account to get AI answers about your own cards.
+- Before the first AI answer, REVO asks for permission to share your question and plan details with the named AI service. Cancel sends nothing; Basic answer instead uses our server only.
+- Turn AI sharing off any time in Profile → AI answers (REVO).
+- AI answers can be wrong and are not financial advice. Tap Report on any answer that is inaccurate, harmful or offensive.
 
-Use Report on an assistant message for inaccurate, harmful or offensive content. For other issues, contact {{SUPPORT_EMAIL}} with the app version, feature, approximate time and a redacted description. Do not send passwords, reset links, tokens, card numbers, account exports or unredacted financial screenshots.
+## REVO AI subscription
 
-[OWNER: confirm report/support monitoring, escalation owner and any response commitments.]
+REVO AI is billed through your Apple ID and renews automatically each month unless you turn it off at least 24 hours before the period ends. Manage or cancel it in Settings → [your name] → Subscriptions on your iPhone. For refunds, use [Apple's Report a Problem](https://reportaproblem.apple.com).
 
-## Rewards estimates
+## About our estimates
 
-RevoCred provides educational rewards estimates. It does not issue credit, process credit applications or guarantee approval, rewards or savings. Verify current issuer terms before acting. Demo data is unverified and is not an offer.
+RevoCred gives educational rewards estimates. It does not issue credit, submit applications or guarantee approval, rewards or savings. Check the issuer's current terms before you apply. See the [Terms of Use](/terms).

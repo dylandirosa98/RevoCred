@@ -1,5 +1,13 @@
 import 'dart:convert';
 
+/// Public legal pages served by the API (see docs/legal/README.md). Builds can
+/// override them with REVOCRED_PRIVACY_URL, REVOCRED_TERMS_URL and
+/// REVOCRED_SUPPORT_URL, e.g. after a move to revocred.com.
+const defaultPrivacyUrl = 'https://api.revocred.com/privacy';
+const defaultTermsUrl = 'https://api.revocred.com/terms';
+const defaultSupportUrl = 'https://api.revocred.com/support';
+const defaultSupportEmail = 'support@revocred.com';
+
 class AppConfig {
   const AppConfig({
     required this.useMocks,
@@ -14,6 +22,7 @@ class AppConfig {
     this.legalEffectiveDate = '',
     this.privacyUrl = '',
     this.termsUrl = '',
+    this.supportUrl = '',
   });
 
   const AppConfig.fromEnvironment()
@@ -29,15 +38,28 @@ class AppConfig {
         'REVOCRED_AUTH_REDIRECT_URL',
       ),
       legalEntity = const String.fromEnvironment('REVOCRED_LEGAL_ENTITY'),
-      supportEmail = const String.fromEnvironment('REVOCRED_SUPPORT_EMAIL'),
+      supportEmail = const String.fromEnvironment(
+        'REVOCRED_SUPPORT_EMAIL',
+        defaultValue: defaultSupportEmail,
+      ),
       legalJurisdiction = const String.fromEnvironment(
         'REVOCRED_LEGAL_JURISDICTION',
       ),
       legalEffectiveDate = const String.fromEnvironment(
         'REVOCRED_LEGAL_EFFECTIVE_DATE',
       ),
-      privacyUrl = const String.fromEnvironment('REVOCRED_PRIVACY_URL'),
-      termsUrl = const String.fromEnvironment('REVOCRED_TERMS_URL');
+      privacyUrl = const String.fromEnvironment(
+        'REVOCRED_PRIVACY_URL',
+        defaultValue: defaultPrivacyUrl,
+      ),
+      termsUrl = const String.fromEnvironment(
+        'REVOCRED_TERMS_URL',
+        defaultValue: defaultTermsUrl,
+      ),
+      supportUrl = const String.fromEnvironment(
+        'REVOCRED_SUPPORT_URL',
+        defaultValue: defaultSupportUrl,
+      );
 
   final bool useMocks;
   final String apiUrl;
@@ -52,6 +74,7 @@ class AppConfig {
   final String legalEffectiveDate;
   final String privacyUrl;
   final String termsUrl;
+  final String supportUrl;
 
   void validate() {
     if (supabaseAnonKey.startsWith('sb_secret_')) {
@@ -71,10 +94,11 @@ class AppConfig {
         legalEffectiveDate,
         privacyUrl,
         termsUrl,
+        supportUrl,
       ].any((value) => value.trim().isEmpty)) {
         throw StateError('Production requires complete legal configuration.');
       }
-      for (final value in [privacyUrl, termsUrl]) {
+      for (final value in [privacyUrl, termsUrl, supportUrl]) {
         final uri = Uri.tryParse(value);
         if (uri == null ||
             uri.scheme != 'https' ||

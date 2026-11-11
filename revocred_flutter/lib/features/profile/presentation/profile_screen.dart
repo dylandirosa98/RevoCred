@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/models/chat_errors.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/state/chat_consent.dart';
@@ -252,7 +253,9 @@ class ProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 5),
               SelectableText(
-                'support@revocred.app',
+                config.supportEmail.isEmpty
+                    ? defaultSupportEmail
+                    : config.supportEmail,
                 style: TextStyle(color: product.action),
               ),
             ],

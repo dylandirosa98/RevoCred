@@ -82,7 +82,7 @@ class LegalScreen extends ConsumerWidget {
                         if (notice.searchProvider.isNotEmpty)
                           Text('Search service: ${notice.searchProvider}.'),
                         const Text(
-                          'External AI is used only after your explicit permission. Account permission lasts until you turn it off in Profile or the sharing notice changes. Guest permission lasts for the app session. Basic replies use our server without external AI. Provider retention follows its service agreement; zero retention is not promised.',
+                          'External AI is used only after your explicit permission. Permission lasts until you turn it off in Profile or the sharing notice changes. Guests always get basic replies, which use our server without external AI. Provider retention follows its service agreement; zero retention is not promised.',
                         ),
                       ],
                     ],
@@ -97,7 +97,7 @@ class LegalScreen extends ConsumerWidget {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const Text(
-              'RevoCred provides educational estimates, not financial, tax or legal advice. Approval, rewards and savings are not guaranteed. Verify current issuer terms and never spend or borrow solely for rewards. Use only your own account and information you are authorized to provide. Protect your credentials and do not access other accounts or disrupt the service.',
+              'RevoCred is for adults 18 or older in the United States. It provides educational estimates, not financial, tax or legal advice. Approval, rewards and savings are not guaranteed. Verify current issuer terms and never spend or borrow solely for rewards. Use only your own account and information you are authorized to provide. Protect your credentials and do not access other accounts or disrupt the service.',
             ),
             const Text(
               'Ongoing wallet value includes spending rewards, reviewed relevant credits at a conditional 70% usage assumption and anniversary rewards after eligible renewal, minus annual fees. Eligible merchants, portals, enrollment and limits apply. Points are valued at one cent. Housing rewards, welcome bonuses and conditional earning-rate uplift are excluded. Application rankings use a separate conservative rewards-minus-fees model excluding conditional credits and anniversary rewards. See the yearly-value breakdown for assumptions and sources.',
@@ -121,6 +121,14 @@ class LegalScreen extends ConsumerWidget {
                   ? null
                   : () => _openLegalLink(context, config.termsUrl),
               child: Text(config.useMocks ? 'Full terms (demo)' : 'Full terms'),
+            ),
+            TextButton(
+              onPressed: config.useMocks
+                  ? null
+                  : () => _openLegalLink(context, config.supportUrl),
+              child: Text(
+                config.useMocks ? 'Support page (demo)' : 'Support page',
+              ),
             ),
             Text(value(config.supportEmail, 'support@example.invalid')),
             TextButton(

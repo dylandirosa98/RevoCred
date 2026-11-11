@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/revocred/revocred-api/internal/auth"
+	"github.com/revocred/revocred-api/internal/legal"
 )
 
 type contextKey string
@@ -59,6 +60,12 @@ func authenticatedUser(ctx context.Context) auth.User {
 func (a *API) cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := strings.TrimRight(r.Header.Get("Origin"), "/")
+		// Legal pages are plain navigations that any site may link to; they
+		// carry no credentials or data, so no origin is rejected or allowed.
+		if legal.IsPublicPath(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if origin != "" {
 			if _, allowed := a.allowedOrigins[origin]; !allowed {
 				writeError(w, r, http.StatusForbidden, "origin_not_allowed", "request origin is not allowed", nil)
