@@ -115,13 +115,14 @@ func TestMapTermsRealRows(t *testing.T) {
 	}
 
 	unscored := map[string]string{
-		"us-chase-ihg-traveler":           "hotel loyalty currency",
+		"us-robinhood-gold-card":          "base rate is conditional",
+		"us-barclays-arrival":             "not active",
+		"us-us-bank-skypass-visa-classic": "not active",
 		"us-citi-macys-credit-card":       "store card",
 		"us-capital-one-platinum":         "no rewards currency",
 		"us-us-bank-smartly":              "base rate is conditional",
 		"us-wells-fargo-propel":           "not active",
 		"us-synchrony-dicks-credit-card":  "store card",
-		"us-fetch-american-express":       "base rate 5",
 		"us-citi-my-best-buy-credit-card": "",
 	}
 	for id, reason := range unscored {
@@ -161,7 +162,7 @@ func TestClassifyLabelRules(t *testing.T) {
 }
 
 func TestReferenceTermsComeFromExactBindingsOnly(t *testing.T) {
-	body, err := os.ReadFile("testdata/cards.json")
+	body, err := os.ReadFile("testdata/wallet_cards.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,15 +173,15 @@ func TestReferenceTermsComeFromExactBindingsOnly(t *testing.T) {
 	if err := c.Refresh(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	active := c.TermsForReference("wells-fargo-active-cash")
+	active := c.TermsForReference("us-wells-fargo-active-cash")
 	if active == nil || active.ProductID != "us-wells-fargo-active-cash" || active.RewardRates["other"] != 2 {
 		t.Fatalf("bound product not scored: %+v", active)
 	}
 	if active.SnapshotSHA256 != store.hash || active.CapturedAt.IsZero() || !strings.HasPrefix(active.DatasetVersion(), TermsMappingVersion+":") {
 		t.Fatalf("missing snapshot provenance: %+v", active)
 	}
-	if c.TermsForReference("ihg-one-rewards-traveler") != nil {
-		t.Fatal("hotel currency product was scored")
+	if terms := c.TermsForReference("ihg-one-rewards-traveler"); terms == nil || terms.RewardRates["other"] != 2 {
+		t.Errorf("hotel nominal earning rate missing: %+v", terms)
 	}
 	if c.TermsForReference("wells-fargo-one-key-plus") != nil || c.TermsForReference("") != nil {
 		t.Fatal("unbound reference was scored")
@@ -222,6 +223,16 @@ func TestReferenceBindingsExistInFullSnapshot(t *testing.T) {
 		t.Skip("set OPENCARD_SNAPSHOT to a full OpenCard export")
 	}
 	records := fixtureRecords(t, path)
+	scoredProducts, usProducts := 0, 0
+	for _, r := range records {
+		if r.Country == "us" {
+			usProducts++
+			if _, err := MapTerms(r); err == nil {
+				scoredProducts++
+			}
+		}
+	}
+	t.Logf("US products: %d; conservative scoring: %d", usProducts, scoredProducts)
 	scored := 0
 	for slug, product := range referenceBindings {
 		r, ok := records[product]
@@ -237,7 +248,7 @@ func TestReferenceBindingsExistInFullSnapshot(t *testing.T) {
 }
 
 func TestTermsStatusCountsScorableBindings(t *testing.T) {
-	body, err := os.ReadFile("testdata/cards.json")
+	body, err := os.ReadFile("testdata/wallet_cards.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,8 +260,32 @@ func TestTermsStatusCountsScorableBindings(t *testing.T) {
 	c.terms = terms
 	products, scorable, bindings := c.TermsStatus()
 	// Fixture: Active Cash, Autograph and Discover it Cash Back are bound and
-	// scorable; IHG is bound but a hotel currency.
-	if scorable != 3 || bindings != len(referenceBindings) || products < scorable {
+	// scorable; IHG also retains its nominal point earning rates.
+	if scorable != 4 || bindings != len(referenceBindings) || products < scorable {
 		t.Fatalf("status = %d products, %d/%d bindings", products, scorable, bindings)
+	}
+}
+
+func TestAmbiguousBaseRatesFailClosed(t *testing.T) {
+	r := fixtureRecords(t, "testdata/terms_fixture.json")["us-wells-fargo-active-cash"]
+	for _, description := range []string{
+		"Earn 2x miles on travel purchases and 1x mile on all other purchases.",
+		"Refer to the Cardmember Agreement for the earning rate.",
+		"2% cash back after the first year", "2% at participating merchants only",
+	} {
+		r.Rewards.BaseRate.Description = description
+		if terms, err := MapTerms(r); err == nil {
+			t.Fatalf("ambiguous base accepted: %s: %+v", description, terms)
+		}
+	}
+}
+
+func TestHotelAndHighBaseCurrenciesKeepActualEarningUnits(t *testing.T) {
+	records := fixtureRecords(t, "testdata/terms_fixture.json")
+	for id, base := range map[string]float64{"us-amex-hilton-honors": 3, "us-chase-ihg-traveler": 2, "us-fetch-american-express": 5} {
+		terms, err := MapTerms(records[id])
+		if err != nil || terms.RewardRates["other"] != base || terms.TransferablePoints || terms.RewardsType != "travel" {
+			t.Fatalf("%s: %+v %v", id, terms, err)
+		}
 	}
 }

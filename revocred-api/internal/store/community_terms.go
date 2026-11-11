@@ -39,6 +39,7 @@ func applyCommunityTerms(card *domain.CatalogCard, terms *carddata.Terms) {
 	card.TransferablePoints = terms.TransferablePoints
 	card.DatasetVersion = terms.DatasetVersion()
 	card.SourceName = terms.SourceName
+	card.SourceURL = terms.SourceURL
 	card.SourceDisclaimer = communityDisclaimer(terms)
 	card.Summary = "Added from search. Scored with community earning rates because no terms were entered."
 	card.BestUse = communityBestUse(terms)
@@ -48,7 +49,7 @@ func applyCommunityTerms(card *domain.CatalogCard, terms *carddata.Terms) {
 func communityDisclaimer(terms *carddata.Terms) string {
 	return fmt.Sprintf("Earning rates and annual fee from %s (CC BY 4.0), last verified by the source on %s and captured %s. "+
 		"Community-maintained, not issuer-verified. Rotating, capped, portal-only, merchant-specific and other conditional rates are not counted. "+
-		"Enter your own terms to replace these. Verify current terms with the issuer.",
+		"Points/miles use the model's nominal 1 cent per point, not a program-specific redemption value. Enter your own terms to replace these. Verify current terms with the issuer.",
 		terms.SourceName, terms.LastVerified, terms.CapturedAt.UTC().Format("2006-01-02"))
 }
 

@@ -1,5 +1,5 @@
 // Package carddata supplies attributed, community-maintained product details.
-// It never changes server-owned scoring terms or recommendations.
+// Community earning terms are server-mapped for wallet scoring only; never recommendations.
 package carddata
 
 import (
@@ -179,6 +179,9 @@ func (c *Cache) TermsStatus() (scorableProducts, scorableBindings, bindings int)
 // index row, through an exact reviewed binding only. Nil means unscored.
 func (c *Cache) TermsForReference(referenceSlug string) *Terms {
 	product, ok := referenceBindings[referenceSlug]
+	if strings.HasPrefix(referenceSlug, "us-") {
+		product, ok = referenceSlug, true
+	}
 	if !ok {
 		return nil
 	}

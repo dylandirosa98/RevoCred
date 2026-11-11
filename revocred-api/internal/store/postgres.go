@@ -257,7 +257,7 @@ SELECT w.id::text, w.user_id::text, w.catalog_card_id::text, w.nickname, w.statu
        v.transferable_points, v.travel_scope, v.minimum_credit_tier, v.rewards_type,
        v.first_year_bonus_estimate_cents, v.annual_benefit_estimate_cents,
        v.dataset_version, c.terms_unknown, s.name, COALESCE(s.url, ''), s.disclaimer, s.published_at, v.created_at,
-       COALESCE(r.slug, '')
+       COALESCE(r.opencard_product_id, r.slug, '')
 FROM revocred.wallet_cards w
 JOIN revocred.catalog_cards c ON c.id = w.catalog_card_id
 LEFT JOIN revocred.card_reference_index r ON r.id = c.reference_card_id

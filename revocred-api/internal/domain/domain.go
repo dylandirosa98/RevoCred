@@ -129,18 +129,19 @@ type Substitution struct {
 // ReferenceCard is one search result. It carries dated public terms so a user
 // can accept them in one tap, and it is never a recommendation candidate.
 type ReferenceCard struct {
-	ID               string             `json:"id"`
-	Slug             string             `json:"slug"`
-	Issuer           string             `json:"issuer"`
-	Name             string             `json:"name"`
-	Network          string             `json:"network"`
-	RewardsType      string             `json:"rewards_type"`
-	AnnualFeeCents   int                `json:"annual_fee_cents"`
-	RewardRates      map[string]float64 `json:"reward_rates"`
-	TermsStatus      string             `json:"terms_status"`
-	SourceURL        string             `json:"source_url"`
-	SourceCapturedOn string             `json:"source_captured_on"`
-	Disclaimer       string             `json:"disclaimer"`
+	OpenCardProductID string             `json:"-"`
+	ID                string             `json:"id"`
+	Slug              string             `json:"slug"`
+	Issuer            string             `json:"issuer"`
+	Name              string             `json:"name"`
+	Network           string             `json:"network"`
+	RewardsType       string             `json:"rewards_type"`
+	AnnualFeeCents    int                `json:"annual_fee_cents"`
+	RewardRates       map[string]float64 `json:"reward_rates"`
+	TermsStatus       string             `json:"terms_status"`
+	SourceURL         string             `json:"source_url"`
+	SourceCapturedOn  string             `json:"source_captured_on"`
+	Disclaimer        string             `json:"disclaimer"`
 	// CatalogCardID is set when this product is already in the vetted catalog,
 	// so choosing it keeps the sourced terms instead of a user copy.
 	CatalogCardID string `json:"catalog_card_id,omitempty"`

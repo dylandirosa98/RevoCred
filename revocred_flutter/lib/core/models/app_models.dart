@@ -105,6 +105,8 @@ class CreditCard {
         'Verify current terms with the issuer. Educational use only.',
     this.termsUnknown = false,
     this.communityData,
+    this.termsSource = '',
+    this.communityTerms,
     this.minimumCreditTier = '',
     this.modeledRates = const {},
     this.rewardsType = '',
@@ -130,6 +132,8 @@ class CreditCard {
     walletCardId: (json['walletCardId'] ?? json['wallet_card_id']) as String?,
     termsUnknown: json['termsUnknown'] == true || json['terms_unknown'] == true,
     rewardsType: (json['rewardsType'] ?? json['rewards_type'] ?? '').toString(),
+    termsSource: (json['terms_source'] ?? '').toString(),
+    communityTerms: (json['community_terms'] as Map?)?.cast<String, dynamic>(),
     communityData: json['community_data'] is Map
         ? CommunityCardData.fromJson(
             (json['community_data'] as Map).cast<String, dynamic>(),
@@ -190,6 +194,9 @@ class CreditCard {
             ? 'Verify current terms with the issuer. Educational use only.'
             : text;
       }(),
+      termsSource: (json['terms_source'] ?? '').toString(),
+      communityTerms: (json['community_terms'] as Map?)
+          ?.cast<String, dynamic>(),
       communityData: json['community_data'] is Map
           ? CommunityCardData.fromJson(
               (json['community_data'] as Map).cast<String, dynamic>(),
@@ -216,6 +223,10 @@ class CreditCard {
   final String? walletCardId;
   final String sourceDisclaimer;
   final CommunityCardData? communityData;
+
+  /// Wallet-only community earning provenance, including source and capture date.
+  final String termsSource;
+  final Map<String, dynamic>? communityTerms;
 
   /// Minimum qualifying credit tier from the versioned catalog
   /// (building, fair, good, excellent). Empty when unknown.
@@ -255,6 +266,8 @@ class CreditCard {
     sourceDisclaimer: sourceDisclaimer,
     termsUnknown: termsUnknown ?? this.termsUnknown,
     communityData: communityData,
+    termsSource: termsSource,
+    communityTerms: communityTerms,
     minimumCreditTier: minimumCreditTier ?? this.minimumCreditTier,
     rewardsType: rewardsType,
   );

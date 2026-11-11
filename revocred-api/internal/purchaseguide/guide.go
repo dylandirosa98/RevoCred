@@ -80,7 +80,7 @@ func Build(wallet []domain.WalletCard, settings Settings) []Category {
 			if t := card.CommunityTerms; card.TermsSource == domain.TermsSourceCommunity && t != nil {
 				// Wallet-only terms mapped from OpenCard because the member
 				// skipped typing them; label them as community data.
-				source = t.SourceName + " (community, not issuer-verified)"
+				source = t.SourceName + " (community, not issuer-verified), captured " + t.CapturedAt.UTC().Format("2006-01-02")
 				url = t.IssuerURL
 				date = t.LastVerified
 				if t.RewardsType != "cash_back" && t.CurrencyLabel != "" {

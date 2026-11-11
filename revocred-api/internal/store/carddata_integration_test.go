@@ -49,7 +49,7 @@ func TestCommunityCardDataIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile("../carddata/testdata/cards.json")
+	raw, err := os.ReadFile("../carddata/testdata/wallet_cards.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,8 +164,8 @@ func testCommunityWalletTerms(t *testing.T, ctx context.Context, admin, pool *pg
 				t.Fatalf("Active Cash not labelled community data: %+v", c)
 			}
 		case "IHG One Rewards Traveler":
-			if !c.TermsUnknown || c.TermsSource != "" {
-				t.Fatalf("hotel-currency card was scored: %+v", c)
+			if c.TermsUnknown || c.TermsSource != domain.TermsSourceCommunity || c.RewardRates["other"] != 2 {
+				t.Fatalf("hotel-currency earning rate missing: %+v", c)
 			}
 		case "Autograph":
 			if c.TermsSource != "" || c.RewardRates["other"] != 1.25 || c.AnnualFeeCents != 1000 || c.RewardRates["dining"] != 0 {
@@ -199,6 +199,22 @@ func testCommunityWalletTerms(t *testing.T, ctx context.Context, admin, pool *pg
 		t.Fatal("community wallet terms changed recommendations")
 	}
 
+	// Every US feed identity is searchable, independently of the recommendation catalog.
+	var productCount int
+	if err := admin.QueryRow(ctx, `SELECT count(DISTINCT opencard_product_id) FROM revocred.card_reference_index WHERE opencard_product_id IS NOT NULL`).Scan(&productCount); err != nil || productCount != 435 {
+		t.Fatalf("US product identity coverage = %d: %v", productCount, err)
+	}
+	expanded, err := repo.SearchReferenceCards(ctx, "navy federal cashrewards plus", 50)
+	if err != nil || len(expanded) == 0 {
+		t.Fatalf("expanded US search: %+v %v", expanded, err)
+	}
+	for _, r := range expanded {
+		if r.OpenCardProductID == "us-navy-federal-cashrewards-plus" {
+			if r.CatalogCardID != "" {
+				t.Fatal("OpenCard-only identity became catalog candidate")
+			}
+		}
+	}
 	// Search shows the terms a skipped pick would use; the guest preview scores
 	// the pick in the wallet without changing its recommendations.
 	results, err := repo.SearchReferenceCards(ctx, "active cash", 5)

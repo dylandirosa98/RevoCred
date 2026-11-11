@@ -2895,5 +2895,451 @@
   ],
   "notes": "Serviced by Imprint Payments, Inc. Includes access to Amex Offers. No American Express network package applies, so network_tier is none.",
   "art_grade": "none"
- }
+ },
+{
+  "id": "us-amex-hilton-honors",
+  "schema_version": "1.0.0",
+  "name": "Hilton Honors American Express Card",
+  "localized_names": {
+    "en": "Hilton Honors American Express Card"
+  },
+  "country": "us",
+  "issuer": "American Express",
+  "issuer_id": "amex",
+  "network": "amex",
+  "network_tier": "none",
+  "type": "credit",
+  "status": "active",
+  "annual_fee": {
+    "amount": 0,
+    "currency": "USD",
+    "first_year": 0,
+    "waiver_conditions": null
+  },
+  "apr": {
+    "purchase": {
+      "min": 19.49,
+      "max": 28.49,
+      "type": "variable"
+    },
+    "cash_advance": {
+      "min": 28.74,
+      "max": 28.74,
+      "type": "variable"
+    },
+    "notes": "Variable APR based on creditworthiness and the Prime Rate. Cash advance APR 28.74%. Penalty APR 29.99%. Accurate as of 07/23/26. APR not visible on product page; preserved from prior terms verification."
+  },
+  "fx_fee": {
+    "percent": 0,
+    "notes": "No foreign transaction fees from American Express with the Hilton Honors American Express Card."
+  },
+  "credit_required": {
+    "score_band": "good_to_excellent",
+    "notes": "Not explicitly stated; Amex generally requires good to excellent credit."
+  },
+  "rewards": {
+    "currency": "hilton_honors_points",
+    "currency_label": "Hilton Honors Bonus Points",
+    "structure": "multi",
+    "base_rate": {
+      "points_per_dollar": 3,
+      "description": "3X Hilton Honors Bonus Points for all other eligible purchases on your Card"
+    },
+    "categories": [
+      {
+        "label": "Hilton hotels and resorts (eligible purchases made directly with hotels and resorts in the Hilton portfolio)",
+        "points_per_dollar": 7,
+        "cap": null
+      },
+      {
+        "label": "U.S. restaurants, including takeout and delivery",
+        "points_per_dollar": 5,
+        "cap": null
+      },
+      {
+        "label": "U.S. supermarkets",
+        "points_per_dollar": 5,
+        "cap": null
+      },
+      {
+        "label": "U.S. gas stations",
+        "points_per_dollar": 5,
+        "cap": null
+      }
+    ],
+    "redemption_notes": "Points redeemable for reward nights, car rentals, shopping, and exclusive experiences through Hilton Honors.",
+    "rate_type": "points_multiplier"
+  },
+  "signup_bonus": {
+    "amount": 100000,
+    "unit": "hilton_honors_bonus_points",
+    "spend_required": 2000,
+    "spend_currency": "USD",
+    "months": 6,
+    "description": "Earn 100,000 Hilton Honors Bonus Points and a $100 Statement Credit after spending $2,000 in first 6 months. Signup bonus not visible on product page; preserved from prior verification.",
+    "as_of": "2026-07-24"
+  },
+  "benefits": [
+    {
+      "id": "hilton-silver-status",
+      "title": "Hilton Honors Silver Status",
+      "category": "other",
+      "source": "co-brand",
+      "description": "Complimentary Hilton Honors Silver status with a 20% Bonus on all Base Points you earn on every stay. Spend $20,000 on eligible purchases on your Card in a calendar year and you can earn an upgrade to Hilton Honors Gold Status through the end of the next calendar year."
+    },
+    {
+      "id": "no-fx-fees",
+      "title": "No Foreign Transaction Fees",
+      "category": "other",
+      "source": "issuer",
+      "description": "No foreign transaction fees from American Express with the Hilton Honors American Express Card."
+    },
+    {
+      "id": "amex-special-ticket-access",
+      "title": "Amex Special Ticket Access and more",
+      "category": "other",
+      "source": "issuer",
+      "description": "Card Members have access to purchase Amex Presale Tickets and Amex Reserved Tickets to select events across sports, music, and more. Plus, Card Members can enjoy additional perks when attending select events."
+    },
+    {
+      "id": "send-and-split",
+      "title": "Send & Split",
+      "category": "other",
+      "source": "issuer",
+      "description": "Send money and split purchases with other Venmo and PayPal users, all in the American Express App. Enrollment required."
+    },
+    {
+      "id": "amex-offers",
+      "title": "Earn More with Amex Offers",
+      "category": "other",
+      "source": "issuer",
+      "description": "Card Members can explore the Amex Offers available to add to their eligible Card and earn extra rewards on qualifying purchases made at select brands."
+    },
+    {
+      "id": "car-rental-insurance",
+      "title": "Car Rental Loss and Damage Insurance",
+      "category": "insurance",
+      "source": "issuer",
+      "description": "Secondary coverage for damage or theft of rental vehicle when reserving and paying with the Card and declining CDW. Coverage is not available for vehicles rented in Australia, Italy, and New Zealand."
+    },
+    {
+      "id": "global-assist",
+      "title": "Global Assist Hotline",
+      "category": "other",
+      "source": "issuer",
+      "description": "24/7 emergency assistance and coordination services when traveling more than 100 miles from home, including medical and legal referrals, emergency cash wires, and missing luggage assistance."
+    },
+    {
+      "id": "purchase-protection",
+      "title": "Purchase Protection",
+      "category": "insurance",
+      "source": "issuer",
+      "description": "Protects covered purchases against accidental damage or theft for up to 90 days. Up to $1,000 per Covered Purchase, up to $50,000 per calendar year."
+    },
+    {
+      "id": "dispute-resolution",
+      "title": "Dispute Resolution",
+      "category": "other",
+      "source": "issuer",
+      "description": "American Express can work with you and the merchant to help resolve unrecognized or incorrect charges on your statement."
+    },
+    {
+      "id": "year-end-summary",
+      "title": "Year-End Summary",
+      "category": "other",
+      "source": "issuer",
+      "description": "Get access to a Year-End Summary of charges so you can review your annual spending."
+    },
+    {
+      "id": "additional-cards",
+      "title": "Additional Cards",
+      "category": "other",
+      "source": "issuer",
+      "description": "You can add an Additional Card for anyone who makes purchases for you, like your child (13+), spouse, or employee."
+    },
+    {
+      "id": "instant-card-number",
+      "title": "Instant Card Number",
+      "category": "other",
+      "source": "issuer",
+      "description": "If your application is approved and you are eligible, you can begin using your Card number online and through your digital wallet, including Apple Pay, Google Pay, Samsung Pay, PayPal, and Amazon Pay today."
+    }
+  ],
+  "travel_perks": {
+    "lounge_access": null,
+    "tsa_precheck_credit": null,
+    "global_entry_credit": null,
+    "free_checked_bags": null,
+    "hotel_status": "Hilton Honors Silver Status (complimentary); upgrade to Gold after $20,000 spend in a calendar year",
+    "other": [
+      "No foreign transaction fees",
+      "Car Rental Loss and Damage Insurance",
+      "Global Assist Hotline"
+    ]
+  },
+  "official_url": "https://www.americanexpress.com/us/credit-cards/card/hilton-honors/",
+  "image": {
+    "url": "https://icm.aexp-static.com/Internet/Acquisition/US_en/AppContent/OneSite/category/cardarts/hilton-honors.png",
+    "attribution": "© American Express",
+    "local_path": null
+  },
+  "bin_hints": [],
+  "last_verified": "2026-07-24",
+  "sources": [
+    "https://www.americanexpress.com/us/credit-cards/card/hilton-honors/",
+    "https://www.americanexpress.com/us/credit-cards/card-application/apply/member/terms/hilton-honors-credit-card/36182-11-0/"
+  ],
+  "notes": "Product name is not a Network Tier; network_tier is none for Amex network packages. Annual fee is $0 (no annual fee). APR and signup bonus not visible on product page; preserved from prior terms verification. Benefits, rewards, annual fee, and FX fee verified on official Amex product page on 2026-07-24.",
+  "segment": "personal",
+  "art_grade": "issuer"
+},
+{
+  "id": "us-barclays-arrival",
+  "schema_version": "1.0.0",
+  "name": "Barclays Arrival® World Mastercard®",
+  "localized_names": {
+    "en": "Barclays Arrival® World Mastercard®"
+  },
+  "country": "us",
+  "issuer": "Barclays",
+  "issuer_id": "barclays",
+  "network": "mastercard",
+  "network_tier": "world",
+  "type": "credit",
+  "segment": "personal",
+  "status": "unknown",
+  "annual_fee": {
+    "amount": 0,
+    "currency": "USD",
+    "first_year": 0,
+    "waiver_conditions": null
+  },
+  "apr": {
+    "purchase": {
+      "min": 15.99,
+      "max": 24.99,
+      "type": "variable"
+    },
+    "cash_advance": null,
+    "notes": "Variable APR based on creditworthiness. No annual fee."
+  },
+  "fx_fee": {
+    "percent": 0,
+    "notes": "No foreign transaction fees."
+  },
+  "credit_required": {
+    "score_band": null,
+    "notes": null
+  },
+  "rewards": {
+    "currency": "miles",
+    "currency_label": "Arrival Miles",
+    "structure": "single",
+    "base_rate": {
+      "points_per_dollar": 2,
+      "description": "Earn 2x miles on travel purchases and 1x mile on all other purchases."
+    },
+    "categories": [],
+    "redemption_notes": "Redeem miles for travel statement credits toward qualifying travel purchases. Get 10% miles back to use toward your next redemption, every time you redeem.",
+    "rate_type": "miles_multiplier"
+  },
+  "signup_bonus": {
+    "amount": 20000,
+    "unit": "miles",
+    "spend_required": 1000,
+    "spend_currency": "USD",
+    "months": 3,
+    "description": "Earn 20,000 bonus miles after spending $1,000 on purchases in the first 90 days — enough to redeem for a $200 travel statement credit.",
+    "as_of": "2019-08-23"
+  },
+  "benefits": [
+    {
+      "id": "no-foreign-transaction-fees",
+      "title": "No Foreign Transaction Fees",
+      "category": "other",
+      "source": "issuer",
+      "description": "No foreign transaction fees on purchases made while traveling abroad."
+    },
+    {
+      "id": "fraud-liability",
+      "title": "$0 Fraud Liability Protection",
+      "category": "other",
+      "source": "issuer",
+      "description": "You're not responsible for unauthorized charges."
+    },
+    {
+      "id": "miles-back-on-redemption",
+      "title": "10% Miles Back on Redemption",
+      "category": "acceleration",
+      "source": "issuer",
+      "description": "Get 10% miles back to use toward your next redemption, every time you redeem."
+    }
+  ],
+  "travel_perks": {
+    "lounge_access": null,
+    "tsa_precheck_credit": null,
+    "global_entry_credit": null,
+    "free_checked_bags": null,
+    "hotel_status": null,
+    "other": []
+  },
+  "official_url": "https://web.archive.org/web/20190823001527/https://cards.barclaycardus.com/banking/about-us/newsroom/barclaycard-arrival-world-mastercard-travel-rewards-card/",
+  "image": {
+    "url": null,
+    "attribution": null,
+    "local_path": null
+  },
+  "bin_hints": [],
+  "last_verified": "2026-07-26",
+  "sources": [
+    "https://web.archive.org/web/20190823001527/https://cards.barclaycardus.com/banking/about-us/newsroom/barclaycard-arrival-world-mastercard-travel-rewards-card/"
+  ],
+  "notes": "Historical Arrival World Mastercard record, distinct from Arrival Plus. Official-source evidence boundary: the retained issuer-newsroom archive identifies the product but does not establish a precise withdrawal date; its August 2019 capture is not a product closure date. The inherited financial terms (2x travel, 1x other purchases, 10% redemption rebate, $0 annual fee and no foreign transaction fees) remain historical metadata, not a current verification. Exact lifecycle and successor are unknown. Historical discovery reference only, not official evidence: https://www.doctorofcredit.com/spreadsheet-current-recent-credit-card-signup-bonuses-major-issuers/.",
+  "art_grade": "none"
+},
+{
+  "id": "us-robinhood-gold-card",
+  "schema_version": "1.0.0",
+  "name": "Robinhood Gold Card",
+  "localized_names": {
+    "en": "Robinhood Gold Card"
+  },
+  "country": "us",
+  "issuer": "Coastal Community Bank",
+  "issuer_id": "coastal-community-bank",
+  "network": "visa",
+  "network_tier": "none",
+  "type": "credit",
+  "segment": "personal",
+  "status": "active",
+  "annual_fee": {
+    "amount": 0,
+    "currency": "USD",
+    "first_year": 0,
+    "waiver_conditions": null
+  },
+  "apr": {
+    "purchase": {
+      "min": null,
+      "max": null,
+      "type": "variable"
+    },
+    "notes": null
+  },
+  "fx_fee": {
+    "percent": null,
+    "notes": null
+  },
+  "credit_required": {
+    "score_band": null,
+    "notes": null
+  },
+  "rewards": {
+    "currency": "points",
+    "currency_label": "Robinhood Points",
+    "structure": "single",
+    "base_rate": {
+      "points_per_dollar": 3,
+      "description": "3 points per $1 (3% cash back) on all eligible purchases, including Robinhood Travel Portal purchases."
+    },
+    "categories": [],
+    "redemption_notes": "Points redeem in several ways, including as cash back.",
+    "rate_type": "cashback_percent"
+  },
+  "signup_bonus": null,
+  "benefits": [],
+  "travel_perks": null,
+  "official_url": "https://robinhood.com/creditcard/",
+  "image": null,
+  "bin_hints": [],
+  "last_verified": "2026-10-22",
+  "sources": [
+    "https://robinhood.com/creditcard/",
+    "https://cdn.robinhood.com/assets/robinhood/legal/Robinhood_Gold_Card_Rewards_Program_Rules.pdf"
+  ],
+  "notes": "Offered by Robinhood Credit, Inc. An active annual Robinhood Gold subscription is required to get the card and to earn points; the card itself has no annual fee. The APR is not stated on the product page, so it is null. No Visa network package is stated, so network_tier is none.",
+  "art_grade": "none"
+},
+{
+  "id": "us-us-bank-skypass-visa-classic",
+  "schema_version": "1.0.0",
+  "name": "SKYPASS Visa Classic Card",
+  "localized_names": {
+    "en": "SKYPASS Visa Classic Card"
+  },
+  "country": "us",
+  "issuer": "U.S. Bank",
+  "issuer_id": "us-bank",
+  "network": "visa",
+  "network_tier": "classic",
+  "type": "credit",
+  "segment": "personal",
+  "status": "unknown",
+  "annual_fee": {
+    "amount": null,
+    "currency": "USD",
+    "first_year": null,
+    "waiver_conditions": null
+  },
+  "apr": {
+    "purchase": {
+      "min": null,
+      "max": null,
+      "type": "variable"
+    },
+    "notes": "Variable APR applies; rate not displayed on the site. Refer to the Cardmember Agreement for current terms."
+  },
+  "fx_fee": {
+    "percent": null,
+    "notes": "Foreign transaction fee not displayed on page; confirm current terms in the Cardmember Agreement."
+  },
+  "credit_required": {
+    "score_band": null,
+    "notes": null
+  },
+  "rewards": {
+    "currency": "miles",
+    "currency_label": "Korean Air SKYPASS miles",
+    "structure": "single",
+    "rate_type": "miles_multiplier",
+    "base_rate": {
+      "points_per_dollar": 1,
+      "description": "Earn SKYPASS miles on eligible purchases; refer to the Cardmember Agreement for the earning rate."
+    },
+    "redemption_notes": "Miles accumulate in a Korean Air SKYPASS frequent flyer account and can be redeemed for Korean Air awards. No mileage caps on any SKYPASS Visa card."
+  },
+  "signup_bonus": null,
+  "benefits": [
+    {
+      "id": "skypass-mile-earning",
+      "title": "SKYPASS mile earning",
+      "category": "other",
+      "source": "issuer",
+      "description": "Earn Korean Air SKYPASS miles on eligible purchases; miles accumulate to one SKYPASS mileage account."
+    }
+  ],
+  "travel_perks": {
+    "lounge_access": null,
+    "tsa_precheck_credit": null,
+    "global_entry_credit": null,
+    "free_checked_bags": null,
+    "hotel_status": null,
+    "other": []
+  },
+  "official_url": "https://www.skypassvisa.com/credit/visaClassicCard.do",
+  "image": {
+    "url": null,
+    "attribution": "© U.S. Bank",
+    "local_path": null
+  },
+  "bin_hints": [],
+  "last_verified": "2026-10-19",
+  "sources": [
+    "https://www.skypassvisa.com/credit/contactUs.do",
+    "https://www.skypassvisa.com/credit/faqs.do",
+    "https://www.skypassvisa.com/credit/visaClassicCard.do"
+  ],
+  "notes": "Co-brand credit card with Korean Air SKYPASS, issued by U.S. Bank. The official Classic page title identifies the product and 1 mile per $1 in net purchases, but the page has no Classic-specific application, current fee disclosure, withdrawal notice or successor notice. The contact page provides existing-cardholder servicing, not evidence of current application availability. Hidden navigation and notices for SkyBlue or Secured do not establish Classic lifecycle. Availability and historical annual fee remain unknown; no corresponding Classic artwork was verified.",
+  "art_grade": "none"
+}
 ]

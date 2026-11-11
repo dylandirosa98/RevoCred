@@ -42,8 +42,8 @@ No API key, signup, cardholder data, or paid provider is involved.
 ## Wallet scoring terms
 
 `internal/carddata/terms.go` maps every US record in the feed to conservative
-scoring terms (`MapTerms`, mapping version `opencard-terms-v1`). On the
-2026-11-09 snapshot, 269 of 435 US products map; the rest are left unscored
+scoring terms (`MapTerms`, mapping version `opencard-terms-v2`). On the
+2026-11-09 snapshot, 292 of 435 US products map; the rest are left unscored
 with a stated reason.
 
 ### Where they are used
@@ -53,15 +53,20 @@ with a stated reason.
   without terms** (`terms_unknown`). Terms the member typed always win; catalog
   cards keep their issuer terms.
 - The owned card is linked to its search-index row (`catalog_cards.reference_card_id`,
-  migration `000030`). The row's slug resolves to one OpenCard product through
-  the reviewed exact table in `internal/carddata/references.go` (76 bindings;
-  53 scorable on the 2026-11-09 snapshot). There is no fuzzy matching.
+  migration `000031_custom_card_reference_link.sql`). The reference row stores an exact `opencard_product_id`.
+  Migration 000031 links the 76 reviewed aliases in `internal/carddata/references.go`
+  and inserts the remaining US identities from the 2026-11-09 snapshot (435 distinct
+  products total), preserving existing issuer rows and catalog matches. Identity-only
+  rows remain `partial`, with empty rates: community data never masquerades as verified
+  issuer terms. The reviewed aliases still resolve for older internal callers.
+  There is no fuzzy matching. Newly introduced upstream products require a versioned
+  index seed before they are searchable; cached rate refreshes need no migration.
 - When the product maps, the API fills the card's `reward_rates`, annual fee,
   rewards type and transferable flag in memory. It sets `terms_source:
   "community"` and attaches `community_terms`: source name, issuer URL, source
   verification date, capture date, snapshot SHA-256, mapping version, and every
   scored and unscored source rule with its reason. `dataset_version` becomes
-  `opencard-terms-v1:<captured date>:<sha prefix>`. `source_disclaimer`,
+  `opencard-terms-v2:<captured date>:<sha prefix>`. `source_disclaimer`,
   `summary`, `best_use` and `benefits` say the rates are community data and not
   issuer-verified. Nothing is written back to the database, so a refreshed
   snapshot updates the card automatically.
@@ -79,6 +84,12 @@ with a stated reason.
   non-catalog rows, for information only. The terms sheet's pre-fill still
   uses the row's own `reward_rates`.
 
+The adapter attempts every US product, but does **not** promise all 435 have
+usable everyday terms. 143 remain unknown: incomplete, discontinued, conditional,
+closed-loop or ambiguous records. The app must keep
+these cards owned and unscored until the member supplies terms. This intentionally
+limits coverage instead of fabricating everyday rates.
+
 ### Mapping rules
 
 Card-level (the whole card stays unscored if any rule fails):
@@ -94,18 +105,33 @@ Card-level (the whole card stays unscored if any rule fails):
 5. A rewards currency is present (not `none`).
 6. Network is not `other`. These are closed-loop store cards that earn only at
    the merchant.
-7. The currency is not a hotel loyalty program (Hilton, Marriott/Bonvoy, IHG,
-   Hyatt, Choice, Wyndham, Best Western, Radisson/Carlson, Fairmont/Accor,
-   Ritz, Sonesta, Omni). These points are commonly worth well under 1 cent, so
-   scoring them at 1 cent would overstate value. Follow-up: a reviewed
-   per-program value table.
-8. A non-null base rate between 0 and 2. A higher "everything" rate in the feed
-   is store-only, co-brand or subscription-dependent.
-9. The base description is unconditional. AutoPay, "redeemed into" or deposit
+7. Hotel and other co-brand currencies retain their actual point/mile earning
+   rates. Their modeled dollars use the existing **nominal 1¢ per point** baseline,
+   not a market valuation or guaranteed cash redemption value. The wallet disclaimer
+   and REVO context explicitly state this limitation; do not describe this estimate
+   as actual cash earned or combine currencies into a transferable point balance.
+8. A non-null, finite base rate between 0 and 20. High nominal rates alone do not
+   prove a store restriction; closed-loop networks and conditional descriptions
+   are checked separately.
+9. The base description is unconditional and unambiguous. AutoPay, "redeemed into" or deposit
    account, "if", linked accounts, tiers, membership/Prime, relationship and
-   "after the first $" conditions make it conditional.
+   "after the first $" conditions make it conditional. Descriptions that require consulting the agreement,
+   say spending must be above a threshold, or limit the quoted base to a travel
+   category are rejected too. In particular, Barclays Arrival has a numeric base
+   of 2 but prose saying 2x travel / 1x other: it is not scored until corrected
+   upstream rather than silently treating 2x as an everyday rate. Post-first-year
+   bases also remain unscored. Explicit earning gates in source notes (a required
+   subscription or membership to earn, or a minimum purchase count to earn) also
+   exclude the whole card. Robinhood Gold is one such example. Finite numeric
+   rates are required.
 
-The base rate becomes `other`. Each category rule is then checked in this
+The base rate becomes `other`. Engine and Flutter spending use `food`, `travel`,
+`gas`, `streaming`, `shopping`, `utilities`, `rent` and `other`, with finer
+`dining`, `groceries`, `flights` and `hotels` inputs also supported. `food` uses
+the minimum of dining and grocery rates (base fallback for either); generic
+`travel` never inherits a flights-only or hotel-only uplift. Shopping and
+utilities use base because the adapter cannot prove a universal category rate.
+Rent/housing always earn zero in the existing model. Each category rule is then checked in this
 order, and the first failing check is recorded as the reason:
 
 1. Label conditions (lowercased label, first match wins):
@@ -215,7 +241,7 @@ license if changing provider or importing a different artifact.
   inputs and recommendation results. It also checks wallet community terms:
   the reference link is written on creation and cannot be rewritten by the
   runtime role, a skipped pick is scored and labelled, a hotel-currency card
-  stays unscored, typed terms win, wallet metrics rise, and search
+  retains its nominal earning rate, typed terms win, wallet metrics rise, and search
   `community_terms` and the guest preview work with recommendations unchanged.
 - `make check`: formatter/analyzer, complete Flutter and Go suites, SQL vet.
 - `test/community_card_data_test.dart`: model isolation, copy preservation, and

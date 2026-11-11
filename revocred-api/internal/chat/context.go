@@ -137,6 +137,7 @@ func communityTermsFacts(t *carddata.Terms) map[string]any {
 		"captured_on":             t.CapturedAt.UTC().Format("2006-01-02"),
 		"annual_fee_usd":          dollars(int64(t.AnnualFeeCents)),
 		"rates_not_counted":       notCounted,
+		"valuation_assumption":    "Points and miles use the model's nominal 1 cent per point; this is not a program-specific redemption value or guaranteed cash value.",
 		"usage":                   "The member skipped entering terms, so the wallet score and value use these community rates. Say so when citing them, suggest verifying with the issuer, and never treat them as a reason to recommend a card.",
 	}
 }

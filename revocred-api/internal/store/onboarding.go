@@ -182,7 +182,7 @@ func previewReferenceCards(ctx context.Context, repo *Postgres, picks []domain.O
 		} else {
 			// Mirror the saved path: a skipped card is scored in the wallet
 			// with community terms when they map, but never feeds the engine.
-			applyCommunityTerms(&card, repo.communityTermsFor(reference.Slug))
+			applyCommunityTerms(&card, repo.communityTermsFor(reference.OpenCardProductID))
 		}
 		shown = append(shown, domain.WalletCard{CatalogCardID: card.ID, Status: "active", Card: &card})
 	}

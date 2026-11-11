@@ -33,9 +33,14 @@ for recommendations. The index exists for one purpose: helping a person say
 
 ## Adding more cards
 
-Current coverage: 14 verified rows (the modeled catalog, terms copied from the
-catalog) plus 25 identity-only rows captured from Chase's public card list on
-2026-09-26. That is **not** a large database yet.
+Migration `000031_custom_card_reference_link.sql` adds exact OpenCard product
+links and search identities for all 435 US products in the 2026-11-09 community
+snapshot, alongside the existing issuer rows. Existing reviewed aliases keep
+their identities. Community rows remain partial identity data, with explicit
+source/date attribution and the existing generic artwork fallback when dedicated
+art is unavailable. Wallet scoring terms come separately from the cached feed;
+292 products currently have usable conservative terms. These rows never become
+recommendation candidates.
 
 To add an issuer, capture its public card list and insert identity rows with the
 issuer's product URL and the capture date. Requirements:

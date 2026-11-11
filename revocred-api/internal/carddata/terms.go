@@ -11,7 +11,7 @@ import (
 
 // TermsMappingVersion identifies the label rules below. Bump it whenever a rule
 // changes so every scored wallet card records which rules produced its rates.
-const TermsMappingVersion = "opencard-terms-v1"
+const TermsMappingVersion = "opencard-terms-v2"
 
 // TermsSourceName labels community-derived scoring terms everywhere they are shown.
 const TermsSourceName = "OpenCard DB community data"
@@ -73,11 +73,6 @@ const (
 // maxScoredRate matches the cardholder-entered terms limit in the API.
 const maxScoredRate = 20
 
-// maxBaseRate: no generally available flat-rate US card in the feed earns more
-// than 2 on everything. Higher "base" rates in the feed are store-only,
-// co-brand currency or subscription-dependent, so the whole card is left out.
-const maxBaseRate = 2
-
 var (
 	parenthetical = regexp.MustCompile(`\(([^()]*)\)`)
 	nonWord       = regexp.MustCompile(`[^a-z0-9$]+`)
@@ -128,13 +123,12 @@ func toSet(words string) map[string]bool {
 	return set
 }
 
-// Hotel loyalty currencies are commonly worth well under the 1 cent per point
-// the wallet model assumes for every currency, so cards earning them are not
-// scored until a reviewed per-program value exists.
-var hotelCurrency = regexp.MustCompile(`hilton|marriott|bonvoy|ihg|hyatt|choice|wyndham|best.?western|radisson|carlson|fairmont|accor|ritz|sonesta|omni`)
-
 // A base description with these markers is not a flat unconditional rate.
-var conditionalBase = regexp.MustCompile(`autopay|redeemed into|deposit account|\bif\b|linked|\btier|membership|with prime|relationship|after the first \$`)
+var conditionalBase = regexp.MustCompile(`autopay|redeemed into|deposit account|\bif\b|linked|\btier|membership|with prime|relationship|after the first \$|refer to|on travel purchases and|spend above|after the first year|with autopay|only at|at participating|pro xtra|at amazon|at walgreens|family of stores|after first \$`)
+
+// Only explicit whole-card earning gates in source notes trigger this check;
+// ordinary redemption or benefit conditions do not become earning restrictions.
+var earningGate = regexp.MustCompile(`(?i)(subscription|membership).{0,100}required.{0,100}(earn|points)|must make.{0,60}purchases.{0,60}earn`)
 
 // Transferable only for issuer-flexible currencies, and only when the source
 // states transfers to partners. Co-brand airline/hotel currencies never count.
@@ -179,17 +173,14 @@ func MapTerms(r Card) (*Terms, error) {
 	if r.Rewards.Currency == "" || r.Rewards.Currency == "none" {
 		return nil, fmt.Errorf("no rewards currency")
 	}
-	if hotelCurrency.MatchString(strings.ToLower(r.Rewards.Currency + " " + r.Rewards.CurrencyLabel)) {
-		return nil, fmt.Errorf("hotel loyalty currency is not valued at 1 cent per point")
-	}
 	base := r.Rewards.BaseRate.PointsPerDollar
-	if base == nil || math.IsNaN(*base) || *base < 0 {
+	if base == nil || (math.IsNaN(*base) || math.IsInf(*base, 0)) || *base < 0 {
 		return nil, fmt.Errorf("no base earning rate")
 	}
-	if *base > maxBaseRate {
-		return nil, fmt.Errorf("base rate %g is above %d and store-, co-brand- or subscription-specific", *base, maxBaseRate)
+	if *base > maxScoredRate {
+		return nil, fmt.Errorf("base rate %g is above supported maximum %d", *base, maxScoredRate)
 	}
-	if conditionalBase.MatchString(strings.ToLower(r.Rewards.BaseRate.Description)) {
+	if conditionalBase.MatchString(strings.ToLower(r.Rewards.BaseRate.Description)) || earningGate.MatchString(r.Notes) {
 		return nil, fmt.Errorf("base rate is conditional")
 	}
 	t := &Terms{
@@ -212,7 +203,7 @@ func MapTerms(r Card) (*Terms, error) {
 		categories, reason := classifyLabel(rule.Label)
 		switch {
 		case reason != "":
-		case rate < 0 || rate > maxScoredRate:
+		case math.IsNaN(rate) || math.IsInf(rate, 0) || rate < 0 || rate > maxScoredRate:
 			reason = "rate outside the supported range"
 		case len(rule.Cap) > 0 && string(rule.Cap) != "null":
 			reason = "spend-capped rate"
