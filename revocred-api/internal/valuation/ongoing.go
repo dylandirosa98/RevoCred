@@ -24,7 +24,7 @@ type benefitRule struct {
 // Ongoing is wallet-only. Net remains rewards less fees for application rankings.
 func Ongoing(spend map[string]int64, cards []domain.CatalogCard, travelScope string) domain.OngoingValue {
 	out := domain.OngoingValue{ModelVersion: "ongoing-v1", Benefits: []domain.BenefitValue{}, Assumptions: []string{
-		"Spending rewards use best known base rates, 1 cent per point, no housing rewards or conditional uplift. Annual fees are subtracted.",
+		"Spending rewards use best known base rates, per-card point values (1 cent by default), no housing rewards or conditional uplift. Annual fees are subtracted.",
 		"Relevant credits use a conditional 70% usage assumption, not observed merchant use or guaranteed savings. Budget/travel scope is only a relevance screen: you must actually use each eligible merchant, portal or service. Enrollment, monthly/half-year caps and expiry still apply.",
 		"Credits sharing a spending category share a conservative budget cap of 70% of annual category spending, in stable product/benefit order. This is not a forecast of merchant use. Rewards are modeled separately on entered spending; credited purchases may not earn rewards, so actual rewards can be lower.",
 		"Anniversary rewards assume renewal and continued eligibility, starting at the first eligible anniversary. This is not a first-year estimate. Welcome bonuses are excluded; automatic bonus eligibility is not implemented.",

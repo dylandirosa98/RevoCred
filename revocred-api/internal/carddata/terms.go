@@ -11,7 +11,7 @@ import (
 
 // TermsMappingVersion identifies the label rules below. Bump it whenever a rule
 // changes so every scored wallet card records which rules produced its rates.
-const TermsMappingVersion = "opencard-terms-v2"
+const TermsMappingVersion = "opencard-terms-v3"
 
 // TermsSourceName labels community-derived scoring terms everywhere they are shown.
 const TermsSourceName = "OpenCard DB community data"
@@ -21,6 +21,7 @@ const TermsSourceName = "OpenCard DB community data"
 // member did not type the terms, and they never make any card a recommendation
 // candidate or change recommendation inputs.
 type Terms struct {
+	PointValueCents    float64            `json:"point_value_cents"`
 	ProductID          string             `json:"product_id"`
 	ProductName        string             `json:"product_name"`
 	SourceName         string             `json:"source_name"`
@@ -187,8 +188,9 @@ func MapTerms(r Card) (*Terms, error) {
 		ProductID: r.ID, ProductName: r.Name, SourceName: TermsSourceName,
 		SourceURL: ProjectURL, LicenseURL: LicenseURL, IssuerURL: r.OfficialURL,
 		LastVerified: r.LastVerified, MappingVersion: TermsMappingVersion,
-		AnnualFeeCents: int(math.Round(*r.AnnualFee.Amount * 100)),
-		RewardsType:    rewardsType, CurrencyLabel: r.Rewards.CurrencyLabel,
+		AnnualFeeCents:  int(math.Round(*r.AnnualFee.Amount * 100)),
+		PointValueCents: PointValueCents(r.Rewards.Currency),
+		RewardsType:     rewardsType, CurrencyLabel: r.Rewards.CurrencyLabel,
 		TransferablePoints: rewardsType == "travel" && transferable(r),
 		RewardRates:        map[string]float64{catOther: *base},
 		Scored:             []TermsRule{{Label: "Base rate", Rate: *base, Categories: []string{catOther}}},
@@ -262,4 +264,23 @@ func classifyLabel(label string) ([]string, string) {
 	}
 	sort.Strings(categories)
 	return categories, ""
+}
+
+// PointValueCents is a conservative model assumption, not guaranteed redemption
+// value. Keep nominal earning rates separate from these cash-value estimates.
+func PointValueCents(currency string) float64 {
+	currency = strings.ToLower(strings.TrimSpace(currency))
+	currency = strings.NewReplacer("-", "_", " ", "_").Replace(currency)
+	for _, program := range []struct {
+		name  string
+		cents float64
+	}{
+		{"hilton", 0.5}, {"ihg", 0.5}, {"marriott", 0.7},
+		{"bonvoy", 0.7}, {"ritz_carlton", 0.7}, {"wyndham", 0.8},
+	} {
+		if currency == program.name || strings.HasPrefix(currency, program.name+"_") {
+			return program.cents
+		}
+	}
+	return 1
 }

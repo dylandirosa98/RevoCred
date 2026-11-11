@@ -78,7 +78,7 @@ PurchaseGuide demoPurchaseGuide(
   };
   final categories = <PurchaseCategory>[];
   int byRate(PurchaseOption a, PurchaseOption b) {
-    final rate = b.rate.compareTo(a.rate);
+    final rate = b.comparisonRate.compareTo(a.comparisonRate);
     if (rate != 0) return rate;
     final name = a.cardName.compareTo(b.cardName);
     return name != 0 ? name : a.cardId.compareTo(b.cardId);
@@ -90,7 +90,9 @@ PurchaseGuide demoPurchaseGuide(
     final unknown = <String>[];
     final unknownIds = <String>[];
     for (final card in wallet) {
-      final known = rates[card.id];
+      final known = card.modeledRates.isNotEmpty
+          ? card.modeledRates
+          : rates[card.id];
       if (card.termsUnknown || known == null) {
         unknown.add('${card.name}: no supported demo rule');
         unknownIds.add(card.id);
@@ -103,6 +105,7 @@ PurchaseGuide demoPurchaseGuide(
             cardId: card.id,
             cardName: card.name,
             rate: base,
+            cashEquivalentRate: card.cashEquivalentRate(base),
             earnLabel:
                 '${base == base.roundToDouble() ? base.toInt() : base}x demo rate',
             reason:
@@ -129,6 +132,7 @@ PurchaseGuide demoPurchaseGuide(
           cardId: card.id,
           cardName: card.name,
           rate: rate,
+          cashEquivalentRate: card.cashEquivalentRate(rate),
           earnLabel:
               '${rate == rate.roundToDouble() ? rate.toInt() : rate}x demo rate',
           reason: 'Applicable demo fixture rate for ${entry.value}',
@@ -147,9 +151,11 @@ PurchaseGuide demoPurchaseGuide(
         fallbackOptions: fallback,
         unknown: unknown,
         unknownCardIds: unknownIds,
-        tied: displayed.length > 1 && displayed[0].rate == displayed[1].rate,
+        tied:
+            displayed.length > 1 &&
+            displayed[0].comparisonRate == displayed[1].comparisonRate,
         assumptions:
-            'Offline demonstration only. Points assumed worth 1 cent each. Not current verified card terms.',
+            'Offline demonstration only. Per-card point values (1 cent by default). Not current verified card terms.',
       ),
     );
   }

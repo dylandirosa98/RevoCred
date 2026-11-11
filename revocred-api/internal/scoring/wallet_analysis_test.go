@@ -67,3 +67,20 @@ func TestMonthlySpendingFromCategoryCents(t *testing.T) {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }
+
+func TestHotelPointsUseCashValue(t *testing.T) {
+	hotel := domain.CatalogCard{PointValueCents: .5, RewardRates: map[string]float64{"other": 3, "dining": 5}}
+	gold := domain.CatalogCard{RewardRates: map[string]float64{"other": 1, "dining": 4}}
+	wallet := []domain.WalletCard{{Status: "active", Card: &hotel}, {Status: "active", Card: &gold}}
+	got := AnalyzeWallet(wallet)
+	if got.Dining != 4 || got.CatchAll != 1.5 {
+		t.Fatalf("cash rates = %+v", got)
+	}
+	spend := map[string]int64{"dining": 10000, "everyday": 10000}
+	if got := Metrics(wallet, spend).YearlyValue; got != 66 {
+		t.Fatalf("yearly value = %d, want 66", got)
+	}
+	if got := Metrics(wallet[:1], spend).YearlyValue; got != 48 {
+		t.Fatalf("hotel yearly value = %d, want 48", got)
+	}
+}

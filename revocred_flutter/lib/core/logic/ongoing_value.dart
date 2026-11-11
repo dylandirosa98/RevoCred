@@ -33,8 +33,11 @@ OngoingValue estimateOngoingValue(
   var rewards = 0, fees = 0, credits = 0, anniversary = 0;
   for (final e in monthlyDollars.entries) {
     var best = 0.0;
-    for (final r in rates.values) {
-      best = math.max(best, rate(r, e.key));
+    for (final card in cards) {
+      best = math.max(
+        best,
+        card.cashEquivalentRate(rate(rates[card.id]!, e.key)),
+      );
     }
     rewards += (e.value * 12 * best).round();
   }
@@ -114,7 +117,7 @@ OngoingValue estimateOngoingValue(
     totalCents: rewards + credits + anniversary - fees,
     benefits: benefits,
     assumptions: const [
-      'Spending rewards use best known base rates and 1 cent per point, excluding housing and conditional uplift. Annual fees are subtracted.',
+      'Spending rewards use best known base rates and per-card point values (1 cent by default), excluding housing and conditional uplift. Annual fees are subtracted.',
       'Relevant credits use a conditional 70% usage assumption, capped by 70% of annual category spending. Budget and travel scope do not establish merchant use: eligible purchases, enrollment and each periodic cap are required. Credits are not guaranteed savings. Credited purchases may not earn rewards.',
       'Anniversary rewards assume renewal and eligibility, starting at the first anniversary. Welcome bonuses are excluded; automatic bonus eligibility is not implemented.',
       'Missing/changed evidence, non-cash perks, per-stay benefits, temporary offers and multi-year application-fee credits receive zero annual cash value.',

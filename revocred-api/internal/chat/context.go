@@ -137,7 +137,7 @@ func communityTermsFacts(t *carddata.Terms) map[string]any {
 		"captured_on":             t.CapturedAt.UTC().Format("2006-01-02"),
 		"annual_fee_usd":          dollars(int64(t.AnnualFeeCents)),
 		"rates_not_counted":       notCounted,
-		"valuation_assumption":    "Points and miles use the model's nominal 1 cent per point; this is not a program-specific redemption value or guaranteed cash value.",
+		"valuation_assumption":    fmt.Sprintf("Estimated %g cents per point/mile; nominal earning units are preserved. Not guaranteed redemption value.", domain.CatalogCard{PointValueCents: t.PointValueCents}.CashEquivalentRate(1)),
 		"usage":                   "The member skipped entering terms, so the wallet score and value use these community rates. Say so when citing them, suggest verifying with the issuer, and never treat them as a reason to recommend a card.",
 	}
 }
@@ -192,6 +192,7 @@ func Snapshot(input Context) snapshot {
 		} else {
 			entry["reward_rates"] = card.RewardRates
 			entry["base_rate"] = valuation.Rate(card.RewardRates, "other")
+			entry["point_value_cents"] = card.CashEquivalentRate(1)
 		}
 		if card.TermsSource == domain.TermsSourceCommunity && card.CommunityTerms != nil {
 			entry["terms_source"] = communityTermsFacts(card.CommunityTerms)
@@ -356,7 +357,7 @@ func purchaseRankings(wallet []domain.WalletCard) []categoryRanking {
 				continue
 			}
 			card := item.Card
-			rate := valuation.Rate(card.RewardRates, category)
+			rate := valuation.CardRate(*card, category)
 			if rate <= 0 {
 				continue
 			}
@@ -366,7 +367,7 @@ func purchaseRankings(wallet []domain.WalletCard) []categoryRanking {
 			}
 			fact := purchaseCardFact{
 				Card: card.Name, ModeledRate: rate,
-				EarnLabel:             formatRate(rate, unit),
+				EarnLabel:             formatRate(valuation.Rate(card.RewardRates, category), unit),
 				ModeledValuePer100USD: rate,
 				AnnualFeeUSD:          dollars(int64(card.AnnualFeeCents)),
 			}

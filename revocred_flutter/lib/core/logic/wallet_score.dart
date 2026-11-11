@@ -164,9 +164,15 @@ WalletCapabilities walletCapabilities(List<CreditCard> cards) {
     if (card.feeTier == 'high' || _annualFeeCents(card.annualFee) >= 30000) {
       premiumBenefits = true;
     }
-    for (final line in card.pointMultipliers) {
-      final rate = parseMultiplier(line);
-      if (rate == null) continue;
+    final labels = card.modeledRates.isEmpty
+        ? card.pointMultipliers
+        : card.modeledRates.entries.map(
+            (e) => '${e.value}x ${e.key == 'other' ? 'everywhere' : e.key}',
+          );
+    for (final line in labels) {
+      final nominal = parseMultiplier(line);
+      if (nominal == null) continue;
+      final rate = card.cashEquivalentRate(nominal);
       switch (multiplierBucket(line)) {
         case 'catch_all':
           if (rate > catchAll) catchAll = rate;

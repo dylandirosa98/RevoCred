@@ -100,15 +100,21 @@ Card-level (the whole card stays unscored if any rule fails):
 3. Valid `last_verified` date, not in the future.
 4. `rate_type` is `cashback_percent` (rewards type `cash_back`) or
    `points_multiplier`/`miles_multiplier` (rewards type `travel`, the catalog's
-   word for point and mile currencies). Every currency is valued at the wallet
-   model's existing 1 cent per point.
+   word for point and mile currencies). Cash values use the versioned
+   per-currency assumptions below.
 5. A rewards currency is present (not `none`).
 6. Network is not `other`. These are closed-loop store cards that earn only at
    the merchant.
 7. Hotel and other co-brand currencies retain their actual point/mile earning
-   rates. Their modeled dollars use the existing **nominal 1¢ per point** baseline,
-   not a market valuation or guaranteed cash redemption value. The wallet disclaimer
-   and REVO context explicitly state this limitation; do not describe this estimate
+   rates. Their modeled dollars and category comparisons use **0.5¢ for Hilton and IHG,
+   0.7¢ for Marriott/Bonvoy/Ritz-Carlton, and 0.8¢ for Wyndham**. All other
+   currencies (including cash back, bank points, airline miles and Hyatt) stay at
+   1¢. `point_value_cents` is separate from nominal `reward_rates`; zero/absent
+   means 1¢. These are conservative model assumptions, not guaranteed redemption
+   values. `opencard-terms-v3` records this change. Values are derived on load for
+   community-scored wallet cards; issuer snapshots are unchanged and no database
+   migration is needed. The wallet disclaimer and REVO context state the valuation;
+   do not describe this estimate
    as actual cash earned or combine currencies into a transferable point balance.
 8. A non-null, finite base rate between 0 and 20. High nominal rates alone do not
    prove a store restriction; closed-loop networks and conditional descriptions

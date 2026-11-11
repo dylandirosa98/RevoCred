@@ -114,3 +114,18 @@ func TestCommunityTermsChangeWalletMetricsNotRecommendations(t *testing.T) {
 		}
 	}
 }
+
+func TestCommunityPointValueAppliedOnlyToSkippedTerms(t *testing.T) {
+	terms := sampleTerms()
+	terms.PointValueCents = .5
+	card := skippedCard()
+	applyCommunityTerms(&card, terms)
+	if card.PointValueCents != .5 || !strings.Contains(card.SourceDisclaimer, "0.5 cents") {
+		t.Fatalf("missing value: %+v", card)
+	}
+	issuer := domain.CatalogCard{RewardRates: map[string]float64{"other": 2}}
+	applyCommunityTerms(&issuer, terms)
+	if issuer.PointValueCents != 0 {
+		t.Fatal("issuer snapshot changed")
+	}
+}

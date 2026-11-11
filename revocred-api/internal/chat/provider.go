@@ -95,7 +95,11 @@ func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedCon
 			}
 			sort.Strings(keys)
 			for _, key := range keys {
-				items = append(items, fmt.Sprintf("%s: %g%% modeled return (one cent per point)", titleCase(key), rates[key]))
+				value, _ := entry["point_value_cents"].(float64)
+				if value <= 0 {
+					value = 1
+				}
+				items = append(items, fmt.Sprintf("%s: %g nominal units per dollar; %g%% modeled return (%g cents per unit)", titleCase(key), rates[key], rates[key]*value, value))
 			}
 		}
 		if benefits, ok := entry["benefits"].([]string); ok {
@@ -143,7 +147,7 @@ func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedCon
 			if item.Status != "active" || item.Card == nil || item.Card.TermsUnknown {
 				continue
 			}
-			candidateRate := valuation.Rate(item.Card.RewardRates, category)
+			candidateRate := valuation.CardRate(*item.Card, category)
 			if candidateRate > rate {
 				best, rate = item.Card, candidateRate
 			}
@@ -154,7 +158,7 @@ func (DeterministicProvider) Reply(_ context.Context, prompt string, groundedCon
 				{Type: "chart", Chart: &Chart{
 					Title: "Modeled value per dollar",
 					Unit:  "percent",
-					Note:  "One cent per point. Caps and merchant eligibility can reduce rewards.",
+					Note:  "Per-card point values (1 cent by default). Caps and merchant eligibility can reduce rewards.",
 					Bars:  []Bar{{Label: best.Name, Value: rate, Caption: category}},
 				}},
 				{Type: "paragraph", Text: "This is the highest conservative modeled rate in your active wallet. Verify current issuer terms."},

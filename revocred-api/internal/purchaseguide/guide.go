@@ -19,15 +19,16 @@ type Settings struct {
 func DefaultOptions() Settings { return Settings{TravelMode: "general", CapsAvailable: true} }
 
 type Option struct {
-	CardID       string   `json:"card_id"`
-	CardName     string   `json:"card_name"`
-	Rate         float64  `json:"rate"`
-	EarnLabel    string   `json:"earn_label"`
-	Reason       string   `json:"reason"`
-	Conditions   []string `json:"conditions"`
-	Source       string   `json:"source"`
-	SourceURL    string   `json:"source_url,omitempty"`
-	LastVerified string   `json:"last_verified,omitempty"`
+	CashEquivalentRate float64  `json:"cash_equivalent_rate"`
+	CardID             string   `json:"card_id"`
+	CardName           string   `json:"card_name"`
+	Rate               float64  `json:"rate"`
+	EarnLabel          string   `json:"earn_label"`
+	Reason             string   `json:"reason"`
+	Conditions         []string `json:"conditions"`
+	Source             string   `json:"source"`
+	SourceURL          string   `json:"source_url,omitempty"`
+	LastVerified       string   `json:"last_verified,omitempty"`
 }
 type Category struct {
 	ID              string   `json:"id"`
@@ -51,7 +52,7 @@ func Build(wallet []domain.WalletCard, settings Settings) []Category {
 	categories := homeCategories
 	result := make([]Category, 0, len(categories))
 	for _, cat := range categories {
-		g := Category{ID: cat[0], Label: cat[1], Options: []Option{}, FallbackOptions: []Option{}, Conditional: []Option{}, Unknown: []string{}, Assumptions: "Owned active cards only. Points and miles are compared at 1 cent each; cash-back rates use their face value. Eligible purchases assumed; issuer terms and merchant coding apply. No welcome bonuses, statement credits, annual fees or transfer-partner uplift included."}
+		g := Category{ID: cat[0], Label: cat[1], Options: []Option{}, FallbackOptions: []Option{}, Conditional: []Option{}, Unknown: []string{}, Assumptions: "Owned active cards only. Points and miles are compared using per-card point values (1 cent by default); cash-back rates use their face value. Eligible purchases assumed; issuer terms and merchant coding apply. No welcome bonuses, statement credits, annual fees or transfer-partner uplift included."}
 		if cat[0] == "rent" {
 			g.Assumptions = strings.Replace(g.Assumptions, "Eligible purchases assumed; issuer terms and merchant coding apply.", "Rent acceptance, reward eligibility and processing fees are unconfirmed. Base-rate alternatives are conditional and shown before fees.", 1)
 		}
@@ -125,6 +126,10 @@ func Build(wallet []domain.WalletCard, settings Settings) []Category {
 			if explicitOnly && applicable && cat[0] != "rent" {
 				option.Reason = "Supplied earning rule for this category; no missing catch-all rate was assumed."
 			}
+			option.CashEquivalentRate = card.CashEquivalentRate(option.Rate)
+			for i := range conditional {
+				conditional[i].CashEquivalentRate = card.CashEquivalentRate(conditional[i].Rate)
+			}
 			g.Conditional = append(g.Conditional, conditional...)
 			if !applicable {
 				if cat[0] == "rent" && !explicitOnly && rate > 0 {
@@ -146,7 +151,7 @@ func Build(wallet []domain.WalletCard, settings Settings) []Category {
 		if len(displayed) == 0 {
 			displayed = g.FallbackOptions
 		}
-		g.Tied = len(displayed) > 1 && displayed[0].Rate == displayed[1].Rate
+		g.Tied = len(displayed) > 1 && displayed[0].CashEquivalentRate == displayed[1].CashEquivalentRate
 		if settings.CapsAvailable {
 			g.Assumptions += " Known capped rates assume unused allowance."
 		} else {
@@ -164,8 +169,8 @@ func Build(wallet []domain.WalletCard, settings Settings) []Category {
 func sortOptions(options []Option) {
 	sort.Slice(options, func(i, j int) bool {
 		a, b := options[i], options[j]
-		if a.Rate != b.Rate {
-			return a.Rate > b.Rate
+		if a.CashEquivalentRate != b.CashEquivalentRate {
+			return a.CashEquivalentRate > b.CashEquivalentRate
 		}
 		if a.CardName != b.CardName {
 			return a.CardName < b.CardName

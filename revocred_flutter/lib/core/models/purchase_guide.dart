@@ -5,6 +5,7 @@ class PurchaseOption {
     required this.cardId,
     required this.cardName,
     required this.rate,
+    this.cashEquivalentRate,
     required this.earnLabel,
     required this.reason,
     this.conditions = const [],
@@ -16,6 +17,7 @@ class PurchaseOption {
     cardId: (j['card_id'] ?? '').toString(),
     cardName: (j['card_name'] ?? '').toString(),
     rate: (j['rate'] as num?)?.toDouble() ?? 0,
+    cashEquivalentRate: (j['cash_equivalent_rate'] as num?)?.toDouble(),
     earnLabel: (j['earn_label'] ?? '').toString(),
     reason: (j['reason'] ?? '').toString(),
     conditions: _strings(j['conditions']),
@@ -31,6 +33,8 @@ class PurchaseOption {
       sourceUrl,
       lastVerified;
   final double rate;
+  final double? cashEquivalentRate;
+  double get comparisonRate => cashEquivalentRate ?? rate;
   final List<String> conditions;
 }
 

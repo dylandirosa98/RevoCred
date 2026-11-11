@@ -9,7 +9,7 @@ import (
 	"github.com/revocred/revocred-api/internal/domain"
 )
 
-// Rate assumes one cent per point, no housing rewards, and the lower rate for
+// Rate returns nominal units, no housing rewards, and the lower rate for
 // combined food spend (the dining/grocery split is unknown).
 func Rate(rates map[string]float64, category string) float64 {
 	if category == "rent" || category == "housing" {
@@ -34,7 +34,7 @@ func Gross(spend map[string]int64, cards []domain.CatalogCard) int64 {
 	for _, category := range keys {
 		var best float64
 		for _, card := range cards {
-			best = max(best, Rate(card.RewardRates, category))
+			best = max(best, CardRate(card, category))
 		}
 		total += int64(math.Round(float64(spend[category]) * 12 * best / 100))
 	}
@@ -47,4 +47,9 @@ func Net(spend map[string]int64, cards []domain.CatalogCard) int64 {
 		total -= int64(card.AnnualFeeCents)
 	}
 	return total
+}
+
+// CardRate returns cash-equivalent percent for comparing cards and valuing spend.
+func CardRate(card domain.CatalogCard, category string) float64 {
+	return card.CashEquivalentRate(Rate(card.RewardRates, category))
 }

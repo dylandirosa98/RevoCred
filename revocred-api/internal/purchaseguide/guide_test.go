@@ -81,3 +81,22 @@ func TestOnlineShoppingUsesOnlyTheApplicableRateFromTheOwnedWallet(t *testing.T)
 		}
 	}
 }
+
+func TestHotelPointsLoseToHigherCashValue(t *testing.T) {
+	hotel := domain.CatalogCard{ID: "hotel", Name: "Hilton", PointValueCents: .5, RewardRates: map[string]float64{"other": 3, "dining": 5}}
+	gold := domain.CatalogCard{ID: "gold", Name: "Gold", RewardRates: map[string]float64{"other": 1, "dining": 4}}
+	guide := Build([]domain.WalletCard{{Status: "active", Card: &hotel}, {Status: "active", Card: &gold}}, DefaultOptions())
+	dining := guide[0]
+	if dining.Options[0].CardID != "gold" || dining.Tied {
+		t.Fatalf("dining = %+v", dining)
+	}
+	if got := dining.Options[1]; got.Rate != 5 || got.CashEquivalentRate != 2.5 || got.EarnLabel != "5x points per dollar" {
+		t.Fatalf("nominal label/cash rate = %+v", got)
+	}
+	// Ties use cash value too, even when earning units differ.
+	gold.RewardRates["dining"] = 2.5
+	guide = Build([]domain.WalletCard{{Status: "active", Card: &hotel}, {Status: "active", Card: &gold}}, DefaultOptions())
+	if !guide[0].Tied {
+		t.Fatal("cash-equivalent tie missed")
+	}
+}

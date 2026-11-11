@@ -23,13 +23,13 @@ func AnalyzeWallet(cards []domain.WalletCard) Wallet {
 		if card.Issuer != "" {
 			issuers[card.Issuer] = struct{}{}
 		}
-		wallet.CatchAll = maxRate(wallet.CatchAll, card.RewardRates["other"])
-		wallet.Dining = maxRate(wallet.Dining, card.RewardRates["dining"])
-		wallet.Groceries = maxRate(wallet.Groceries, card.RewardRates["groceries"])
-		wallet.Gas = maxRate(wallet.Gas, card.RewardRates["gas"])
-		wallet.Travel = maxRate(wallet.Travel, card.RewardRates["travel"])
-		wallet.Flights = maxRate(wallet.Flights, card.RewardRates["flights"])
-		wallet.Hotels = maxRate(wallet.Hotels, card.RewardRates["hotels"])
+		wallet.CatchAll = maxRate(wallet.CatchAll, card.CashEquivalentRate(card.RewardRates["other"]))
+		wallet.Dining = maxRate(wallet.Dining, card.CashEquivalentRate(card.RewardRates["dining"]))
+		wallet.Groceries = maxRate(wallet.Groceries, card.CashEquivalentRate(card.RewardRates["groceries"]))
+		wallet.Gas = maxRate(wallet.Gas, card.CashEquivalentRate(card.RewardRates["gas"]))
+		wallet.Travel = maxRate(wallet.Travel, card.CashEquivalentRate(card.RewardRates["travel"]))
+		wallet.Flights = maxRate(wallet.Flights, card.CashEquivalentRate(card.RewardRates["flights"]))
+		wallet.Hotels = maxRate(wallet.Hotels, card.CashEquivalentRate(card.RewardRates["hotels"]))
 		wallet.TransferPartners = wallet.TransferPartners || card.TransferablePoints
 		wallet.PremiumBenefits = wallet.PremiumBenefits || card.AnnualFeeCents >= 30000
 	}

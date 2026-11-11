@@ -289,3 +289,20 @@ func TestHotelAndHighBaseCurrenciesKeepActualEarningUnits(t *testing.T) {
 		}
 	}
 }
+
+func TestPointValueCents(t *testing.T) {
+	for currency, want := range map[string]float64{
+		"hilton_honors_points": .5, "ihg_points": .5, "marriott_bonvoy_points": .7,
+		"bonvoy_points": .7, "ritz-carlton_points": .7, "wyndham_rewards_points": .8,
+		"cash_back": 1, "membership_rewards": 1, "miles": 1, "hyatt_points": 1, "": 1,
+	} {
+		if got := PointValueCents(currency); got != want {
+			t.Errorf("%s = %g, want %g", currency, got, want)
+		}
+	}
+	records := fixtureRecords(t, "testdata/terms_fixture.json")
+	terms, err := MapTerms(records["us-amex-hilton-honors"])
+	if err != nil || terms.PointValueCents != .5 || terms.RewardRates["other"] != 3 {
+		t.Fatalf("Hilton terms = %+v, %v", terms, err)
+	}
+}

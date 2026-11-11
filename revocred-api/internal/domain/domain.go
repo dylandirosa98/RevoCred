@@ -22,6 +22,8 @@ type Profile struct {
 }
 
 type CatalogCard struct {
+	// PointValueCents values nominal earning units; zero defaults to one cent.
+	PointValueCents float64 `json:"point_value_cents,omitempty"`
 	// Community data remains reference-only for scoring, eligibility and card
 	// selection. Wallet-only Ongoing uses bounded, reviewed exact-text adapters;
 	// unreviewed prose must never be interpreted automatically as cash value.
@@ -256,4 +258,13 @@ type Bootstrap struct {
 	Playbook              *strategy.Playbook    `json:"playbook,omitempty"`
 	QuickPrompts          []string              `json:"quick_prompts"`
 	ChatMode              string                `json:"chat_mode,omitempty"`
+}
+
+// CashEquivalentRate converts nominal units per dollar to cash-equivalent percent.
+func (c CatalogCard) CashEquivalentRate(rate float64) float64 {
+	value := c.PointValueCents
+	if value <= 0 {
+		value = 1
+	}
+	return rate * value
 }

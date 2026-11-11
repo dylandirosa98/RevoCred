@@ -108,6 +108,7 @@ class CreditCard {
     this.termsSource = '',
     this.communityTerms,
     this.minimumCreditTier = '',
+    this.pointValueCents = 1,
     this.modeledRates = const {},
     this.rewardsType = '',
   });
@@ -132,6 +133,7 @@ class CreditCard {
     walletCardId: (json['walletCardId'] ?? json['wallet_card_id']) as String?,
     termsUnknown: json['termsUnknown'] == true || json['terms_unknown'] == true,
     rewardsType: (json['rewardsType'] ?? json['rewards_type'] ?? '').toString(),
+    pointValueCents: _pointValue(json['point_value_cents']),
     termsSource: (json['terms_source'] ?? '').toString(),
     communityTerms: (json['community_terms'] as Map?)?.cast<String, dynamic>(),
     communityData: json['community_data'] is Map
@@ -194,6 +196,7 @@ class CreditCard {
             ? 'Verify current terms with the issuer. Educational use only.'
             : text;
       }(),
+      pointValueCents: _pointValue(json['point_value_cents']),
       termsSource: (json['terms_source'] ?? '').toString(),
       communityTerms: (json['community_terms'] as Map?)
           ?.cast<String, dynamic>(),
@@ -213,6 +216,10 @@ class CreditCard {
   final String name;
   final String annualFee;
   final Map<String, double> modeledRates;
+  final double pointValueCents;
+
+  double cashEquivalentRate(double rate) =>
+      rate * (pointValueCents > 0 ? pointValueCents : 1);
   final String bestUse;
   final String multiplier;
   final List<String> benefits;
@@ -259,6 +266,7 @@ class CreditCard {
     benefits: benefits,
     pointMultipliers: pointMultipliers,
     modeledRates: modeledRates,
+    pointValueCents: pointValueCents,
     transferablePoints: transferablePoints,
     isActive: isActive ?? this.isActive,
     feeTier: feeTier,
@@ -1149,4 +1157,10 @@ Map<String, int> _intMap(dynamic value) {
   return value.map(
     (key, amount) => MapEntry(key.toString(), (amount as num).round()),
   );
+}
+
+// Missing/zero point values retain the existing one-cent baseline.
+double _pointValue(dynamic raw) {
+  final value = (raw as num?)?.toDouble() ?? 1;
+  return value > 0 && value.isFinite ? value : 1;
 }

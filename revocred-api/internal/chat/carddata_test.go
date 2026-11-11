@@ -35,3 +35,25 @@ func TestWalletCommunityScoringFactsIncludeSourceAndCaptureDate(t *testing.T) {
 		t.Fatal("mapped base missing")
 	}
 }
+
+func TestPurchaseFactsRankCashValueAndPreserveNominalLabels(t *testing.T) {
+	hotel := domain.CatalogCard{Name: "Hilton", PointValueCents: .5, TransferablePoints: true, RewardRates: map[string]float64{"other": 3, "dining": 5}}
+	gold := domain.CatalogCard{Name: "Gold", RewardRates: map[string]float64{"other": 1, "dining": 4}}
+	wallet := []domain.WalletCard{{Status: "active", Card: &hotel}, {Status: "active", Card: &gold}}
+	for _, category := range purchaseRankings(wallet) {
+		if category.Category != "dining" {
+			continue
+		}
+		if category.Options[0].Card != "Gold" {
+			t.Fatalf("ranking = %+v", category)
+		}
+		h := category.Options[1]
+		if h.ModeledValuePer100USD != 2.5 || h.EarnLabel != "5 points per dollar" {
+			t.Fatalf("hotel fact = %+v", h)
+		}
+	}
+	facts := Snapshot(Context{Wallet: wallet})
+	if facts.Wallet[0]["point_value_cents"] != .5 || facts.Wallet[0]["base_rate"] != float64(3) {
+		t.Fatalf("wallet facts = %+v", facts.Wallet)
+	}
+}

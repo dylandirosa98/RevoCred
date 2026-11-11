@@ -34,6 +34,7 @@ func applyCommunityTerms(card *domain.CatalogCard, terms *carddata.Terms) {
 	card.TermsSource = domain.TermsSourceCommunity
 	card.CommunityTerms = terms
 	card.RewardRates = rates
+	card.PointValueCents = terms.PointValueCents
 	card.AnnualFeeCents = terms.AnnualFeeCents
 	card.RewardsType = terms.RewardsType
 	card.TransferablePoints = terms.TransferablePoints
@@ -49,8 +50,8 @@ func applyCommunityTerms(card *domain.CatalogCard, terms *carddata.Terms) {
 func communityDisclaimer(terms *carddata.Terms) string {
 	return fmt.Sprintf("Earning rates and annual fee from %s (CC BY 4.0), last verified by the source on %s and captured %s. "+
 		"Community-maintained, not issuer-verified. Rotating, capped, portal-only, merchant-specific and other conditional rates are not counted. "+
-		"Points/miles use the model's nominal 1 cent per point, not a program-specific redemption value. Enter your own terms to replace these. Verify current terms with the issuer.",
-		terms.SourceName, terms.LastVerified, terms.CapturedAt.UTC().Format("2006-01-02"))
+		"Rewards use an estimated %g cents per point/mile (Hilton/IHG 0.5, Marriott/Bonvoy/Ritz-Carlton 0.7, Wyndham 0.8; otherwise 1), not guaranteed redemption value. Displayed earning rates stay nominal. Enter your own terms to replace these. Verify current terms with the issuer.",
+		terms.SourceName, terms.LastVerified, terms.CapturedAt.UTC().Format("2006-01-02"), domain.CatalogCard{PointValueCents: terms.PointValueCents}.CashEquivalentRate(1))
 }
 
 // communityBestUse summarizes the strongest scored categories, e.g.
