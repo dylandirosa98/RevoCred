@@ -6,9 +6,9 @@
   "SUPABASE_ANON_KEY": "",
   "REVOCRED_AUTH_REDIRECT_URL": "com.revocred.app://auth-callback/",
   "REVOCRED_LEGAL_ENTITY": "{{LEGAL_ENTITY}}",
-  "REVOCRED_SUPPORT_EMAIL": "{{SUPPORT_EMAIL}}",
+  "REVOCRED_SUPPORT_EMAIL": "support@revocred.com",
   "REVOCRED_LEGAL_JURISDICTION": "{{LEGAL_JURISDICTION}}",
   "REVOCRED_LEGAL_EFFECTIVE_DATE": "{{LEGAL_EFFECTIVE_DATE}}",
-  "REVOCRED_PRIVACY_URL": "https://example.com/privacy",
-  "REVOCRED_TERMS_URL": "https://example.com/terms"
+  "REVOCRED_PRIVACY_URL": "https://api.revocred.com/privacy",
+  "REVOCRED_TERMS_URL": "https://api.revocred.com/terms"
 }

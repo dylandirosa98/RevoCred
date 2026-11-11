@@ -19,6 +19,84 @@ void main() {
       throwsStateError,
     );
   });
+  test('legal links default to the API-hosted public pages', () {
+    const config = AppConfig.fromEnvironment();
+    expect(config.privacyUrl, 'https://api.revocred.com/privacy');
+    expect(config.termsUrl, 'https://api.revocred.com/terms');
+    expect(config.supportUrl, 'https://api.revocred.com/support');
+    expect(config.supportEmail, 'support@revocred.com');
+  });
+  test('production requires an HTTPS support page', () {
+    AppConfig production(String supportUrl) => AppConfig(
+      useMocks: false,
+      production: true,
+      apiUrl: 'https://api.example.com',
+      supabaseUrl: 'https://auth.example.com',
+      supabaseAnonKey: 'sb_publishable_example',
+      authRedirectUrl: 'com.revocred.app://auth-callback/',
+      legalEntity: 'RevoCred Example LLC',
+      supportEmail: 'support@example.com',
+      legalJurisdiction: 'Delaware',
+      legalEffectiveDate: '2026-11-20',
+      privacyUrl: 'https://api.example.com/privacy',
+      termsUrl: 'https://api.example.com/terms',
+      supportUrl: supportUrl,
+    );
+    expect(
+      production('https://api.example.com/support').validate,
+      returnsNormally,
+    );
+    expect(production('').validate, throwsStateError);
+    expect(
+      production('http://api.example.com/support').validate,
+      throwsStateError,
+    );
+  });
+  testWidgets('legal screen opens privacy, terms and support pages', (
+    tester,
+  ) async {
+    const channel = MethodChannel('plugins.flutter.io/url_launcher');
+    final opened = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'launch') {
+            opened.add((call.arguments as Map)['url'] as String);
+          }
+          return true;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          legalChatDisclosureProvider.overrideWith(
+            (ref) async => const ChatDisclosure.basic(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: LegalScreen(
+            config: AppConfig(
+              useMocks: false,
+              privacyUrl: defaultPrivacyUrl,
+              termsUrl: defaultTermsUrl,
+              supportUrl: defaultSupportUrl,
+              supportEmail: defaultSupportEmail,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (final label in ['Full privacy policy', 'Full terms', 'Support page']) {
+      await tester.scrollUntilVisible(find.text(label), 300);
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+    expect(opened, [defaultPrivacyUrl, defaultTermsUrl, defaultSupportUrl]);
+    expect(find.text('support@revocred.com'), findsOneWidget);
+  });
   testWidgets('signed-out legal screen labels demo operator', (tester) async {
     await tester.pumpWidget(
       const ProviderScope(child: MaterialApp(home: LegalScreen())),

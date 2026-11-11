@@ -7,6 +7,11 @@ IOS_EXPORT_OPTIONS ?= .local/ios/ExportOptions.plist
 
 .PHONY: check flutter-format flutter-analyze flutter-test flutter-web flutter-web-real api-test api-vet api-sqlc-vet api-run api-run-local local-setup local-e2e docker-up docker-down database-test release-check security-check verify-local local-preview local-stop browser-smoke setup-opencode-go
 
+# Copy the public legal Markdown into the API, which embeds and serves it.
+.PHONY: legal-sync
+legal-sync:
+	cp docs/legal/privacy-policy.md docs/legal/terms-of-use.md docs/legal/support.md revocred-api/internal/legal/content/
+
 .PHONY: search-up search-down
 search-up:
 	$(DOCKER_COMPOSE) -f compose.search.yaml up --build -d

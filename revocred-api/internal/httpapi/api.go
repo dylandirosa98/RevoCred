@@ -14,6 +14,7 @@ import (
 	"github.com/revocred/revocred-api/internal/auth"
 	"github.com/revocred/revocred-api/internal/chat"
 	"github.com/revocred/revocred-api/internal/domain"
+	"github.com/revocred/revocred-api/internal/legal"
 	"github.com/revocred/revocred-api/internal/purchaseguide"
 	"github.com/revocred/revocred-api/internal/store"
 	"github.com/revocred/revocred-api/internal/strategy"
@@ -79,6 +80,8 @@ func New(
 	mux.HandleFunc("GET /readyz", api.ready)
 	mux.HandleFunc("GET /metrics", api.metrics)
 	mux.HandleFunc("OPTIONS /", api.options)
+	// Public privacy, terms and support pages (App Store URLs): no auth.
+	legal.Register(mux)
 	mux.HandleFunc("POST /v1/public/explain", api.publicExplain)
 	mux.HandleFunc("GET /v1/public/chat-disclosure", api.chatDisclosure)
 	mux.HandleFunc("GET /v1/public/cards", api.cards)

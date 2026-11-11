@@ -16,6 +16,7 @@ import (
 	"github.com/revocred/revocred-api/internal/chat"
 	"github.com/revocred/revocred-api/internal/config"
 	"github.com/revocred/revocred-api/internal/httpapi"
+	"github.com/revocred/revocred-api/internal/legal"
 	"github.com/revocred/revocred-api/internal/recommendation"
 	"github.com/revocred/revocred-api/internal/store"
 )
@@ -112,6 +113,9 @@ func run(logger *slog.Logger) error {
 	}
 	if cfg.AIAPIKey != "" && cfg.SearchAPIKey == "" && cfg.SearchProvider != "searxng" {
 		logger.Warn("REVO web search is disabled; configure SearXNG or a Brave Search key")
+	}
+	if markers := legal.Placeholders(); len(markers) > 0 {
+		logger.Warn("public legal pages still contain owner placeholders", "placeholders", markers)
 	}
 	handler := httpapi.New(
 		repository,
