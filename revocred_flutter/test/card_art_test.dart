@@ -89,6 +89,13 @@ void main() {
         final issuer = row.group(1)!.replaceAll("''", "'");
         final name = row.group(2)!.replaceAll("''", "'");
         if (issuer.startsWith('Demo Bank')) continue;
+        // Imported community identities use the existing generic fallback when
+        // dedicated artwork is unavailable. They never become catalog products.
+        if (row.group(0)!.trimLeft().startsWith("('us-")) {
+          final asset = cardArtAssetForName(name, issuer: issuer);
+          expect(File(asset).existsSync(), isTrue, reason: '$issuer / $name');
+          continue;
+        }
         expect(
           cardArtCatalog[issuer],
           contains(name),

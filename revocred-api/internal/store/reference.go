@@ -43,7 +43,7 @@ WITH candidates AS (
     FROM candidates r
 )
 SELECT r.id::text, r.slug, r.issuer, r.name, r.network, r.rewards_type, r.annual_fee_cents,
-       r.reward_rates, r.terms_status, r.source_url, r.source_captured_on::text, r.disclaimer,
+       COALESCE(r.opencard_product_id, r.slug), r.reward_rates, r.terms_status, r.source_url, r.source_captured_on::text, r.disclaimer,
        COALESCE(c.id::text, '')
 FROM ranked r
 LEFT JOIN revocred.catalog_cards c
@@ -69,6 +69,9 @@ LIMIT $3`, tokens, phrase, limit)
 		card, err := scanReferenceCard(rows)
 		if err != nil {
 			return nil, err
+		}
+		if card.CatalogCardID == "" {
+			card.CommunityTerms = p.communityTermsFor(card.OpenCardProductID)
 		}
 		cards = append(cards, card)
 	}
@@ -120,7 +123,7 @@ func (p *Postgres) referenceCardsByID(ctx context.Context, ids []string) (map[st
 	}
 	rows, err := p.pool.Query(ctx, `
 SELECT r.id::text, r.slug, r.issuer, r.name, r.network, r.rewards_type, r.annual_fee_cents,
-       r.reward_rates, r.terms_status, r.source_url, r.source_captured_on::text, r.disclaimer,
+       COALESCE(r.opencard_product_id, r.slug), r.reward_rates, r.terms_status, r.source_url, r.source_captured_on::text, r.disclaimer,
        COALESCE(c.id::text, '')
 FROM revocred.card_reference_index r
 LEFT JOIN revocred.catalog_cards c
@@ -146,7 +149,7 @@ func scanReferenceCard(row rowScanner) (domain.ReferenceCard, error) {
 	var card domain.ReferenceCard
 	var rates []byte
 	if err := row.Scan(&card.ID, &card.Slug, &card.Issuer, &card.Name, &card.Network,
-		&card.RewardsType, &card.AnnualFeeCents, &rates, &card.TermsStatus, &card.SourceURL,
+		&card.RewardsType, &card.AnnualFeeCents, &card.OpenCardProductID, &rates, &card.TermsStatus, &card.SourceURL,
 		&card.SourceCapturedOn, &card.Disclaimer, &card.CatalogCardID); err != nil {
 		return domain.ReferenceCard{}, fmt.Errorf("scan reference card: %w", err)
 	}
@@ -158,8 +161,7 @@ func scanReferenceCard(row rowScanner) (domain.ReferenceCard, error) {
 
 // resolveOnboardingCards turns index picks into wallet cards. A product that is
 // already vetted keeps its sourced terms. Otherwise an owned user_supplied card
-// is created: with the user's own terms when supplied, or without any terms when
-// they skipped, which keeps it out of scoring.
+// is created: with the user's own terms when supplied, or with conservative community terms when available if they skipped.
 func (p *Postgres) resolveOnboardingCards(ctx context.Context, userID string, picks []domain.OnboardingCard, existing []string) ([]string, error) {
 	ids := make([]string, 0, len(picks)+len(existing))
 	ids = append(ids, existing...)

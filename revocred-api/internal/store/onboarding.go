@@ -109,8 +109,9 @@ func (p *Postgres) SaveOnboarding(ctx context.Context, userID string, input doma
 	input.OwnedCards = nil
 	input.ExistingCardIDs = []string{}
 	for _, item := range wallet {
-		// A card without terms is owned but must not shape the ranking.
-		if item.Status == "active" && item.Card != nil && !item.Card.TermsUnknown {
+		// A card without terms, or with wallet-only community terms, is owned
+		// but must not shape the ranking.
+		if item.Status == "active" && item.Card != nil && item.Card.ShapesRecommendations() {
 			input.ExistingCardIDs = append(input.ExistingCardIDs, item.CatalogCardID)
 			input.OwnedCards = append(input.OwnedCards, *item.Card)
 		}
@@ -178,6 +179,10 @@ func previewReferenceCards(ctx context.Context, repo *Postgres, picks []domain.O
 			card.RewardRates = pick.RewardRates
 			card.TransferablePoints = pick.Transferable
 			input.OwnedCards = append(input.OwnedCards, card)
+		} else {
+			// Mirror the saved path: a skipped card is scored in the wallet
+			// with community terms when they map, but never feeds the engine.
+			applyCommunityTerms(&card, repo.communityTermsFor(reference.OpenCardProductID))
 		}
 		shown = append(shown, domain.WalletCard{CatalogCardID: card.ID, Status: "active", Card: &card})
 	}

@@ -63,7 +63,7 @@ func TestMissingBaseRateAndUnknownRewardUnitsAreRejected(t *testing.T) {
 				rewards["rate_type"] = "unknown_unit"
 			}
 			invalid, _ := json.Marshal(fresh)
-			if _, err := decode(invalid, time.Now()); err == nil {
+			if _, _, err := decode(invalid, time.Now()); err == nil {
 				t.Fatal("ambiguous reward semantics accepted")
 			}
 		})

@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/revocred/revocred-api/internal/carddata"
 	"github.com/revocred/revocred-api/internal/domain"
 	"github.com/revocred/revocred-api/internal/valuation"
 )
@@ -104,6 +105,7 @@ type purchaseCardFact struct {
 	EarnLabel             string  `json:"earn_label"`
 	ModeledValuePer100USD float64 `json:"modeled_value_per_100_usd"`
 	AnnualFeeUSD          float64 `json:"annual_fee_usd"`
+	TermsSource           string  `json:"terms_source,omitempty"`
 }
 
 func dollars(cents int64) float64 { return float64(cents) / 100 }
@@ -121,6 +123,25 @@ func communityFacts(card *domain.CatalogCard) map[string]any {
 	}
 }
 
+// communityTermsFacts tells REVO where a wallet card's modeled rates came from
+// when the member did not type them, and what was deliberately not counted.
+func communityTermsFacts(t *carddata.Terms) map[string]any {
+	notCounted := make([]string, 0, len(t.NotScored))
+	for _, rule := range t.NotScored {
+		notCounted = append(notCounted, fmt.Sprintf("%s (%g): %s", rule.Label, rule.Rate, rule.Reason))
+	}
+	return map[string]any{
+		"source":                  t.SourceName + " (community-maintained, not issuer-verified)",
+		"source_url":              t.SourceURL,
+		"last_verified_by_source": t.LastVerified,
+		"captured_on":             t.CapturedAt.UTC().Format("2006-01-02"),
+		"annual_fee_usd":          dollars(int64(t.AnnualFeeCents)),
+		"rates_not_counted":       notCounted,
+		"valuation_assumption":    "Points and miles use the model's nominal 1 cent per point; this is not a program-specific redemption value or guaranteed cash value.",
+		"usage":                   "The member skipped entering terms, so the wallet score and value use these community rates. Say so when citing them, suggest verifying with the issuer, and never treat them as a reason to recommend a card.",
+	}
+}
+
 func Snapshot(input Context) snapshot {
 	facts := snapshot{
 		AllowedCards:           []string{},
@@ -129,7 +150,7 @@ func Snapshot(input Context) snapshot {
 		WalletRating:           input.Metrics.Rating,
 		YearlyValueUSD:         input.Metrics.YearlyValue,
 		OngoingWalletBreakdown: input.Metrics.OngoingValue,
-		ModelAssumptions:       "Wallet ongoing value = spending rewards + conditional usable credits (70% assumption for relevant reviewed credits, budget capped) + recurring anniversary rewards - fees. Use the supplied breakdown in cents, divide by 100 for dollars; explain each condition/source and that budget does not prove merchant use. Renewal/anniversary eligibility assumed; welcome bonuses are excluded, automatic bonus eligibility is not implemented. Missing/changed benefit evidence is zero, not no benefit. Application rankings still use the separate conservative rewards-minus-fees model and exclude credits and bonuses. Never convert AI web/marketing prose into modeled value or alter rankings.",
+		ModelAssumptions:       "Wallet ongoing value = spending rewards + conditional usable credits (70% assumption for relevant reviewed credits, budget capped) + recurring anniversary rewards - fees. Use the supplied breakdown in cents, divide by 100 for dollars; explain each condition/source and that budget does not prove merchant use. Renewal/anniversary eligibility assumed; welcome bonuses are excluded, automatic bonus eligibility is not implemented. Missing/changed benefit evidence is zero, not no benefit. Application rankings still use the separate conservative rewards-minus-fees model and exclude credits and bonuses. Never convert AI web/marketing prose into modeled value or alter rankings. A wallet card with terms_source was scored with community-maintained OpenCard DB rates because the member skipped typing terms; cite that source and date, and note those rates never affect rankings.",
 	}
 	seen := map[string]bool{}
 	add := func(name string) {
@@ -171,6 +192,9 @@ func Snapshot(input Context) snapshot {
 		} else {
 			entry["reward_rates"] = card.RewardRates
 			entry["base_rate"] = valuation.Rate(card.RewardRates, "other")
+		}
+		if card.TermsSource == domain.TermsSourceCommunity && card.CommunityTerms != nil {
+			entry["terms_source"] = communityTermsFacts(card.CommunityTerms)
 		}
 		facts.Wallet = append(facts.Wallet, compact(entry))
 	}
@@ -337,15 +361,19 @@ func purchaseRankings(wallet []domain.WalletCard) []categoryRanking {
 				continue
 			}
 			unit := "% cash back"
-			if card.TransferablePoints {
+			if card.TransferablePoints || (card.TermsSource == domain.TermsSourceCommunity && card.RewardsType != "cash_back") {
 				unit = "points per dollar"
 			}
-			options = append(options, purchaseCardFact{
+			fact := purchaseCardFact{
 				Card: card.Name, ModeledRate: rate,
 				EarnLabel:             formatRate(rate, unit),
 				ModeledValuePer100USD: rate,
 				AnnualFeeUSD:          dollars(int64(card.AnnualFeeCents)),
-			})
+			}
+			if card.TermsSource == domain.TermsSourceCommunity && card.CommunityTerms != nil {
+				fact.TermsSource = card.CommunityTerms.SourceName + ", captured " + card.CommunityTerms.CapturedAt.UTC().Format("2006-01-02")
+			}
+			options = append(options, fact)
 		}
 		sort.SliceStable(options, func(i, j int) bool {
 			if options[i].ModeledRate == options[j].ModeledRate {

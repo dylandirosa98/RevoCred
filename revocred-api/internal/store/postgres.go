@@ -256,9 +256,11 @@ SELECT w.id::text, w.user_id::text, w.catalog_card_id::text, w.nickname, w.statu
        v.summary, v.best_use, v.annual_fee_cents, v.reward_rates, v.benefits,
        v.transferable_points, v.travel_scope, v.minimum_credit_tier, v.rewards_type,
        v.first_year_bonus_estimate_cents, v.annual_benefit_estimate_cents,
-       v.dataset_version, c.terms_unknown, s.name, COALESCE(s.url, ''), s.disclaimer, s.published_at, v.created_at
+       v.dataset_version, c.terms_unknown, s.name, COALESCE(s.url, ''), s.disclaimer, s.published_at, v.created_at,
+       COALESCE(r.opencard_product_id, r.slug, '')
 FROM revocred.wallet_cards w
 JOIN revocred.catalog_cards c ON c.id = w.catalog_card_id
+LEFT JOIN revocred.card_reference_index r ON r.id = c.reference_card_id
 JOIN LATERAL (
     SELECT cv.* FROM revocred.card_catalog_versions cv
     WHERE cv.catalog_card_id = c.id
@@ -277,6 +279,7 @@ ORDER BY w.created_at DESC`, userID)
 		var item domain.WalletCard
 		var card domain.CatalogCard
 		var ratesJSON, benefitsJSON []byte
+		var referenceSlug string
 		err := rows.Scan(
 			&item.ID, &item.UserID, &item.CatalogCardID, &item.Nickname, &item.Status, &item.OpenedOn, &item.CreatedAt,
 			&card.ID, &card.Slug, &card.Issuer, &card.Network, &card.Name,
@@ -284,6 +287,7 @@ ORDER BY w.created_at DESC`, userID)
 			&card.TransferablePoints, &card.TravelScope, &card.MinimumCreditTier, &card.RewardsType,
 			&card.FirstYearBonusCents, &card.AnnualBenefitValue, &card.DatasetVersion, &card.TermsUnknown,
 			&card.SourceName, &card.SourceURL, &card.SourceDisclaimer, &card.SourcePublishedAt, &card.CatalogVersionCreated,
+			&referenceSlug,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan wallet: %w", err)
@@ -297,6 +301,9 @@ ORDER BY w.created_at DESC`, userID)
 		if p.cardData != nil {
 			card.CommunityData = p.cardData.Get(card.ID)
 		}
+		// A search pick saved without terms is scored with community terms
+		// when its product maps conservatively; otherwise it stays unscored.
+		applyCommunityTerms(&card, p.communityTermsFor(referenceSlug))
 		item.Card = &card
 		wallet = append(wallet, item)
 	}
@@ -343,11 +350,17 @@ func (p *Postgres) CreateCustomCard(ctx context.Context, userID string, input do
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	slug := customSlug(input.Name)
-	var cardID string
+	var cardID, referenceSlug string
+	// Link the card to the search-index row with the exact same issuer and
+	// name, if any. The link identifies the product; it never overrides terms
+	// the cardholder entered.
 	err = tx.QueryRow(ctx, `
-INSERT INTO revocred.catalog_cards (slug, issuer, network, name, owner_user_id, data_kind, terms_unknown)
-VALUES ($1, $2, $3, $4, $5, 'user_supplied', $6)
-RETURNING id::text`, slug, input.Issuer, input.Network, input.Name, userID, input.TermsUnknown).Scan(&cardID)
+INSERT INTO revocred.catalog_cards (slug, issuer, network, name, owner_user_id, data_kind, terms_unknown, reference_card_id)
+VALUES ($1, $2, $3, $4, $5, 'user_supplied', $6,
+        (SELECT r.id FROM revocred.card_reference_index r
+         WHERE r.is_active AND lower(r.issuer) = lower($2) AND lower(r.name) = lower($4)))
+RETURNING id::text, COALESCE((SELECT r.slug FROM revocred.card_reference_index r WHERE r.id = reference_card_id), '')`,
+		slug, input.Issuer, input.Network, input.Name, userID, input.TermsUnknown).Scan(&cardID, &referenceSlug)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -408,7 +421,9 @@ RETURNING id::text, user_id::text, catalog_card_id::text, nickname, status, open
 		TravelScope: input.TravelScope, MinimumCreditTier: input.MinimumCreditTier, RewardsType: input.RewardsType,
 		DatasetVersion: "user-supplied", SourceName: "User-supplied card terms",
 		SourceDisclaimer: "Entered by the user. Not verified against issuer documents. Educational use only.",
+		TermsUnknown:     input.TermsUnknown,
 	}
+	applyCommunityTerms(item.Card, p.communityTermsFor(referenceSlug))
 	return item, nil
 }
 

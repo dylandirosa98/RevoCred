@@ -54,6 +54,34 @@ String _grouped(int value) => value.toString().replaceAllMapped(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('community wallet rates and provenance reach Explore inputs', () {
+    final card = CreditCard.fromApiJson({
+      'id': 'owned-community',
+      'name': 'Active Cash',
+      'terms_source': 'community',
+      'terms_unknown': false,
+      'rewards_type': 'cash_back',
+      'reward_rates': {'other': 2},
+      'community_terms': {
+        'source_name': 'OpenCard DB community data',
+        'captured_at': '2026-11-09T00:00:00Z',
+        'mapping_version': 'opencard-terms-v2',
+      },
+    }, isActive: true).copyWith(walletCardId: 'wallet-id');
+    expect(card.termsSource, 'community');
+    expect(card.communityTerms?['captured_at'], '2026-11-09T00:00:00Z');
+    final earning = walletEarning(
+      _member(
+        wallet: [card],
+        spend: {'other': 1000},
+        value: const OngoingValue(rewardsCents: 24000),
+      ),
+    );
+    expect(earning.annualPoints, 24000);
+    expect(earning.cashBack, isTrue);
+    expect(earning.multiplier, 2);
+  });
+
   group('formulas match the approved handoff', () {
     test('flight value subtracts taxes and fees', () {
       // SFO → Paris: $603 cash, 21,000 points + $5.

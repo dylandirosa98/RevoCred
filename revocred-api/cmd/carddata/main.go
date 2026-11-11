@@ -61,5 +61,7 @@ func main() {
 		}
 		rows = append(rows, row)
 	}
-	json.NewEncoder(os.Stdout).Encode(map[string]any{"catalog_count": len(cards), "connected_count": mapped, "source": carddata.ProjectURL, "cards": rows})
+	products, scorable, bindings := cache.TermsStatus()
+	terms := map[string]any{"mapping_version": carddata.TermsMappingVersion, "scorable_products": products, "search_bindings": bindings, "scorable_search_bindings": scorable}
+	json.NewEncoder(os.Stdout).Encode(map[string]any{"catalog_count": len(cards), "connected_count": mapped, "source": carddata.ProjectURL, "cards": rows, "wallet_terms": terms})
 }

@@ -18,7 +18,10 @@ for recommendations. The index exists for one purpose: helping a person say
   ours, because theirs is the card they actually hold.
 - **Skipping is allowed and explained.** A skipped card is saved and shown as
   owned with `terms_unknown`, and is excluded from the wallet score, valuation
-  and ranking inputs. The UI says, in two places, that the score may be less
+  and ranking inputs. Exception: when the row is bound to an OpenCard product
+  whose rates map conservatively, the wallet score and value use those
+  community rates, labelled with source and dates. They never feed rankings.
+  See [opencard-data.md](opencard-data.md#wallet-scoring-terms). The UI says, in two places, that the score may be less
   accurate as a result. The flag is deliberately inverted (`terms_unknown`) so
   an unset value can never silently drop a card from the math.
 - **A modelled product wins.** If a pick matches a card the catalog already
@@ -30,9 +33,14 @@ for recommendations. The index exists for one purpose: helping a person say
 
 ## Adding more cards
 
-Current coverage: 14 verified rows (the modeled catalog, terms copied from the
-catalog) plus 25 identity-only rows captured from Chase's public card list on
-2026-09-26. That is **not** a large database yet.
+Migration `000031_custom_card_reference_link.sql` adds exact OpenCard product
+links and search identities for all 435 US products in the 2026-11-09 community
+snapshot, alongside the existing issuer rows. Existing reviewed aliases keep
+their identities. Community rows remain partial identity data, with explicit
+source/date attribution and the existing generic artwork fallback when dedicated
+art is unavailable. Wallet scoring terms come separately from the cached feed;
+292 products currently have usable conservative terms. These rows never become
+recommendation candidates.
 
 To add an issuer, capture its public card list and insert identity rows with the
 issuer's product URL and the capture date. Requirements:

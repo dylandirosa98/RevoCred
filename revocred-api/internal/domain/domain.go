@@ -52,6 +52,23 @@ type CatalogCard struct {
 	SourceDisclaimer      string     `json:"source_disclaimer"`
 	SourcePublishedAt     *time.Time `json:"source_published_at,omitempty"`
 	CatalogVersionCreated time.Time  `json:"catalog_version_created_at,omitempty"`
+	// TermsSource is TermsSourceCommunity when the scoring terms above were
+	// derived from OpenCard DB because the cardholder skipped entering them.
+	// Empty means catalog issuer terms or the cardholder's own terms.
+	TermsSource string `json:"terms_source,omitempty"`
+	// CommunityTerms is the provenance and per-rule mapping behind community
+	// terms: source, verification and capture dates, scored and unscored rules.
+	CommunityTerms *carddata.Terms `json:"community_terms,omitempty"`
+}
+
+// TermsSourceCommunity marks wallet-only terms mapped from OpenCard DB.
+const TermsSourceCommunity = "community"
+
+// ShapesRecommendations reports whether an owned card may feed the
+// recommendation engine. Community-derived terms are wallet-only: they score
+// and value the member's wallet but never alter recommendation inputs.
+func (c CatalogCard) ShapesRecommendations() bool {
+	return !c.TermsUnknown && c.TermsSource != TermsSourceCommunity
 }
 
 type WalletCard struct {
@@ -112,21 +129,25 @@ type Substitution struct {
 // ReferenceCard is one search result. It carries dated public terms so a user
 // can accept them in one tap, and it is never a recommendation candidate.
 type ReferenceCard struct {
-	ID               string             `json:"id"`
-	Slug             string             `json:"slug"`
-	Issuer           string             `json:"issuer"`
-	Name             string             `json:"name"`
-	Network          string             `json:"network"`
-	RewardsType      string             `json:"rewards_type"`
-	AnnualFeeCents   int                `json:"annual_fee_cents"`
-	RewardRates      map[string]float64 `json:"reward_rates"`
-	TermsStatus      string             `json:"terms_status"`
-	SourceURL        string             `json:"source_url"`
-	SourceCapturedOn string             `json:"source_captured_on"`
-	Disclaimer       string             `json:"disclaimer"`
+	OpenCardProductID string             `json:"-"`
+	ID                string             `json:"id"`
+	Slug              string             `json:"slug"`
+	Issuer            string             `json:"issuer"`
+	Name              string             `json:"name"`
+	Network           string             `json:"network"`
+	RewardsType       string             `json:"rewards_type"`
+	AnnualFeeCents    int                `json:"annual_fee_cents"`
+	RewardRates       map[string]float64 `json:"reward_rates"`
+	TermsStatus       string             `json:"terms_status"`
+	SourceURL         string             `json:"source_url"`
+	SourceCapturedOn  string             `json:"source_captured_on"`
+	Disclaimer        string             `json:"disclaimer"`
 	// CatalogCardID is set when this product is already in the vetted catalog,
 	// so choosing it keeps the sourced terms instead of a user copy.
 	CatalogCardID string `json:"catalog_card_id,omitempty"`
+	// CommunityTerms are the wallet-only terms used if the cardholder adds
+	// this card without typing terms. Informational; never a recommendation.
+	CommunityTerms *carddata.Terms `json:"community_terms,omitempty"`
 }
 
 type RecommendationInput struct {
