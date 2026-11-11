@@ -15,6 +15,7 @@ import (
 	"github.com/revocred/revocred-api/internal/chat"
 	"github.com/revocred/revocred-api/internal/domain"
 	"github.com/revocred/revocred-api/internal/purchaseguide"
+	"github.com/revocred/revocred-api/internal/revenuecat"
 	"github.com/revocred/revocred-api/internal/store"
 	"github.com/revocred/revocred-api/internal/strategy"
 )
@@ -41,6 +42,12 @@ type API struct {
 	// day; chatFreeDailyAILimit is the allowance without a subscription.
 	chatDailyAILimit     int
 	chatFreeDailyAILimit int
+	// RevenueCat: the webhook is disabled while revenueCatAuth is empty;
+	// subscribers is nil without a RevenueCat secret API key.
+	revenueCatAuth         string
+	revenueCatEntitlement  string
+	revenueCatAllowSandbox bool
+	subscribers            SubscriberLookup
 }
 
 func New(
@@ -62,6 +69,13 @@ func New(
 		api.metricsToken = options[0].MetricsToken
 		api.clientIPHeader = options[0].ClientIPHeader
 		api.chatDailyAILimit = options[0].ChatDailyAILimit
+		api.revenueCatAuth = options[0].RevenueCatWebhookAuth
+		api.revenueCatEntitlement = options[0].RevenueCatEntitlementID
+		api.revenueCatAllowSandbox = options[0].RevenueCatAllowSandbox
+		api.subscribers = options[0].RevenueCatSubscribers
+	}
+	if api.revenueCatEntitlement == "" {
+		api.revenueCatEntitlement = revenuecat.DefaultEntitlementID
 	}
 	if api.chatDailyAILimit <= 0 {
 		api.chatDailyAILimit = defaultChatDailyAILimit
@@ -110,6 +124,9 @@ func New(
 	api.protected(mux, "DELETE /v1/chat/consent", api.chatConsent)
 	api.protected(mux, "DELETE /v1/chat/messages", api.clearChat)
 	api.protected(mux, "POST /v1/chat/messages/{id}/feedback", api.chatFeedback)
+	api.protected(mux, "GET /v1/ai-plan", api.aiPlan)
+	api.protected(mux, "POST /v1/ai-plan/refresh", api.refreshAIPlan)
+	mux.HandleFunc("POST /v1/webhooks/revenuecat", api.revenueCatWebhook)
 
 	return api.requestID(api.logging(api.recoverPanic(api.cors(api.rateLimit(api.deadline(mux))))))
 }

@@ -52,6 +52,14 @@ export default defineRailway((ctx) => {
       SEARCH_BASE_URL: ctx.shared.SEARCH_BASE_URL,
       CHAT_DAILY_AI_LIMIT: ctx.shared.CHAT_DAILY_AI_LIMIT,
       CHAT_FREE_DAILY_AI_LIMIT: ctx.shared.CHAT_FREE_DAILY_AI_LIMIT,
+      // REVO AI subscriptions (RevenueCat). Leave the shared variables unset
+      // until the App Store product and RevenueCat project exist: an empty
+      // REVENUECAT_WEBHOOK_AUTH keeps the webhook off and hides purchases.
+      // See docs/app-store/subscription.md.
+      REVENUECAT_WEBHOOK_AUTH: ctx.shared.REVENUECAT_WEBHOOK_AUTH,
+      REVENUECAT_SECRET_API_KEY: ctx.shared.REVENUECAT_SECRET_API_KEY,
+      REVENUECAT_ENTITLEMENT_ID: ctx.shared.REVENUECAT_ENTITLEMENT_ID,
+      REVENUECAT_ALLOW_SANDBOX: ctx.shared.REVENUECAT_ALLOW_SANDBOX,
       // Browser origins allowed to call the API (comma-separated HTTPS origins).
       // Native apps send no Origin; leave empty unless a web build is in use.
       CORS_ALLOWED_ORIGINS: ctx.shared.CORS_ALLOWED_ORIGINS,

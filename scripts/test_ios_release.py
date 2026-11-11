@@ -101,6 +101,17 @@ class IOSReleaseTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             ios_release.load_config(self.config)
 
+    def test_revenuecat_key_is_optional_and_public_only(self):
+        for value in ("", "appl_PublicTestOnlyKey123"):
+            with self.subTest(value=value):
+                self.config.write_text(json.dumps({**self.values, "REVENUECAT_IOS_API_KEY": value}))
+                ios_release.load_config(self.config, allow_fixture=True)
+        for value in ("sk_secret_must_not_ship", "goog_android_key_only", "appl_"):
+            with self.subTest(value=value):
+                self.config.write_text(json.dumps({**self.values, "REVENUECAT_IOS_API_KEY": value}))
+                with self.assertRaises(ValueError):
+                    ios_release.load_config(self.config, allow_fixture=True)
+
     def test_rejects_bad_config_and_web_callback(self):
         for key, value in (("REVOCRED_USE_MOCKS", "true"),
                            ("REVOCRED_PRODUCTION", "false"),

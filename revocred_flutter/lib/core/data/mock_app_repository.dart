@@ -1,3 +1,4 @@
+import '../models/ai_plan.dart';
 import '../logic/playbook.dart';
 import '../logic/demo_purchase_guide.dart';
 import '../models/app_models.dart';
@@ -7,7 +8,7 @@ import 'app_repository.dart';
 import 'demo_seed.dart';
 import 'explore_rewards_asset.dart';
 
-class MockAppRepository implements AppRepository {
+class MockAppRepository implements AppRepository, AIPlanSource {
   MockAppRepository({AppData? initialData})
     : _data = initialData ?? createDemoAppData();
 
@@ -67,6 +68,11 @@ class MockAppRepository implements AppRepository {
       '{"mode":"demo","personal_data":false}';
   @override
   Future<void> deleteAccount(String password) => signOut();
+
+  /// Demo data never sells a subscription.
+  @override
+  Future<AIPlan> loadAIPlan({bool refresh = false}) async =>
+      const AIPlan(subscriber: false, used: 0, limit: 3);
 
   @override
   bool get isAuthenticated => true;

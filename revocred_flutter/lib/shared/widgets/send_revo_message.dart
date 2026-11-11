@@ -6,7 +6,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/chat_errors.dart';
 import '../../core/state/app_controller.dart';
+import '../../core/services/subscriptions.dart';
+import '../../core/state/ai_plan.dart';
 import '../../core/state/chat_consent.dart';
+import '../../features/subscription/presentation/revo_ai_paywall.dart';
 
 class _SendGate {
   bool busy = false;
@@ -105,6 +108,15 @@ Future<bool> sendRevoMessage(
       onError(message);
     } else if (messenger.mounted) {
       messenger.showSnackBar(SnackBar(content: Text(message)));
+    }
+    // A free member out of AI answers is offered REVO AI, but only where the
+    // app can sell it; elsewhere the limit message above is the whole answer.
+    if (error is ChatSendException &&
+        error.freeLimitReached &&
+        ref.read(subscriptionServiceProvider).available &&
+        context.mounted) {
+      ref.invalidate(aiPlanProvider);
+      unawaited(showRevoAIPaywall(context, limitMessage: message));
     }
     return false;
   } finally {

@@ -171,3 +171,39 @@ func TestProductionAIAllowsExplicitOpenCodeGo(t *testing.T) {
 		t.Fatal("production accepted OpenCode Go without an explicit model")
 	}
 }
+
+func TestRevenueCatSettings(t *testing.T) {
+	setMobileProductionEnv(t)
+	cfg, err := Load()
+	if err != nil || cfg.RevenueCatWebhookAuth != "" || cfg.RevenueCatAllowSandbox || cfg.RevenueCatEntitlementID != "revo_ai" {
+		t.Fatalf("subscriptions must be off by default in production: %+v %v", cfg, err)
+	}
+	t.Setenv("REVENUECAT_WEBHOOK_AUTH", "short")
+	if _, err = Load(); err == nil {
+		t.Fatal("accepted a short webhook secret")
+	}
+	t.Setenv("REVENUECAT_WEBHOOK_AUTH", "Bearer test-only-revenuecat-webhook-secret-0123")
+	t.Setenv("REVENUECAT_SECRET_API_KEY", "appl_public_key")
+	if _, err = Load(); err == nil {
+		t.Fatal("accepted a public SDK key as the secret API key")
+	}
+	t.Setenv("REVENUECAT_SECRET_API_KEY", "sk_test_only")
+	t.Setenv("REVENUECAT_ALLOW_SANDBOX", "true")
+	if cfg, err = Load(); err != nil || !cfg.RevenueCatAllowSandbox || cfg.RevenueCatSecretAPIKey != "sk_test_only" {
+		t.Fatalf("configured subscriptions: %+v %v", cfg, err)
+	}
+	t.Setenv("REVENUECAT_ALLOW_SANDBOX", "maybe")
+	if _, err = Load(); err == nil {
+		t.Fatal("accepted an invalid sandbox flag")
+	}
+	t.Setenv("REVENUECAT_ALLOW_SANDBOX", "")
+	t.Setenv("REVENUECAT_WEBHOOK_AUTH", "")
+	if _, err = Load(); err == nil {
+		t.Fatal("secret API key without webhook auth")
+	}
+	t.Setenv("REVENUECAT_SECRET_API_KEY", "")
+	t.Setenv("APP_ENV", "development")
+	if cfg, err = Load(); err != nil || !cfg.RevenueCatAllowSandbox {
+		t.Fatalf("development accepts sandbox by default: %+v %v", cfg, err)
+	}
+}

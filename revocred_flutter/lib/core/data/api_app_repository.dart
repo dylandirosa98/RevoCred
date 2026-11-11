@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/ai_plan.dart';
 import '../models/app_models.dart';
 import '../models/chat_disclosure.dart';
 import '../models/chat_errors.dart';
@@ -11,7 +12,7 @@ import '../models/explore_rewards.dart';
 import 'app_repository.dart';
 import 'explore_rewards_asset.dart';
 
-class ApiAppRepository implements AppRepository {
+class ApiAppRepository implements AppRepository, AIPlanSource {
   ApiAppRepository({
     required this.baseUrl,
     required SupabaseClient? supabaseClient,
@@ -638,6 +639,14 @@ class ApiAppRepository implements AppRepository {
   Future<void> switchStrategy(String code) async {
     await _request('PUT', '/v1/strategy', body: {'strategy_code': code});
   }
+
+  @override
+  Future<AIPlan> loadAIPlan({bool refresh = false}) async => AIPlan.fromJson(
+    await _request(
+      refresh ? 'POST' : 'GET',
+      refresh ? '/v1/ai-plan/refresh' : '/v1/ai-plan',
+    ),
+  );
 
   AuthResult _configurationError() => const AuthResult(
     success: false,

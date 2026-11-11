@@ -6,6 +6,7 @@ import 'core/config/app_config.dart';
 import 'core/data/app_repository.dart';
 import 'core/data/onboarding_draft_store.dart';
 import 'core/router/app_router.dart';
+import 'core/services/subscriptions.dart';
 import 'core/state/app_controller.dart';
 import 'core/theme/app_theme.dart';
 import 'core/state/theme_controller.dart';
@@ -16,6 +17,7 @@ class RevoCredBootstrap extends StatelessWidget {
     required this.config,
     required this.repository,
     required this.preferences,
+    this.subscriptions = const UnavailableSubscriptionService(),
     super.key,
   });
 
@@ -23,12 +25,16 @@ class RevoCredBootstrap extends StatelessWidget {
   final AppRepository repository;
   final SharedPreferences preferences;
 
+  /// In-app purchases; unavailable except in configured iOS builds.
+  final SubscriptionService subscriptions;
+
   @override
   Widget build(BuildContext context) => ProviderScope(
     overrides: [
       appConfigProvider.overrideWithValue(config),
       appRepositoryProvider.overrideWithValue(repository),
       sharedPreferencesProvider.overrideWithValue(preferences),
+      subscriptionServiceProvider.overrideWithValue(subscriptions),
       onboardingDraftStoreProvider.overrideWithValue(
         OnboardingDraftStore(preferences),
       ),

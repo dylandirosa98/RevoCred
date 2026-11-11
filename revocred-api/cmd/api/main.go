@@ -17,6 +17,7 @@ import (
 	"github.com/revocred/revocred-api/internal/config"
 	"github.com/revocred/revocred-api/internal/httpapi"
 	"github.com/revocred/revocred-api/internal/recommendation"
+	"github.com/revocred/revocred-api/internal/revenuecat"
 	"github.com/revocred/revocred-api/internal/store"
 )
 
@@ -113,6 +114,13 @@ func run(logger *slog.Logger) error {
 	if cfg.AIAPIKey != "" && cfg.SearchAPIKey == "" && cfg.SearchProvider != "searxng" {
 		logger.Warn("REVO web search is disabled; configure SearXNG or a Brave Search key")
 	}
+	var subscribers httpapi.SubscriberLookup
+	if cfg.RevenueCatSecretAPIKey != "" {
+		subscribers = &revenuecat.Client{APIKey: cfg.RevenueCatSecretAPIKey, HTTP: &http.Client{Timeout: 10 * time.Second}}
+	}
+	if cfg.RevenueCatWebhookAuth == "" {
+		logger.Info("REVO AI subscriptions are disabled; set REVENUECAT_WEBHOOK_AUTH to accept RevenueCat events")
+	}
 	handler := httpapi.New(
 		repository,
 		authenticator,
@@ -121,7 +129,12 @@ func run(logger *slog.Logger) error {
 		logger,
 		cfg.AllowedOrigins,
 		cfg.RequestTimeout,
-		httpapi.Options{MetricsToken: cfg.MetricsToken, ClientIPHeader: cfg.ClientIPHeader, ChatDailyAILimit: cfg.ChatDailyAILimit, ChatFreeDailyAILimit: &cfg.ChatFreeDailyAILimit},
+		httpapi.Options{
+			MetricsToken: cfg.MetricsToken, ClientIPHeader: cfg.ClientIPHeader,
+			ChatDailyAILimit: cfg.ChatDailyAILimit, ChatFreeDailyAILimit: &cfg.ChatFreeDailyAILimit,
+			RevenueCatWebhookAuth: cfg.RevenueCatWebhookAuth, RevenueCatEntitlementID: cfg.RevenueCatEntitlementID,
+			RevenueCatAllowSandbox: cfg.RevenueCatAllowSandbox, RevenueCatSubscribers: subscribers,
+		},
 	)
 
 	server := &http.Server{
