@@ -77,6 +77,16 @@ func Build(wallet []domain.WalletCard, settings Settings) []Category {
 				unit = "%"
 				currency = "cash back"
 			}
+			if t := card.CommunityTerms; card.TermsSource == domain.TermsSourceCommunity && t != nil {
+				// Wallet-only terms mapped from OpenCard because the member
+				// skipped typing them; label them as community data.
+				source = t.SourceName + " (community, not issuer-verified)"
+				url = t.IssuerURL
+				date = t.LastVerified
+				if t.RewardsType != "cash_back" && t.CurrencyLabel != "" {
+					currency = t.CurrencyLabel
+				}
+			}
 			if card.CommunityData != nil {
 				d := card.CommunityData
 				for _, r := range d.Rewards.Categories {
