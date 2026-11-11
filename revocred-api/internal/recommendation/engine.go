@@ -25,6 +25,22 @@ type Engine struct{}
 func New() Engine { return Engine{} }
 
 func (Engine) Recommend(input domain.RecommendationInput, cards []domain.CatalogCard) domain.RecommendationResult {
+	// Strict recommendations: wallet-only community terms never shape the
+	// ranking, and community-scored cards are never candidates.
+	owned := make([]domain.CatalogCard, 0, len(input.OwnedCards))
+	for _, card := range input.OwnedCards {
+		if card.TermsSource != domain.TermsSourceCommunity {
+			owned = append(owned, card)
+		}
+	}
+	input.OwnedCards = owned
+	candidates := make([]domain.CatalogCard, 0, len(cards))
+	for _, card := range cards {
+		if card.TermsSource != domain.TermsSourceCommunity {
+			candidates = append(candidates, card)
+		}
+	}
+	cards = candidates
 	existing := make(map[string]struct{}, len(input.ExistingCardIDs))
 	for _, id := range input.ExistingCardIDs {
 		existing[id] = struct{}{}

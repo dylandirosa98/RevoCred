@@ -70,6 +70,9 @@ LIMIT $3`, tokens, phrase, limit)
 		if err != nil {
 			return nil, err
 		}
+		if card.CatalogCardID == "" {
+			card.CommunityTerms = p.communityTermsFor(card.Slug)
+		}
 		cards = append(cards, card)
 	}
 	return cards, rows.Err()

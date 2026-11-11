@@ -88,6 +88,7 @@ type Rewards struct {
 type Card struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
+	Network      string `json:"network"`
 	Country      string `json:"country"`
 	Status       string `json:"status"`
 	OfficialURL  string `json:"official_url"`
@@ -139,6 +140,7 @@ type Cache struct {
 	mu        sync.RWMutex
 	refreshMu sync.Mutex
 	cards     map[string]*Details
+	terms     map[string]*Terms
 	checked   time.Time
 	client    *http.Client
 	store     Persistence
@@ -152,12 +154,37 @@ func New(client *http.Client, store Persistence, url string) *Cache {
 	if client == nil {
 		client = &http.Client{Timeout: 20 * time.Second}
 	}
-	return &Cache{client: client, store: store, url: url, cards: map[string]*Details{}}
+	return &Cache{client: client, store: store, url: url, cards: map[string]*Details{}, terms: map[string]*Terms{}}
 }
 func (c *Cache) Get(catalogID string) *Details {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.cards[catalogID]
+}
+
+// TermsStatus reports how many products have scorable community terms and how
+// many search-index bindings resolve to them, for operator status output.
+func (c *Cache) TermsStatus() (scorableProducts, scorableBindings, bindings int) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for _, product := range referenceBindings {
+		if c.terms[product] != nil {
+			scorableBindings++
+		}
+	}
+	return len(c.terms), scorableBindings, len(referenceBindings)
+}
+
+// TermsForReference returns conservative community scoring terms for a search
+// index row, through an exact reviewed binding only. Nil means unscored.
+func (c *Cache) TermsForReference(referenceSlug string) *Terms {
+	product, ok := referenceBindings[referenceSlug]
+	if !ok {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.terms[product]
 }
 func (c *Cache) Load(ctx context.Context) error {
 	body, at, sourceHash, err := c.store.LoadCardData(ctx)
@@ -167,7 +194,7 @@ func (c *Cache) Load(ctx context.Context) error {
 	if len(body) == 0 {
 		return nil
 	}
-	cards, err := decode(body, at)
+	cards, terms, err := decode(body, at)
 	if err != nil {
 		return err
 	}
@@ -179,8 +206,12 @@ func (c *Cache) Load(ctx context.Context) error {
 	for _, d := range cards {
 		d.SnapshotSHA256 = sourceHash
 	}
+	for _, t := range terms {
+		t.SnapshotSHA256 = sourceHash
+	}
 	c.mu.Lock()
 	c.cards = cards
+	c.terms = terms
 	c.checked = at
 	c.mu.Unlock()
 	return nil
@@ -209,7 +240,7 @@ func (c *Cache) Refresh(ctx context.Context) error {
 		return fmt.Errorf("OpenCard response exceeds size limit")
 	}
 	at := time.Now().UTC()
-	cards, err := decode(body, at)
+	cards, terms, err := decode(body, at)
 	if err != nil {
 		return err
 	}
@@ -219,6 +250,7 @@ func (c *Cache) Refresh(ctx context.Context) error {
 	}
 	c.mu.Lock()
 	c.cards = cards
+	c.terms = terms
 	c.checked = at
 	c.mu.Unlock()
 	return nil
@@ -256,38 +288,53 @@ func (c *Cache) Run(ctx context.Context, report func(error)) {
 		}
 	}
 }
-func decode(body []byte, at time.Time) (map[string]*Details, error) {
+func decode(body []byte, at time.Time) (map[string]*Details, map[string]*Terms, error) {
 	var records []Card
 	if err := json.Unmarshal(body, &records); err != nil {
-		return nil, fmt.Errorf("invalid OpenCard JSON: %w", err)
+		return nil, nil, fmt.Errorf("invalid OpenCard JSON: %w", err)
 	}
 	indexed := map[string]Card{}
 	for _, r := range records {
 		if _, ok := indexed[r.ID]; ok {
-			return nil, fmt.Errorf("duplicate OpenCard id %s", r.ID)
+			return nil, nil, fmt.Errorf("duplicate OpenCard id %s", r.ID)
 		}
 		indexed[r.ID] = r
 	}
 	hash := sha256.Sum256(body)
+	// Scoring terms for every US product. A product that cannot be mapped
+	// conservatively is simply absent, which keeps its wallet card unscored.
+	terms := map[string]*Terms{}
+	for _, r := range records {
+		t, err := MapTerms(r)
+		if err != nil {
+			continue
+		}
+		if date, err := time.Parse("2006-01-02", r.LastVerified); err != nil || date.After(at.Add(24*time.Hour)) {
+			continue
+		}
+		t.CapturedAt = at
+		t.SnapshotSHA256 = hex.EncodeToString(hash[:])
+		terms[r.ID] = t
+	}
 	result := map[string]*Details{}
 	for local, external := range bindings {
 		r, ok := indexed[external]
 		if !ok || r.Country != "us" || r.Status != "active" || r.AnnualFee.Currency != "USD" || r.AnnualFee.Amount == nil || *r.AnnualFee.Amount < 0 || r.Name == "" {
-			return nil, fmt.Errorf("OpenCard product missing or invalid: %s", external)
+			return nil, nil, fmt.Errorf("OpenCard product missing or invalid: %s", external)
 		}
 		if date, err := time.Parse("2006-01-02", r.LastVerified); err != nil || date.After(at.Add(24*time.Hour)) {
-			return nil, fmt.Errorf("invalid verification date for %s", external)
+			return nil, nil, fmt.Errorf("invalid verification date for %s", external)
 		}
 		if !validIssuerURL(r.OfficialURL, external) {
-			return nil, fmt.Errorf("invalid issuer URL for %s", external)
+			return nil, nil, fmt.Errorf("invalid issuer URL for %s", external)
 		}
 		if r.Rewards.BaseRate.PointsPerDollar == nil || *r.Rewards.BaseRate.PointsPerDollar < 0 || *r.Rewards.BaseRate.PointsPerDollar > 100 {
-			return nil, fmt.Errorf("missing or invalid base reward rate for %s", external)
+			return nil, nil, fmt.Errorf("missing or invalid base reward rate for %s", external)
 		}
 		switch r.Rewards.RateType {
 		case "points_multiplier", "miles_multiplier", "cashback_percent":
 		default:
-			return nil, fmt.Errorf("unsupported reward units for %s", external)
+			return nil, nil, fmt.Errorf("unsupported reward units for %s", external)
 		}
 		d := &Details{ID: r.ID, Name: r.Name, Attribution: "OpenCard DB · CC BY 4.0 · adapted for display", SourceURL: ProjectURL, LicenseURL: LicenseURL, IssuerURL: r.OfficialURL, LastVerified: r.LastVerified, RetrievedAt: at, SnapshotSHA256: hex.EncodeToString(hash[:]), CurrencyLabel: r.Rewards.CurrencyLabel, Rewards: r.Rewards, WelcomeOffer: r.SignupBonus, TravelPerks: r.TravelPerks, SourceAnnualFee: r.AnnualFee.Amount, Sources: r.Sources, Notes: r.Notes, RewardRates: []string{}, Benefits: []string{}, Warning: "Community-maintained snapshot; may be incomplete or outdated. Verify current issuer terms. Conditional credits, welcome offers and portal rates are not included in RevoCred estimates."}
 		unit := "x"
@@ -302,7 +349,7 @@ func decode(body []byte, at time.Time) (map[string]*Details, error) {
 				continue
 			}
 			if *rate.PointsPerDollar < 0 || *rate.PointsPerDollar > 100 {
-				return nil, fmt.Errorf("invalid reward rate for %s", external)
+				return nil, nil, fmt.Errorf("invalid reward rate for %s", external)
 			}
 			text := fmt.Sprintf("%g%s — %s", *rate.PointsPerDollar, unit, rate.Label)
 			if len(rate.Cap) > 0 && string(rate.Cap) != "null" {
@@ -329,5 +376,5 @@ func decode(body []byte, at time.Time) (map[string]*Details, error) {
 		}
 		result[local] = d
 	}
-	return result, nil
+	return result, terms, nil
 }

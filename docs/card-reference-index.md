@@ -18,7 +18,10 @@ for recommendations. The index exists for one purpose: helping a person say
   ours, because theirs is the card they actually hold.
 - **Skipping is allowed and explained.** A skipped card is saved and shown as
   owned with `terms_unknown`, and is excluded from the wallet score, valuation
-  and ranking inputs. The UI says, in two places, that the score may be less
+  and ranking inputs. Exception: when the row is bound to an OpenCard product
+  whose rates map conservatively, the wallet score and value use those
+  community rates, labelled with source and dates. They never feed rankings.
+  See [opencard-data.md](opencard-data.md#wallet-scoring-terms). The UI says, in two places, that the score may be less
   accurate as a result. The flag is deliberately inverted (`terms_unknown`) so
   an unset value can never silently drop a card from the math.
 - **A modelled product wins.** If a pick matches a card the catalog already
