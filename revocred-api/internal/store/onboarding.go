@@ -64,7 +64,7 @@ func (p *Postgres) PreviewPlan(ctx context.Context, input domain.RecommendationI
 	return domain.Bootstrap{Catalog: catalog, Wallet: wallet, Profile: &profile, LatestRecommendations: &result, LatestQuestionnaire: &input, WalletMetrics: scoring.Metrics(wallet, input.MonthlyCategorySpend, input.TravelScope), Playbook: &playbook, QuickPrompts: []string{}}, nil
 }
 
-// SaveOnboarding atomically reconciles the chosen wallet and stores the plan.
+// SaveOnboarding atomically adds the chosen cards and stores the plan.
 // Existing custom cards are allowed only for their owner. Failed validation or
 // persistence rolls back the wallet changes too, making retries safe.
 func (p *Postgres) SaveOnboarding(ctx context.Context, userID string, input domain.RecommendationInput) (domain.RecommendationResult, error) {
@@ -94,9 +94,8 @@ func (p *Postgres) SaveOnboarding(ctx context.Context, userID string, input doma
 			return domain.RecommendationResult{}, ErrNotFound
 		}
 	}
-	if _, err = tx.Exec(ctx, `DELETE FROM revocred.wallet_cards WHERE user_id=$1 AND status='active' AND NOT(catalog_card_id::text=ANY($2::text[]))`, userID, ids); err != nil {
-		return domain.RecommendationResult{}, err
-	}
+	// Retaking the questionnaire only adds cards. Removing a card is an explicit
+	// wallet action, so an omitted card is never deleted here.
 	for _, id := range ids {
 		_, err = tx.Exec(ctx, `INSERT INTO revocred.wallet_cards(user_id,catalog_card_id,status) VALUES($1,$2,'active') ON CONFLICT(user_id,catalog_card_id) DO UPDATE SET status='active'`, userID, id)
 		if err != nil {

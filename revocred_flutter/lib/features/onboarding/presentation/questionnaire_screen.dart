@@ -75,6 +75,14 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
   bool hasOwnWallet(AppState state) =>
       state.isAuthenticated || state.data?.isPersonalPreview == true;
 
+  /// Cards already saved to a signed-in wallet. Retaking the questionnaire
+  /// only adds cards; removing one happens in the Cards tab.
+  Set<String> get _savedWalletIds {
+    final state = ref.read(appControllerProvider);
+    if (!state.isAuthenticated) return const {};
+    return {for (final card in state.data?.wallet ?? const []) card.id};
+  }
+
   @override
   void initState() {
     super.initState();
@@ -143,7 +151,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
     // A card added from search is an answer too, so it must satisfy this step.
     1 =>
       existingCardIds.isNotEmpty || addedFromIndex.isNotEmpty || cardsConfirmed,
-    2 => idealCardCount.isNotEmpty,
+    2 => idealCardCount.isNotEmpty && feeTolerance.isNotEmpty,
     3 => travelScope.isNotEmpty,
     4 => creditTier.isNotEmpty,
     5 => true,
@@ -381,14 +389,46 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
         title: 'How many cards would you like to ideally stay within?',
         hint:
             'Choose a comfortable long-term wallet size. This helps keep your roadmap focused and manageable.',
-        child: _choices(
-          value: idealCardCount,
-          onChanged: (value) => setState(() => idealCardCount = value),
-          options: const {
-            '1-2': '1–2 cards',
-            '2-4': '2–4 cards',
-            '4+': '4+ cards',
-          },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _choices(
+              value: idealCardCount,
+              onChanged: (value) => setState(() => idealCardCount = value),
+              options: const {
+                '1-2': '1–2 cards',
+                '2-4': '2–4 cards',
+                '4+': '4+ cards',
+              },
+            ),
+            const SizedBox(height: 26),
+            Text(
+              'How much are you comfortable paying in annual fees?',
+              key: const ValueKey('question-annual-fee'),
+              style: TextStyle(
+                color: context.product.ink,
+                fontFamily: context.product.headingFontFamily,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Per card, per year. Cards with a fee only make your plan when their rewards cover it.',
+              style: TextStyle(color: context.product.muted, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            _choices(
+              value: feeTolerance,
+              onChanged: (value) => setState(() => feeTolerance = value),
+              options: const {
+                'none': 'No annual fee',
+                'low': 'Up to \$100',
+                'mid': 'Up to \$300',
+                'high': 'Over \$300 for premium perks',
+              },
+            ),
+          ],
         ),
       ),
       3 => _Question(
@@ -585,6 +625,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
             _ownedCardOptions(catalog).where((c) => c.id == id).firstOrNull,
     ].whereType<CreditCard>().toList();
     final selectedCount = selectedCatalog.length + addedFromIndex.length;
+    final savedWalletIds = _savedWalletIds;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -603,8 +644,20 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
               key: ValueKey('selected-card-${card.id}'),
               issuer: card.issuer,
               name: card.name,
-              detail: 'Earn rates on file',
-              onRemove: () => setState(() => existingCardIds.remove(card.id)),
+              detail: savedWalletIds.contains(card.id)
+                  ? 'In your wallet'
+                  : 'Earn rates on file',
+              onRemove: savedWalletIds.contains(card.id)
+                  ? null
+                  : () => setState(() => existingCardIds.remove(card.id)),
+            ),
+          if (savedWalletIds.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Add any new cards here. To remove a card, use the Cards tab.',
+                style: TextStyle(fontSize: 12, color: product.muted),
+              ),
             ),
           for (final card in addedFromIndex)
             _SelectedCardRow(
@@ -675,12 +728,14 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
           CheckboxListTile(
             key: ValueKey('existing-card-${card.id}'),
             value: existingCardIds.contains(card.id),
-            onChanged: (_) => setState(() {
-              cardsConfirmed = false;
-              existingCardIds.contains(card.id)
-                  ? existingCardIds.remove(card.id)
-                  : existingCardIds.add(card.id);
-            }),
+            onChanged: savedWalletIds.contains(card.id)
+                ? null
+                : (_) => setState(() {
+                    cardsConfirmed = false;
+                    existingCardIds.contains(card.id)
+                        ? existingCardIds.remove(card.id)
+                        : existingCardIds.add(card.id);
+                  }),
             secondary: IssuerMark(issuer: card.issuer, size: 36),
             title: Text(card.name),
             subtitle: Text('${card.issuer} | ${card.annualFee}'),
@@ -743,20 +798,22 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
             icon: const Icon(Icons.edit_outlined),
             label: const Text('Add a card that is not listed'),
           ),
-        const Divider(height: 28),
-        CheckboxListTile(
-          key: const ValueKey('no-existing-cards'),
-          title: const Text('I do not have any credit cards'),
-          value: cardsConfirmed && selectedCount == 0,
-          contentPadding: EdgeInsets.zero,
-          onChanged: (value) => setState(() {
-            cardsConfirmed = value == true;
-            if (cardsConfirmed) {
-              existingCardIds.clear();
-              addedFromIndex.clear();
-            }
-          }),
-        ),
+        if (savedWalletIds.isEmpty) ...[
+          const Divider(height: 28),
+          CheckboxListTile(
+            key: const ValueKey('no-existing-cards'),
+            title: const Text('I do not have any credit cards'),
+            value: cardsConfirmed && selectedCount == 0,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (value) => setState(() {
+              cardsConfirmed = value == true;
+              if (cardsConfirmed) {
+                existingCardIds.clear();
+                addedFromIndex.clear();
+              }
+            }),
+          ),
+        ],
       ],
     );
   }
@@ -859,7 +916,7 @@ class _QuestionnaireScreenState extends ConsumerState<QuestionnaireScreen> {
       // The current recommendation engine still requires a fee threshold. Use
       // a conservative default until fee preference is inferred from card
       // details instead of asking an extra onboarding question.
-      feeTolerance: feeTolerance.isEmpty ? 'low' : feeTolerance,
+      feeTolerance: feeTolerance.isEmpty ? 'none' : feeTolerance,
       idealCardCount: idealCardCount,
       travelScope: travelScope,
       creditTier: creditTier,
@@ -1097,7 +1154,9 @@ class _SelectedCardRow extends StatelessWidget {
   final String issuer;
   final String name;
   final String detail;
-  final VoidCallback onRemove;
+
+  /// Null for a card already saved to the wallet, which can't be removed here.
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) => ListTile(
@@ -1106,10 +1165,12 @@ class _SelectedCardRow extends StatelessWidget {
     leading: IssuerMark(issuer: issuer, size: 32),
     title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
     subtitle: Text(detail),
-    trailing: IconButton(
-      tooltip: 'Remove $name',
-      onPressed: onRemove,
-      icon: const Icon(Icons.close, size: 18),
-    ),
+    trailing: onRemove == null
+        ? Icon(Icons.check_circle, size: 18, color: context.product.success)
+        : IconButton(
+            tooltip: 'Remove $name',
+            onPressed: onRemove,
+            icon: const Icon(Icons.close, size: 18),
+          ),
   );
 }

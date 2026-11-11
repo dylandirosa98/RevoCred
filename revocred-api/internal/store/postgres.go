@@ -392,6 +392,10 @@ RETURNING id::text, user_id::text, catalog_card_id::text, nickname, status, open
 		userID, cardID, input.Nickname,
 	).Scan(&item.ID, &item.UserID, &item.CatalogCardID, &item.Nickname, &item.Status, &item.OpenedOn, &item.CreatedAt)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "54000" {
+			return domain.WalletCard{}, ErrQuota
+		}
 		return domain.WalletCard{}, fmt.Errorf("insert custom wallet card: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {

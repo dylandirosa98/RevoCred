@@ -148,7 +148,12 @@ func TestPostgresIntegration(t *testing.T) {
 	if current.Profile.NextApplicationTarget != current.Playbook.NextCard {
 		t.Fatal("profile and playbook disagree")
 	}
-	for i := 0; i < 99; i++ {
+	// Fill the wallet up to the 100-card account limit, whatever it holds now.
+	held, err := repo.ListWallet(ctx, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := len(held); i < 100; i++ {
 		draft.Name = fmt.Sprintf("Quota card %d", i)
 		if _, err = repo.CreateCustomCard(ctx, a, draft); err != nil {
 			t.Fatal(err)

@@ -101,9 +101,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.byKey(const ValueKey('no-existing-cards')),
+      find.byKey(const ValueKey('questionnaire-card-search')),
       findsOneWidget,
       reason: 'the owned-card step should be shown',
+    );
+    // Saved cards can't be cleared from here: wallet removals happen in Cards.
+    expect(find.byKey(const ValueKey('no-existing-cards')), findsNothing);
+    expect(
+      find.textContaining('To remove a card, use the Cards tab'),
+      findsOneWidget,
     );
     final tile = tester.widget<CheckboxListTile>(
       find.byKey(const ValueKey('existing-card-freedom-unlimited')),
@@ -113,6 +119,7 @@ void main() {
       isTrue,
       reason: 'a card the person owns must start selected when re-running',
     );
+    expect(tile.onChanged, isNull, reason: 'a saved card is locked on');
     // The rest of the saved answers are restored too.
   });
 }

@@ -121,10 +121,18 @@ void main() {
           6 => 'Flexible travel points',
           _ => null,
         };
-        if (choice != null) {
+        // A signed-in demo wallet already has cards, so step 2 can continue.
+        if (choice != null &&
+            !(step == 1 && find.text(choice).evaluate().isEmpty)) {
           final option = find.text(choice);
           await tester.ensureVisible(option);
           await tester.tap(option);
+          await tester.pumpAndSettle();
+        }
+        if (step == 2) {
+          final fee = find.text(r'Up to $300');
+          await tester.ensureVisible(fee);
+          await tester.tap(fee);
           await tester.pumpAndSettle();
         }
         if (step == 5) {
@@ -193,7 +201,15 @@ void main() {
       greaterThan(3),
       reason: 'the owned-card step must show the catalog, not an empty list',
     );
-    expect(find.text('I do not have any credit cards'), findsOneWidget);
+    // A wallet with saved cards can only add here; otherwise "no cards" shows.
+    expect(
+      find.text('I do not have any credit cards').evaluate().length +
+          find
+              .textContaining('To remove a card, use the Cards tab')
+              .evaluate()
+              .length,
+      1,
+    );
   });
 
   testWidgets('REVO remains usable when the mobile keyboard opens', (

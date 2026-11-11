@@ -52,10 +52,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('questionnaire-next')));
     await tester.pumpAndSettle();
 
+    // The signed-in demo wallet already has cards; otherwise confirm none.
     final noCards = find.text('I do not have any credit cards');
-    await tester.ensureVisible(noCards);
-    await tester.tap(noCards);
-    await tester.pump();
+    if (noCards.evaluate().isNotEmpty) {
+      await tester.ensureVisible(noCards);
+      await tester.tap(noCards);
+      await tester.pump();
+    }
     await tester.tap(find.byKey(const ValueKey('questionnaire-next')));
     await tester.pumpAndSettle();
 
@@ -70,6 +73,14 @@ void main() {
     expect(find.text('2–3 cards'), findsNothing);
     expect(find.text('3–4 cards'), findsNothing);
     await tester.tap(find.text('2–4 cards'));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('questionnaire-next')).hitTestable(),
+      findsOneWidget,
+    );
+    final fee = find.text('No annual fee');
+    await tester.ensureVisible(fee);
+    await tester.tap(fee);
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('questionnaire-next')));
     await tester.pumpAndSettle();

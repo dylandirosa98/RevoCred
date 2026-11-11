@@ -75,8 +75,8 @@ func testOnboarding(t *testing.T, ctx context.Context, repo *Postgres, a, b stri
 	if _, err = repo.SaveOnboarding(ctx, a, input); err != nil {
 		t.Fatal(err)
 	}
-	wallet, _ = repo.ListWallet(ctx, a)
-	if len(wallet) != 0 {
-		t.Fatal("deselected cards remain in wallet")
+	after, _ := repo.ListWallet(ctx, a)
+	if len(after) == 0 || len(after) != len(wallet) {
+		t.Fatalf("retaking the questionnaire removed wallet cards: before %d, after %d", len(wallet), len(after))
 	}
 }
