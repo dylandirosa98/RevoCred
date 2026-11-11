@@ -309,11 +309,6 @@ Future<Uint8List> buildStrategyReportPdf(
                   pw.SizedBox(height: 8),
 
                   _rewardLine(
-                    'travel',
-                    'Travel redemption uplift',
-                    'Not modeled',
-                  ),
-                  _rewardLine(
                     'wallet',
                     'Target annual fees',
                     feesKnown ? '\$$fees' : 'Not verified',

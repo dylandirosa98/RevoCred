@@ -50,7 +50,6 @@ void main() {
     );
     expect(tester.getCenter(find.byType(ReportScore)).dx, closeTo(195, .1));
     const labels = [
-      'Travel redemption uplift',
       'Target wallet cards',
       'Target annual fees',
       'Primary goal',

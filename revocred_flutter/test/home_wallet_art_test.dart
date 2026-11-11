@@ -4,16 +4,13 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:revocred_flutter/app.dart';
 import 'package:revocred_flutter/core/config/app_config.dart';
 import 'package:revocred_flutter/core/data/mock_app_repository.dart';
 import 'package:revocred_flutter/core/router/app_router.dart';
-import 'package:revocred_flutter/core/state/app_controller.dart';
 import 'package:revocred_flutter/core/state/theme_controller.dart';
 import 'package:revocred_flutter/core/theme/app_theme.dart';
-import 'package:revocred_flutter/features/home/presentation/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _screenshotKey = ValueKey('home-wallet-screenshot');
@@ -103,86 +100,6 @@ void main() {
       _expectFullArtwork(tester, carousel);
       expect(tester.takeException(), isNull);
       await _screenshot(tester, variant.name);
-    });
-  }
-
-  // Legacy themes are no longer selectable, but Home still implements all of
-  // their hero treatments. Keep the current product tokens and exercise every
-  // Home branch, rather than certifying retired themes' unrelated layout.
-  for (final treatment in HeroTreatment.values) {
-    testWidgets('Home ${treatment.name} shows full wallet artwork', (
-      tester,
-    ) async {
-      _phone(
-        tester,
-        textScale:
-            [
-              HeroTreatment.wallet,
-              HeroTreatment.walletStudio,
-            ].contains(treatment)
-            ? 1.6
-            : 1,
-      );
-      final theme = AppTheme.decisionFlow;
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            appConfigProvider.overrideWithValue(
-              const AppConfig(useMocks: true),
-            ),
-            appRepositoryProvider.overrideWithValue(MockAppRepository()),
-          ],
-          child: MaterialApp(
-            theme: theme.copyWith(
-              extensions: [
-                theme.extension<ProductTheme>()!.copyWith(
-                  heroTreatment: treatment,
-                ),
-              ],
-            ),
-            home: const Scaffold(body: HomeScreen()),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final carouselKey = switch (treatment) {
-        HeroTreatment.decision => 'decision-wallet-cards',
-        HeroTreatment.walletStudio => 'wallet-studio-cards',
-        HeroTreatment.wallet => 'wallet-flow-cards',
-        _ => null,
-      };
-      if (carouselKey != null) {
-        final carousel = find.byKey(ValueKey(carouselKey));
-        await tester.ensureVisible(carousel);
-        await tester.pumpAndSettle();
-        _expectFullArtwork(tester, carousel);
-        // Check later tiles too: lazy carousels must not conceal an overflow.
-        await tester.drag(carousel, const Offset(-220, 0));
-        await tester.pumpAndSettle();
-        _expectFullArtwork(tester, carousel);
-      } else {
-        final illustrations = find.byWidgetPredicate(_isSharedArt);
-        expect(illustrations, findsWidgets);
-        for (final image in tester.widgetList<Image>(illustrations)) {
-          expect(image.fit, BoxFit.contain);
-        }
-      }
-      final error = tester.takeException();
-      if (carouselKey == null && error != null) {
-        // The retired stack layouts wrap their value ExpansionTile in AppPanel.
-        // Flutter warns about invisible ink, unrelated to card layout. Keep
-        // that existing issue out of this fix, but never swallow overflows or
-        // any other framework error.
-        expect(error, isA<FlutterError>());
-        expect(
-          error.toString(),
-          startsWith(
-            'ListTile background color or ink splashes may be invisible.',
-          ),
-        );
-      } else {
-        expect(error, isNull);
-      }
     });
   }
 

@@ -1076,11 +1076,6 @@ class _StrategyResult extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          const _ResultLine(
-            label: 'Travel redemption uplift',
-            value: 'Not modeled',
-            icon: Icons.flight_takeoff,
-          ),
           _ResultLine(
             label: 'Target wallet cards',
             value: '${targetCards.length}',
