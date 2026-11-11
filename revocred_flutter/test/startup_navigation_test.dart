@@ -50,7 +50,7 @@ void main() {
 
     await tester.tap(find.text('Strategy'));
     await tester.pumpAndSettle();
-    expect(find.text('YOUR STRATEGY ROADMAP'), findsOneWidget);
+    expect(find.text('YOUR PLAN'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('nav-ask-revo-idle')));
     await tester.pumpAndSettle();

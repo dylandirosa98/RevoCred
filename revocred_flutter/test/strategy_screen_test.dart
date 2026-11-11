@@ -11,6 +11,39 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:revocred_flutter/core/models/app_models.dart';
 
 void main() {
+  testWidgets('"I got this card" adds the next card and ticks it off', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      RevoCredBootstrap(
+        config: const AppConfig(useMocks: true),
+        repository: MockAppRepository(),
+        preferences: preferences,
+      ),
+    );
+    appRouter.go('/strategy');
+    await tester.pumpAndSettle();
+    expect(find.text('1 of 3 in place'), findsOneWidget);
+
+    final got = find.byKey(const ValueKey('strategy-got-freedom-flex'));
+    await tester.ensureVisible(got);
+    await tester.tap(got);
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 of 3 in place'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('strategy-got-freedom-flex')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('strategy prioritizes next action and supports exploration', (
     tester,
   ) async {
@@ -30,7 +63,8 @@ void main() {
         preferences: preferences,
       ),
     );
-    appRouter.go('/strategy');
+    // The full roadmap lives in the shareable report.
+    appRouter.go('/strategy-report');
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('strategy-summary')), findsOneWidget);
@@ -46,7 +80,21 @@ void main() {
     expect(find.textContaining('No new card currently improves'), findsNothing);
     expect(tester.takeException(), isNull);
 
-    final details = find.byKey(const ValueKey('strategy-next-details'));
+    // The Strategy tab is a checklist that leads with the next card.
+    appRouter.go('/strategy');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('strategy-checklist')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('strategy-next-card')),
+        matching: find.text('Freedom Flex'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('1 of 3 in place'), findsOneWidget);
+    expect(find.text('Nearby strategies'), findsNothing);
+
+    final details = find.byKey(const ValueKey('strategy-slot-freedom-flex'));
     await tester.ensureVisible(details);
     await tester.tap(details);
     await tester.pumpAndSettle();
@@ -148,7 +196,7 @@ void main() {
         preferences: preferences,
       ),
     );
-    appRouter.go('/strategy');
+    appRouter.go('/strategy-report');
     await tester.pumpAndSettle();
 
     expect(find.text('2 OF 3 ROLES COVERED'), findsOneWidget);
@@ -224,7 +272,7 @@ void main() {
         preferences: preferences,
       ),
     );
-    appRouter.go('/strategy');
+    appRouter.go('/strategy-report');
     await tester.pumpAndSettle();
 
     expect(

@@ -299,7 +299,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      appRouter.go('/strategy');
+      appRouter.go('/strategy-report');
       await tester.pumpAndSettle();
       expect(
         find.textContaining('Consider next: Savor for Students'),
@@ -376,7 +376,7 @@ void main() {
 Future<void> _pump(
   WidgetTester tester,
   AppData data, {
-  String location = '/strategy',
+  String location = '/strategy-report',
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
