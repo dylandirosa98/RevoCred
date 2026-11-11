@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RevoCred recommendation engine</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --fg: var(--foreground, #e7e5e4);
+    --muted: var(--muted-foreground, #a8a29e);
+    --line: var(--border, #44403c);
+    --panel: var(--card, #1c1917);
+    --hi: var(--accent, #f97316);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--fg); background: #0c0a09; }
+  .wrap { max-width: 42rem; padding: 1.25rem 1.1rem 2rem; }
+  h1 { font-size: 1.05rem; font-weight: 650; letter-spacing: -.02em; margin: 0 0 .25rem; }
+  .sub { color: var(--muted); font-size: .8rem; line-height: 1.4; margin: 0 0 1rem; }
+  .pipe { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0 0 1.1rem; }
+  .step {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    border-radius: 8px;
+    padding: .4rem .55rem;
+    font-size: .72rem;
+    line-height: 1.25;
+    min-width: 6.4rem;
+    flex: 1 1 6.4rem;
+  }
+  .step b { display: block; font-size: .62rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .formula {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .78rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: .65rem .75rem;
+    margin: 0 0 1rem;
+    line-height: 1.45;
+  }
+  .formula em { font-style: normal; color: var(--hi); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem 1rem; margin: 0 0 .85rem; }
+  label { display: flex; flex-direction: column; gap: .2rem; font-size: .72rem; color: var(--muted); }
+  input, select {
+    color: var(--fg);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: .35rem .45rem;
+    font: inherit;
+    color-scheme: inherit;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+  th { text-align: left; font-size: .68rem; color: var(--muted); font-weight: 600; padding: .3rem .35rem .3rem 0; border-bottom: 1px solid var(--line); }
+  td { padding: .4rem .35rem .4rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:last-child, th:last-child { text-align: right; padding-right: 0; }
+  .rank { font-weight: 650; }
+  .out { color: var(--muted); }
+  .why { font-size: .7rem; color: var(--muted); margin-top: .15rem; }
+  .note { font-size: .72rem; color: var(--muted); margin: .75rem 0 0; line-height: 1.4; }
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>How a card becomes “next apply”</h1>
+  <p class="sub">Application ranking only — engine v2.0.0-conservative. Not the Home 22–95 score, not S01–S09, not “which card to use at the store.”</p>
+
+  <div class="pipe">
+    <div class="step"><b>1 Wallet</b> Active cards only. Client IDs thrown out.</div>
+    <div class="step"><b>2 Catalog</b> Public issuer snapshots. No demo, no custom.</div>
+    <div class="step"><b>3 Gates</b> Student, owned, fee, credit, travel.</div>
+    <div class="step"><b>4 Delta $</b> Extra yearly rewards minus the new fee.</div>
+    <div class="step"><b>5 Score</b> Those dollars, +20 goal, +10 travel.</div>
+    <div class="step"><b>6 Rank</b> High score first. Slug breaks ties.</div>
+  </div>
+
+  <div class="formula">
+    extra $ = Gross(wallet + card) − Gross(wallet) − fee<br>
+    Gross = Σ round(monthly × 12 × <em>best rate in the set</em> × 1¢)<br>
+    score = extra $ <em>+ 20 if goal matches</em> <em>+ 10 if travel matches</em><br>
+    drop if extra $ ≤ 0 · housing = 0 · food = min(dining, groceries) · bonuses ignored
+  </div>
+
+  <div class="grid">
+    <label>Dining / mo ($)
+      <input id="dining" type="number" min="0" step="50" value="500">
+    </label>
+    <label>Everything else / mo ($)
+      <input id="other" type="number" min="0" step="50" value="200">
+    </label>
+    <label>Fee ceiling ($)
+      <input id="fee" type="number" min="0" step="5" value="100">
+    </label>
+    <label>Credit
+      <select id="tier">
+        <option value="fair">fair</option>
+        <option value="good" selected>good</option>
+        <option value="excellent">excellent</option>
+      </select>
+    </label>
+    <label>Goal
+      <select id="goal">
+        <option value="cash_back">cash back</option>
+        <option value="travel" selected>travel</option>
+        <option value="hybrid">hybrid</option>
+      </select>
+    </label>
+    <label>Travel
+      <select id="travel">
+        <option value="none">none</option>
+        <option value="international" selected>international</option>
+        <option value="both">both</option>
+      </select>
+    </label>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Candidate vs a 2% wallet</th><th>Result</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <p class="note">Live numbers use the same formulas as <code>engine.go</code> / <code>valuation.Gross</code>. Catalog fees and rates below are the test fixtures from that file, not a live member run.</p>
+</div>
+<script>
+const TIER = { building: 0, fair: 1, good: 2, excellent: 3 };
+const WALLET = [{ rates: { other: 2 } }];
+const CARDS = [
+  { slug: 'dining', name: '4% dining / 1% else', fee: 95, rates: { dining: 4, other: 1 }, goal: 'travel', travel: 'both', min: 'good' },
+  { slug: 'flat', name: '2% everything, $0 fee', fee: 0, rates: { other: 2 }, goal: 'cash_back', travel: 'both', min: 'good' },
+  { slug: 'worse', name: '1.5% everything', fee: 0, rates: { other: 1.5 }, goal: 'cash_back', travel: 'both', min: 'good' },
+  { slug: 'premium', name: '$895 / 1% else', fee: 895, rates: { other: 1 }, goal: 'travel', travel: 'international', min: 'excellent' }
+];
+
+function rate(rates, cat) {
+  if (cat === 'rent' || cat === 'housing') return 0;
+  if (cat === 'food') return Math.min(rate(rates, 'dining'), rate(rates, 'groceries'));
+  if (rates[cat] != null) return Math.max(0, rates[cat]);
+  return Math.max(0, rates.other || 0);
+}
+function gross(spend, cards) {
+  let total = 0;
+  for (const cat of Object.keys(spend).sort()) {
+    let best = 0;
+    for (const c of cards) best = Math.max(best, rate(c.rates, cat));
+    total += Math.round(spend[cat] * 12 * best / 100);
+  }
+  return total;
+}
+function travelOk(wanted, offered) {
+  if (wanted === 'none') return offered === 'none' || offered === 'both';
+  return offered === wanted || offered === 'both';
+}
+function goalOk(goal, type) { return goal === type || type === 'hybrid' || goal === 'hybrid'; }
+function dollars(cents) { return (cents / 100).toLocaleString(undefined, { style: 'currency', currency: 'USD' }); }
+
+function run() {
+  const spend = { dining: Number(dining.value) * 100, other: Number(other.value) * 100 };
+  const feeTol = Number(fee.value) * 100;
+  const credit = tier.value, goal = document.getElementById('goal').value, travel = document.getElementById('travel').value;
+  const ownedGross = gross(spend, WALLET);
+  const results = CARDS.map(card => {
+    if (TIER[credit] < TIER[card.min]) return { card, skip: 'credit tier too low' };
+    if (card.fee * 100 > feeTol) return { card, skip: 'fee over ceiling' };
+    if (!travelOk(travel, card.travel) && card.travel !== 'none' && travel !== 'none') return { card, skip: 'travel mismatch' };
+    const extra = gross(spend, WALLET.concat(card)) - ownedGross - Math.round(card.fee * 100);
+    if (extra <= 0) return { card, skip: 'no extra value after fee', extra };
+    let score = extra / 100;
+    const bits = [`${dollars(extra)} extra / year`];
+    if (goalOk(goal, card.goal)) { score += 20; bits.push('+20 goal'); }
+    if (travelOk(travel, card.travel) && travel !== 'none') { score += 10; bits.push('+10 travel'); }
+    return { card, extra, score: Math.round(score * 100) / 100, bits };
+  });
+  const ranked = results.filter(r => !r.skip).sort((a, b) => b.score - a.score || a.card.slug.localeCompare(b.card.slug));
+  ranked.forEach((r, i) => r.rank = i + 1);
+  const body = results.slice().sort((a, b) => (a.rank || 99) - (b.rank || 99) || a.card.slug.localeCompare(b.card.slug));
+  document.getElementById('rows').innerHTML = body.map(r => r.skip
+    ? `<tr class="out"><td>${r.card.name}</td><td>out<div class="why">${r.skip}${r.extra != null ? ' · ' + dollars(r.extra) : ''}</div></td></tr>`
+    : `<tr><td>${r.card.name}</td><td><span class="rank">#${r.rank}</span> · ${r.score}<div class="why">${r.bits.join(' · ')}</div></td></tr>`
+  ).join('');
+}
+document.querySelectorAll('input,select').forEach(el => el.addEventListener('input', run));
+run();
+</script>
+</body>
+</html>

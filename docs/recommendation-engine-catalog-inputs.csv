@@ -1,0 +1,15 @@
+slug,name,issuer,annual_fee_dollars,minimum_credit_tier,travel_scope,rewards_type,transferable_points,rate_dining,rate_groceries,rate_gas,rate_travel,rate_flights,rate_hotels,rate_entertainment,rate_other,first_year_bonus_cents_ignored_by_engine,dataset_version
+amex-gold,Amex Gold,American Express,325.0,,,,True,4,4,,,3,,,1,0,benefit-display-2026-10-13-v1
+amex-platinum,Platinum,American Express,895.0,,,,True,,,,,,,,1,0,conservative-2026-09-23-v1
+double-cash,Double Cash,Citi,0.0,,,,False,,,,,,,,2,0,conservative-2026-09-23-v1
+freedom-flex,Freedom Flex,Chase,0.0,,,,False,3,,,,,,,1,0,conservative-2026-09-23-v1
+freedom-rise,Freedom Rise,Chase,0.0,,,,False,,,,,,,,1.5,0,conservative-2026-09-23-v1
+freedom-unlimited,Freedom Unlimited,Chase,0.0,,,,False,3,,,,,,,1.5,0,conservative-2026-09-23-v1
+quicksilver,Quicksilver,Capital One,0.0,,,,False,,,,,,,,1.5,0,conservative-2026-09-23-v1
+sapphire-preferred,Sapphire Preferred,Chase,95.0,,,,True,3,,,2,,,,1,0,benefit-display-2026-10-13-v1
+sapphire-reserve,Sapphire Reserve,Chase,795.0,,,,True,3,,,,4,4,,1,0,conservative-2026-09-23-v1
+savor-for-students,Savor for Students,Capital One,0.0,,,,False,3,3,,,,,3,1,0,conservative-2026-09-23-v1
+savorone,SavorOne,Capital One,39.0,,,,False,3,3,,,,,3,1,0,conservative-2026-09-23-v1
+strata,Strata,Citi,0.0,,,,True,2,3,3,,,,,1,0,conservative-2026-09-23-v1
+strata-elite,Strata Elite,Citi,595.0,,,,True,3,,,,,,,1.5,0,conservative-2026-09-23-v1
+venture-x,Venture X,Capital One,395.0,,,,True,,,,,,,,2,0,conservative-2026-09-23-v1

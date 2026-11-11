@@ -1,0 +1,51 @@
+section,order,item,detail,formula_or_value,source,notes
+identity,1,Engine version,Conservative ranking engine. Pure Go. No LLM in selection.,v2.0.0-conservative,revocred-api/internal/recommendation/engine.go:14,Affiliate package is never imported.
+identity,2,What it ranks,"Public issuer-snapshot catalog cards as next applications, not wallet-use picks and not S01–S09 playbook assignment.",,httpapi/api.go:276-312; store ListCatalog,Strategy code is attached after ranking via strategy.SelectFromQuestionnaire.
+identity,3,HTTP entry,POST /v1/recommendations. Bootstrap also re-evaluates the current wallet.,,httpapi/api.go:276,Client-supplied existing_card_ids are discarded and rebuilt from the active wallet.
+pipeline,10,1. Load wallet,Active wallet rows become ExistingCardIDs and OwnedCards.,,httpapi/api.go:286-298,Only status=active. Client cannot inject owned IDs.
+pipeline,11,2. Load catalog,Active public issuer_snapshot cards only.,owner_user_id IS NULL AND data_kind='issuer_snapshot' AND is_active,store/postgres.go:152-155,Custom/user-owned cards and demo rows never enter ranking.
+pipeline,12,3. Exclude ineligible cards,Skip and record a reason; do not score them.,,"engine.go:43-48,94-114",Exclusions sorted by slug.
+pipeline,13,4. Estimate incremental annual value,Wallet-with-card minus wallet-without-card minus the new card fee.,"ongoing = Gross(spend, owned+card) - Gross(spend, owned) - annual_fee_cents",engine.go:116-117; valuation/value.go,Welcome bonuses and credits are not added.
+pipeline,14,5. Drop non-positive improvement,"If ongoing <= 0, exclude as no modeled improvement.",ongoing <= 0,engine.go:51-54,A lower-rate card than the current wallet is rejected even with $0 fee.
+pipeline,15,6. Build score,"Start from dollars of incremental value, then add goal/travel bonuses.",score = ongoing_cents/100 + 20 if goal match + 10 if travel match,engine.go:59-67,Score is ranking-only. It is not the Home wallet score (22–95).
+pipeline,16,7. Sort and rank,Higher score first; slug A–Z on ties; ranks 1..N.,"sort by score desc, card_slug asc",engine.go:79-87,Stable sort. Deterministic.
+inputs,20,monthly_category_spend,Integer cents per month per category.,"allowed: rent, housing, food, dining, groceries, travel, everyday, other, gas, flights, hotels, streaming, entertainment, transit, drugstores",httpapi/validation.go:104,Amounts 0 to 100000000 cents.
+inputs,21,fee_tolerance_cents,Maximum annual fee the member will consider.,0 to 1000000,validation.go:113,Compared to card.AnnualFeeCents.
+inputs,22,credit_tier,Self-reported credit band.,"building=0, fair=1, good=2, excellent=3",engine.go:16-21,Card excluded if member rank < card.MinimumCreditTier rank.
+inputs,23,travel_scope,"none, domestic, international, both.",,validation.go:121; engine.go:142-147,none matches none or both. Otherwise offered must equal wanted or both.
+inputs,24,rewards_goal,"cash_back, travel, or hybrid.",,validation.go:124; engine.go:138-140,hybrid matches any rewards type.
+inputs,25,life_stage,Used only for student-slug gating.,"student required if slug contains ""student""",engine.go:95-97,Empty life_stage blocks student cards.
+inputs,26,existing_card_ids / owned cards,Rebuilt from wallet; used for already-owned exclusion and incremental Gross.,,api.go:291-297,OwnedCards JSON is not accepted from the client.
+inputs,27,ideal_card_count / display_name / added_cards,Validated on the request; not used inside Recommend().,,domain.go; engine.go,Playbook/onboarding consume some of these elsewhere.
+exclusions,30,student eligibility,"Slug contains ""student"" and life_stage is not student.",student eligibility has not been confirmed,engine.go:95-97,Checked first.
+exclusions,31,already in wallet,Catalog ID or slug is in ExistingCardIDs.,already in wallet,engine.go:98-103,
+exclusions,32,fee over tolerance,AnnualFeeCents > FeeToleranceCents.,annual fee of $X exceeds tolerance,engine.go:104-106,
+exclusions,33,credit tier too low,Member tier rank < card minimum.,selected credit tier is below the catalog minimum,engine.go:107-109,Changing minimum_credit_tier is a product decision.
+exclusions,34,travel scope mismatch,"Both sides not none, and travelMatches is false.",travel scope does not match,engine.go:110-112,none vs none/both is allowed.
+exclusions,35,no positive improvement,Incremental value after fee is <= 0.,no positive modeled improvement over the current wallet,engine.go:51-54,Applied after other gates.
+valuation,40,Point value,1 cent per point / percent as dollars.,annual_cents = round(monthly_cents * 12 * rate / 100),valuation/value.go:12-40,rate 2 means 2%.
+valuation,41,Housing,rent and housing always earn 0 in this model.,Rate(rent|housing)=0,value.go:15-16,Bilt-style housing rewards are intentionally excluded.
+valuation,42,Combined food,Unknown dining/grocery split uses the lower of the two rates.,"Rate(food)=min(dining, groceries)",value.go:18-20,Test: 4% dining + 3% groceries => 3% on food.
+valuation,43,Unknown category,"Falls back to the card other rate, floored at 0.","Rate(missing)=max(0, rates[""other""])",value.go:21-24,everyday uses other unless an everyday rate exists.
+valuation,44,Wallet Gross,"For each spend category, take the best rate across the card set, then sum annual cents.",sum_over_categories round(spend*12*best_rate/100),value.go:27-41,Categories processed in sorted key order for determinism.
+valuation,45,Incremental value of a candidate,"Improvement vs current wallet, then subtract only the new card fee.",Gross(owned+card)-Gross(owned)-new_fee,engine.go:117,Existing wallet fees are not re-subtracted because they cancel out of the delta.
+valuation,46,Strongest category (display only),Highest annual cents from this card’s own rate * that category spend. Does not change rank.,,engine.go:123-130,"Uses the candidate’s rate, not the wallet-best delta."
+valuation,47,Excluded from estimates,"Welcome bonuses, statement credits, portal multipliers, capped-category uplift, housing, conditional rewards.",FirstYearEstimate == OngoingEstimate always,engine.go:27-29 test; engine.go:73-74,Catalog FirstYearBonusCents is ignored.
+scoring,50,Base score,Incremental annual dollars.,ongoing_cents / 100,engine.go:59,Example: 2500 cents => 25.00
+scoring,51,Goal bonus,"+20 if rewards_goal matches card.rewards_type, or either side is hybrid.",+20,engine.go:60-63,cash_back vs travel does not match.
+scoring,52,Travel bonus,+10 if travel scopes match and wanted is not none.,+10,engine.go:64-67,none does not get this bonus even if the card is both/none.
+scoring,53,Rounding,Score rounded to 2 decimal places.,round(score*100)/100,engine.go:72,
+scoring,54,Not the wallet score,"Home 22–95 optimization score is scoring.Score, a different engine.",,internal/scoring/score.go,Do not mix the two.
+scoring,55,Not Home yearly dollars,Home ongoing value is valuation.Ongoing with reviewed credits; ranking uses valuation.Gross/Net only.,,internal/valuation/ongoing.go,Credits do not reorder applications.
+outputs,60,items[],"Ranked eligible cards with score, ongoing/first-year cents, reasons.",,domain.go:148-157,
+outputs,61,exclusions[],Skipped cards with machine/human reason strings.,,domain.go:159-163,Sorted by slug.
+outputs,62,engine_version / dataset_version,Engine constant plus max catalog dataset_version seen.,,engine.go:34-42,
+outputs,63,catalog_snapshot,Input catalog plus owned cards copied onto the result.,,engine.go:34,For audit of the run.
+outputs,64,strategy_code,"Assigned after Recommend() from the questionnaire, not from ranking.",,api.go:306,Playbook names are separate from this ranked list.
+not_used,70,AI / OpenCard prose,Community card text never changes ranking.,,domain CatalogCard comment; docs/opencard-data.md,
+not_used,71,Affiliate offers,Compensation cannot affect ranking by construction.,,docs/affiliate-operations.md,
+not_used,72,Purchase guide,"Home “use this card now” is purchaseguide, wallet-only.",,docs/purchase-guide.md,"Highest category rate among owned cards, not this engine."
+not_used,73,S01–S09 playbook,Assigned from questionnaire bands; ranking may still append one catalog card as next.,,revocred skill / strategy package,A ranked outside-template card is not a picker accident.
+worked_example,80,Test: incremental 3% over 2% wallet,"Monthly other $1000, wallet 2%, candidate 3% and $95 fee.",12000*0.01 - 95 = $25 => 2500 cents,engine_test.go:88-99,1.5% card is excluded as no improvement.
+worked_example,81,Test: food split,Monthly food $100 + everyday $100; dining 4 / groceries 3 / other 2.,100*12*0.03 + 100*12*0.02 = $60 => 6000 cents,engine_test.go:38-56,everyday uses other=2.
+worked_example,82,Test: dining vs flat,Dining $500 + other $200 / month; dining card 4% dining 1% other $95 fee vs 2% flat $0.,Dining incremental wins and ranks 1; bonus cents ignored,engine_test.go:10-35,Goal travel +20 and travel scope both +10 apply to dining card.

@@ -1,6 +1,6 @@
 # RevoCred Support
 
-Email [support@revocred.com](mailto:support@revocred.com). We aim to reply within [[SUPPORT RESPONSE TIME]].
+Email [support@revocred.com](mailto:support@revocred.com). We aim to reply within two business days.
 
 RevoCred is operated by [[COMPANY LEGAL NAME]], [[MAILING ADDRESS]].
 

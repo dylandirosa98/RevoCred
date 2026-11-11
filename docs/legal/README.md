@@ -49,8 +49,6 @@ remain, and the static export refuses to run.
 | `[[MAILING ADDRESS]]` | privacy, terms, support | A postal address for legal and privacy notices |
 | `[[EFFECTIVE DATE]]` | privacy, terms | The date the final text takes effect, e.g. November 20, 2026 |
 | `[[GOVERNING LAW STATE]]` | terms | The US state whose law governs the terms |
-| `[[BACKUP RETENTION PERIOD]]` | privacy | How long Supabase database backups are kept on the current plan (for example "7 days"; check the Supabase project's backup settings, including point-in-time recovery) |
-| `[[SUPPORT RESPONSE TIME]]` | support | A reply time you can keep, e.g. "two business days" |
 
 Also set the matching app build defines: `REVOCRED_LEGAL_ENTITY`,
 `REVOCRED_LEGAL_JURISDICTION`, `REVOCRED_LEGAL_EFFECTIVE_DATE`.
@@ -94,3 +92,5 @@ exports a review copy), and writes `index.html`, `privacy/index.html`,
 `terms/index.html` and `support/index.html`. `deploy/public-pages.nginx.conf`
 serves that layout. After moving, set the new URLs in App Store Connect and the
 app build defines; keep the API routes so older app builds keep working.
+
+Filled on 2026-11-11: support reply time "two business days"; backup expiry "7 days" (Supabase Pro daily backups, approved but not yet upgraded; recheck once the plan changes).

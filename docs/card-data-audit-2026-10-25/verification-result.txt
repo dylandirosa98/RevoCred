@@ -1,0 +1,16 @@
+OK: inventory catalog count = 14
+OK: audit records count = 14
+OK: no duplicates in inventory slugs
+OK: no duplicates in audit slugs
+OK: slug sets exactly equal (14 slugs)
+INFO: actual reference total=99 by={'verified': 14, 'partial': 85}
+INFO: audit summary total=99 by={'verified': 14, 'partial': 85}
+OK: reference total reconciled
+OK: reference counts grouped by terms_status reconciled
+OK: all cited local evidence exists
+INFO: csv data rows=14 slugs=['amex-gold', 'amex-platinum', 'quicksilver', 'savor-for-students', 'savorone', 'venture-x', 'freedom-flex', 'freedom-rise', 'freedom-unlimited', 'sapphire-preferred', 'sapphire-reserve', 'double-cash', 'strata', 'strata-elite']
+OK: JSON/CSV counts match
+OK: CSV slugs match JSON
+OK: no duplicates in CSV
+OK: no unsupported fully_verified claims (verification_state)
+PASS

@@ -1,0 +1,661 @@
+{
+  "audit_generated_at": "2026-10-25T23:55:00Z",
+  "audit_live_date_checked": "2026-10-25 (UTC via `date -u`)",
+  "inventory_captured_at": "2026-10-25T23:45:30.900999+00:00",
+  "inventory_catalog_count": 14,
+  "inventory_reference_total": 99,
+  "method": "READ ONLY. Compared inventory.json catalog benefits/rates/fees against evidence/issuer-pages/*.txt + *.html cached 2026-10-25 and evidence/fetched/* fresh pages for Platinum/Strata/Double Cash. Did not modify app, DB, config, or services. A 200 fetch is not verification; empty/broad pages flagged. Community data treated as candidate only. No card artwork reproduced.",
+  "reference_summary": {
+    "total": 99,
+    "by_terms_status": {
+      "verified": 14,
+      "partial": 85
+    },
+    "note": "Reference rows are search-only identity records for onboarding, never recommendation candidates and never Apply-linked. The 14 'verified' reference rows mirror the 14 catalog conservative snapshots (rates + fee only); they are NOT fully verified benefit records. The 85 'partial' rows carry no usable rates/fees. No benefits invented for the 99."
+  },
+  "excluded_aggregates": [
+    {
+      "data_kind": "user_supplied",
+      "is_active": true,
+      "custom": true,
+      "count": 1,
+      "note": "Demo rows stay demo; user-supplied custom cards stay user-supplied. Excluded from recommendation audit."
+    },
+    {
+      "data_kind": "demo",
+      "is_active": false,
+      "custom": false,
+      "count": 6,
+      "note": "Inactive demo rows excluded; must remain clearly labeled unverified demo data."
+    }
+  ],
+  "records": [
+    {
+      "slug": "amex-gold",
+      "annual_fee_cents_stored": 32500,
+      "benefits_stored": [
+        "4x at restaurants worldwide (up to $50,000 per calendar year, then 1x)",
+        "4x at U.S. supermarkets (up to $25,000 per calendar year, then 1x)",
+        "Up to $100 Resy credit per calendar year: $50 January-June and $50 July-December at qualifying U.S. Resy restaurants; enrollment required",
+        "Up to $84 Dunkin credit per year: $7 monthly at U.S. Dunkin locations; enrollment required",
+        "$120 Uber Cash per year: $10 monthly for U.S. rides and orders; add Gold to your Uber account and use an Amex card to pay",
+        "Up to $120 dining credit per year: $10 monthly at participating partners; enrollment required",
+        "$100 property credit on eligible Hotel Collection stays booked through Amex Travel; two-night minimum and property-specific restrictions",
+        "Transfer points to participating airline and hotel partners",
+        "Verify current terms with American Express; conditional credits are not included in reward estimates"
+      ],
+      "credits_assessment": "evidence confirms Resy $100 ($50 halves), Dunkin $84 ($7/mo), Dining $120 ($10/mo at Grubhub/Seamless/Buffalo Wild Wings/Five Guys/Cheesecake Factory/Wonder), Uber Cash $120 ($10/mo), Hotel Collection $100 property credit (2-night min). Stored captures these. No mismatch on credits.",
+      "dataset_version": "benefit-display-2026-10-13-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/amex-gold.txt",
+        "evidence/issuer-pages/amex-gold.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://www.americanexpress.com/us/credit-cards/card/gold-card/"
+      ],
+      "fee_assessment": "match: stored $325 matches evidence 'The annual fee for the American Express Gold Card is $325' (evidence/issuer-pages/amex-gold.txt). Finding: evidence_confirms_match.",
+      "issues": [
+        "Rates display gap (absent from current data): stored benefits omit 5x prepaid hotels via AmexTravel and 2x prepaid car rentals/cruises via AmexTravel shown in evidence; stored reward_rates {other:1, dining:4, flights:3, groceries:4} therefore intentionally conservative scoring subset, not a display error to auto-add to projected value.",
+        "Source summary field still cites older credit-intel URL while source_url is correct product page; tidy summary on next version, do not change app now."
+      ],
+      "issuer": "American Express",
+      "name": "Amex Gold",
+      "network": "Amex",
+      "priority": "P2",
+      "protections_assessment": "not_verified: Gold protections (e.g., car rental loss/damage, trip delay) not modeled in stored benefits; missing evidence must never imply 'no benefit'. Conservative scoring excludes them by design.",
+      "rates_assessment": "partial: 4x restaurants ($50k cap) and 4x U.S. supermarkets ($25k cap) confirmed; 3x flights confirmed as 'booked through AmexTravel.com or Amex Travel App or directly through airlines'. Absent from current data: 5x prepaid hotels, 2x prepaid car rentals/cruises, 1x base. Scoring intentionally uses conservative subset.",
+      "source_published_at": "2026-10-13T00:00:00+00:00",
+      "source_snippets": [
+        "'4X POINTS At Restaurants Worldwide, on up to $50K in purchases per calendar year.' (evidence/issuer-pages/amex-gold.txt)",
+        "'$120 Dining Credit Earn up to a total of $10 in statement credits monthly when you pay with the Gold Card at Grubhub (including Seamless), Buffalo Wild Wings, Five Guys, The Cheesecake Factory, and Wonder. Enrollment required.'",
+        "'$100 Resy Credit Get up to $100 in statement credits each calendar year at over 10,000 qualifying U.S. Resy restaurants ... Up to $50 in statement credits from January through June and up to $50 ... July through December. Enrollment required.'",
+        "'The annual fee for the American Express Gold Card is $325'"
+      ],
+      "source_specificity": "specific_product_page",
+      "source_url_stored": "https://www.americanexpress.com/us/credit-cards/card/gold-card/",
+      "variant_notes": "No material variant ambiguity for Gold consumer card in this audit. Distinct Business Gold ($375) out of scope; do not conflate (see cc-offers: Business Gold $375 vs Gold $325).",
+      "verification_state": "specific_source_reviewed_conservative_scoring",
+      "version_created_at": "2026-10-13T17:53:30.553024+00:00"
+    },
+    {
+      "slug": "amex-platinum",
+      "annual_fee_cents_stored": 89500,
+      "benefits_stored": [
+        "$895 annual fee",
+        "5x prepaid hotels and flights via Amex Travel (caps apply)",
+        "Lounge access",
+        "Multiple statement credits; enrollment often required",
+        "Verify current terms with American Express"
+      ],
+      "credits_assessment": "absent from current data: stored lists 'Multiple statement credits' with no amounts/cadence. Fresh specific page shows ~$3,500+ annual value stack: $600 hotel ($300 semi-annual Fine Hotels+Resorts/The Hotel Collection), $200 Uber Cash ($15/mo + $20 Dec), $120 Uber One, $200 airline incidental, $219 CLEAR+, $400 Resy ($100/qtr), $300 dining/digital entertainment ($25/mo: Disney+/Hulu/Peacock/NYT/WSJ/YouTube), $300 lululemon ($75/qtr), $155 Walmart+, $200 Oura. None itemized in stored. Not verified for scoring; missing must never imply no benefit.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/amex-platinum.txt",
+        "evidence/issuer-pages/amex-platinum.html",
+        "evidence/fetched/amex-platinum-correct.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://www.americanexpress.com/us/credit-cards/category/reward-points/",
+        "https://www.americanexpress.com/us/credit-cards/card/platinum/"
+      ],
+      "fee_assessment": "stored $895 matches fresh specific page fee context ('annual fee for the Platinum Card ... $895' in evidence/fetched/amex-platinum-correct.html). Fee itself not the gap; finding: evidence_confirms_match on fee, mismatch on everything else.",
+      "issues": [
+        "Source too broad and effectively empty (fresh issuer evidence confirms mismatch): stored source_url is Membership Rewards category page; cached evidence/issuer-pages/amex-platinum.txt is 52 chars ('Membership Rewards points Cards | American Express') with no card terms; issuer-fetch status 200 is NOT verification.",
+        "All benefit/credit/protection detail absent from current data; stored 5 generic lines vs 19 premium-travel + 7 dining + 8 shopping/wellness benefits on specific page.",
+        "Rates mismatch: stored {other:1} omits 5x flights (direct or AmexTravel, up to $500k/yr) and 5x prepaid hotels, 1x base. Intentionally conservative scoring, but display is incomplete."
+      ],
+      "issuer": "American Express",
+      "name": "Platinum",
+      "network": "Amex",
+      "priority": "P0",
+      "protections_assessment": "absent from current data: Global Entry/TSA PreCheck fee credit, Marriott Bonvoy Gold, Hilton Gold, Leaders Club Sterling, car rental loss/damage, trip delay/cancellation/interruption, purchase/extended warranty, return/cell-phone protection listed on specific page but absent in stored. Not verified.",
+      "rates_assessment": "fresh issuer evidence confirms mismatch: stored omits 5x core multipliers. Scoring intentionally conservative, but display must be rebuilt from specific page, not category page.",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "Cached stored-source evidence is effectively empty: 'Membership Rewards points Cards | American Express' (51-52 chars, evidence/issuer-pages/amex-platinum.txt; sha256 bc1b294e...).",
+        "Fresh specific page (evidence/fetched/amex-platinum-correct.html, 2026-10-25 fetch 200): '5X Points on Flights Booked directly with airlines or through American Express Travel, on up to $500,000' / '5X Points on Prepaid Hotels Booked on American Express Travel'",
+        "'Up to $600 Hotel Credit: Get up to $300 in statement credits semi-annually on prepaid Fine Hotels + Resorts or The Hotel Collection bookings'",
+        "'Up to $200 Uber Cash: $15 Uber Cash monthly, plus $20 bonus in December' / '$400 Resy Credit: up to $100 quarterly' / '$300 Digital Entertainment Credit: up to $25 monthly'"
+      ],
+      "source_specificity": "broad_category_page__empty",
+      "source_url_stored": "https://www.americanexpress.com/us/credit-cards/category/reward-points/",
+      "variant_notes": "Platinum consumer ($895) distinct from Business Platinum ($695 in bonuses-api sample, $895 in cc-offers Business Platinum) and Schwab/Morgan Stanley variants. Stored 'Platinum' must be pinned to exact consumer Platinum product identity before rewrite.",
+      "verification_state": "mismatch_confirmed_broad_source",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    },
+    {
+      "slug": "quicksilver",
+      "annual_fee_cents_stored": 0,
+      "benefits_stored": [
+        "$0 annual fee on this product page",
+        "1.5% cash back on every purchase",
+        "No foreign transaction fees",
+        "Verify current terms with Capital One"
+      ],
+      "credits_assessment": "not_verified: Good-Credit page shows no separate statement-credit stack in cached text; no credits invented. Candidate community data (bonuses-api: Quicksilver $200/500 bonus) is welcome-bonus only, kept separate from recurring value.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/quicksilver.txt",
+        "evidence/issuer-pages/quicksilver.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://www.capitalone.com/credit-cards/quicksilver-good-credit/"
+      ],
+      "fee_assessment": "match on this variant page: 'Earn unlimited 1.5% cash back on every purchase, every day. $0 annual fee.' Finding: evidence_confirms_match for this variant only.",
+      "issues": [
+        "Variant ambiguity (needs disambiguation, not assumed wrong): stored slug 'quicksilver' with generic name 'Quicksilver' points to Quicksilver-for-Good-Credit page. Capital One offers multiple Quicksilvers: standard Quicksilver (often $0, different URL /quicksilver/), QuicksilverOne ($39), Secured, Student, Good Credit. Evidence header: 'Quicksilver Rewards for Good Credit ... Credit Level: GOOD' + 'won't be eligible for new cardmember bonus cash or 0% intro APR'. Display must state exact variant.",
+        "Rates match this variant (1.5% all purchases, unlimited, no expiry) but do not generalize to other Quicksilvers. Scoring conservative subset is appropriate; display must not imply all Quicksilvers identical."
+      ],
+      "issuer": "Capital One",
+      "name": "Quicksilver",
+      "network": "Visa",
+      "priority": "P1",
+      "protections_assessment": "not_verified: protections not modeled; missing evidence must never imply no benefit.",
+      "rates_assessment": "evidence confirms 1.5% every purchase for this variant. Intentionally conservative scoring (1.5 flat) matches evidence; no portal multiplier to add.",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "'Quicksilver Rewards for Good Credit from Capital One Earn unlimited 1.5% cash back on every purchase, every day. $0 annual fee.'",
+        "'You will earn the usual Quicksilver rewards, but won't be eligible for new cardmember bonus cash or 0% intro APR' (variant limitation, evidence/issuer-pages/quicksilver.txt)",
+        "'No Foreign Transaction Fees You won't pay a transaction fee when making purchases outside of the United States.'"
+      ],
+      "source_specificity": "specific_but_variant_narrow",
+      "source_url_stored": "https://www.capitalone.com/credit-cards/quicksilver-good-credit/",
+      "variant_notes": "Precisely: stored maps generic 'Quicksilver' to Good-Credit variant. Other live Quicksilvers per cc-offers sample: Quicksilver Cash Rewards ($0), QuicksilverOne ($39), Secured ($0 + deposit), Student, Good Credit. Must pin slug to 'Quicksilver Rewards for Good Credit' or create separate variant records; do not reuse this row for standard Quicksilver.",
+      "verification_state": "variant_ambiguous_needs_clarification",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    },
+    {
+      "slug": "savor-for-students",
+      "annual_fee_cents_stored": 0,
+      "benefits_stored": [
+        "$0 annual fee",
+        "3% groceries, dining, entertainment, streaming",
+        "1% everything else",
+        "Verify current terms with Capital One"
+      ],
+      "credits_assessment": "intentionally conservative scoring: $50 cash bonus after $100 in 3 months appears in evidence ('Plus, earn a $50 cash bonus') and cc-offers welcome text, but stored correctly excludes welcome bonuses from estimated value per disclaimer. Not a display gap to auto-add to projected value.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/savor-for-students.txt",
+        "evidence/issuer-pages/savor-for-students.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://www.capitalone.com/credit-cards/savor-student/"
+      ],
+      "fee_assessment": "match: '$0 Annual Fee' + '$0 annual fee. Plus, earn a $50 cash bonus.' Finding: evidence_confirms_match.",
+      "issues": [
+        "Display omits cap/exclusion nuance (absent from current data, low severity): evidence says 'excluding superstores like Walmart and Target' and streaming/grocery qualifiers; stored 3%/1% lines lack exclusions. Scoring subset {other:1, dining:3, groceries:3, entertainment:3} matches core multipliers; no portal uplift to add.",
+        "Student eligibility not modeled in benefits text beyond name; keep as identity, not scoring input."
+      ],
+      "issuer": "Capital One",
+      "name": "Savor for Students",
+      "network": "Mastercard",
+      "priority": "P2",
+      "protections_assessment": "not_verified: no protections modeled; missing must never imply none.",
+      "rates_assessment": "match on core: 'Earn Unlimited 3% Cash Back at Grocery Stores, on Dining, Entertainment and Popular Streaming Services' + '1% all other' confirmed. Intentionally conservative scoring retained.",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "'Savor Rewards for Students Earn unlimited 3% cash back at grocery stores and on dining. $0 annual fee. Plus, earn a $50 cash bonus.'",
+        "'Earn Unlimited 3% Cash Back at Grocery Stores, on Dining, Entertainment and Popular Streaming Services. $0 Annual Fee.'",
+        "'Earn unlimited 3% cash back at grocery stores (excluding superstores like Walmart and Target)'"
+      ],
+      "source_specificity": "specific_product_page",
+      "source_url_stored": "https://www.capitalone.com/credit-cards/savor-student/",
+      "variant_notes": "Student product distinct from Savor/SavorOne. No conflation; Savor Rewards for Good Credit and SavorOne $39 are separate variants (see savorone record).",
+      "verification_state": "rates_confirmed_display_limited",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    },
+    {
+      "slug": "savorone",
+      "annual_fee_cents_stored": 3900,
+      "benefits_stored": [
+        "$39 annual fee on the SavorOne product page",
+        "3% groceries, dining, entertainment, streaming",
+        "1% everything else",
+        "Capital One also offers $0 Savor variants; verify which product applies"
+      ],
+      "credits_assessment": "not_verified: no recurring statement-credit stack in evidence text for this $39 page; none invented. Welcome/bonus kept separate.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/savorone.txt",
+        "evidence/issuer-pages/savorone.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://www.capitalone.com/credit-cards/savorone/"
+      ],
+      "fee_assessment": "match on this page: 'Earn unlimited 3% cash back ... with a $39 annual fee.' + 'Annual Fee' block. But variant caveat applies (see variant_notes). Finding: evidence_confirms_match for fetched page, variant_ambiguous for catalog identity.",
+      "issues": [
+        "Variant ambiguity precisely (not assumed wrong): fetched page header shows 'Credit Level: FAIR' and '$39 annual fee' (evidence/issuer-pages/savorone.txt). Capital One also offers $0 Savor variants (e.g., Savor Cash Rewards $0 + 5% Capital One Travel per cc-offers sample; Savor Rewards for Good Credit $0). Stored already warns 'Capital One also offers $0 Savor variants; verify which product applies' \u2014 keep and enforce by pinning exact variant.",
+        "Display omits exclusion nuance: 'excluding superstores like Walmart and Target' absent from stored. Scoring subset {other:1, dining:3, groceries:3, entertainment:3} matches evidence core; no uplift."
+      ],
+      "issuer": "Capital One",
+      "name": "SavorOne",
+      "network": "Mastercard",
+      "priority": "P1",
+      "protections_assessment": "not_verified.",
+      "rates_assessment": "match: 'Earn unlimited 3% cash back at grocery stores, on dining, entertainment and popular streaming services, plus 1% cash back on all other purchases.' Intentionally conservative scoring.",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "'SavorOne Rewards from Capital One Earn unlimited 3% cash back at grocery stores, on dining, entertainment and popular streaming services with a $39 annual fee.'",
+        "'Credit Level: FAIR' (same page header)",
+        "'Earn unlimited 3% cash back at grocery stores (excluding superstores like Walmart and Target), on dining, entertainment and popular streaming services.'"
+      ],
+      "source_specificity": "specific_but_variant_narrow",
+      "source_url_stored": "https://www.capitalone.com/credit-cards/savorone/",
+      "variant_notes": "Precisely: SavorOne $39 (Fair Credit) vs Savor $0 variants. cc-offers 2026-05-29 sample: 'SavorOne Rewards from Capital One | $39' vs 'Savor Cash Rewards | $0 | 5% Capital One Travel + 3% grocery/dining/entertainment' vs 'Savor Rewards for Good Credit | $0'. Stored $39 must not be generalized to $0 Savor; need exact variant pinning.",
+      "verification_state": "variant_ambiguous_needs_clarification",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    },
+    {
+      "slug": "venture-x",
+      "annual_fee_cents_stored": 39500,
+      "benefits_stored": [
+        "$395 annual fee",
+        "2x miles on all purchases",
+        "10x hotels and rental cars via Capital One Travel",
+        "5x flights via Capital One Travel",
+        "$300 annual Capital One Travel credit",
+        "10,000 anniversary miles",
+        "Verify current terms with Capital One"
+      ],
+      "credits_assessment": "evidence supports stored credits in HTML (not txt extraction): '$300 annual Capital One Travel credit' + '10,000 miles anniversary bonus' found in evidence/issuer-pages/venture-x.html (JS-embedded JSON). Txt extraction missed them (0 hits for $300/anniversary in .txt), so cite HTML. Lounge/cell-phone/Premier Collection experience credits ($100/$50) and transfer partners (15+ programs) are absent from current data display.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/venture-x.txt",
+        "evidence/issuer-pages/venture-x.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://www.capitalone.com/credit-cards/venture-x/"
+      ],
+      "fee_assessment": "match: 'Annual Fee' + '$395' (txt) confirmed. Finding: evidence_confirms_match.",
+      "issues": [
+        "Txt-vs-HTML extraction gap documented: txt shows 'Annual Fee $395 / 10X / 5X / 2X' and lounge/cell-protection sections, but $300/anniversary only in HTML JSON; future pipeline must parse HTML, not txt alone.",
+        "Display gaps (absent from current data): lounge access (Capital One Lounges + Priority Pass 1,300+), cell-phone protection ($800), Premier/Lifestyle Collection experience credits, Global Entry mention in reviews/testimonials only \u2014 need issuer-terms verification before adding. Scoring subset {other:2} intentionally conservative (omits 10x/5x portal uplift) \u2014 separate from display, do not auto-add to value."
+      ],
+      "issuer": "Capital One",
+      "name": "Venture X",
+      "network": "Visa",
+      "priority": "P2",
+      "protections_assessment": "absent from current data: 'Cell Phone Protection ... up to $800' and lounge guest policies in evidence but not in stored benefits. Not verified for display; missing must never imply none.",
+      "rates_assessment": "match on core portal multipliers in evidence: '10X Miles on hotels & rental cars booked through Capital One Travel / 5X Miles on flights and vacation rentals / 2X Miles on all other purchases'. Stored captures these in benefits but reward_rates {other:2} is intentionally conservative scoring subset.",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "'$395' + 'Annual Fee' + '10X Miles on hotels & rental cars booked through Capital One Travel' + '5X Miles on flights and vacation rentals' + '2X Miles on all other purchases, every day' (evidence/issuer-pages/venture-x.txt)",
+        "'$300 annual Capital One Travel credit' + '10,000 miles anniversary bonus' (evidence/issuer-pages/venture-x.html embedded JSON; absent from .txt extraction)",
+        "'Venture X primary cardholders can enjoy access to Capital One Lounge and Landing locations.' + 'Priority Pass Lounges ... 1,300+ participating lounges' + 'Cell Phone Protection ... up to $800'"
+      ],
+      "source_specificity": "specific_product_page",
+      "source_url_stored": "https://www.capitalone.com/credit-cards/venture-x/",
+      "variant_notes": "Venture X ($395) distinct from Venture ($95) and VentureOne; do not conflate. cc-offers confirms Venture X $395 vs Venture X Business $395 separate.",
+      "verification_state": "rates_confirmed_display_limited",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    },
+    {
+      "slug": "freedom-flex",
+      "annual_fee_cents_stored": 0,
+      "benefits_stored": [
+        "$0 annual fee",
+        "5% rotating categories up to $1,500/quarter when activated",
+        "3% dining and drugstores",
+        "5% Chase Travel",
+        "1% everything else",
+        "Verify current terms with Chase"
+      ],
+      "credits_assessment": "intentionally conservative / promo separation: evidence promos 'Complimentary 6 months DashPass' + 'Lyft 2% offer' + quarterly 5% activation are time-bound promos, not recurring core credits; stored correctly omits them from conservative model. Not verified as recurring display credits.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/freedom-flex.txt",
+        "evidence/issuer-pages/freedom-flex.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://creditcards.chase.com/cash-back-credit-cards/freedom/flex"
+      ],
+      "fee_assessment": "match: '$0' + 'ANNUAL FEE No annual fee' + 'No Annual Fee'. Finding: evidence_confirms_match.",
+      "issues": [
+        "No material rate mismatch on core: 5% rotating ($1,500/qtr activated) + 5% Chase Travel + 3% dining/drugstores + 1% else all confirmed. Scoring subset {other:1, dining:3, drugstores:3} intentionally omits 5% portal/rotating uplift \u2014 separate from display, do not conflate with error.",
+        "Display nuance absent (low severity): rotating activation requirement and $1,500 cap are in stored, but DashPass/Lyft promo windows omitted; keep omitted until reviewed as recurring vs promo."
+      ],
+      "issuer": "Chase",
+      "name": "Freedom Flex",
+      "network": "Mastercard",
+      "priority": "P2",
+      "protections_assessment": "not_verified: purchase protections not modeled; missing must never imply none.",
+      "rates_assessment": "evidence confirms match: 'Earn 5% cash back on up to $1,500 in rotating categories each quarter you activate. Plus, earn 5% back on travel purchased through Chase Travel, 3% on dining including takeout and drugstores, and 1% on all other purchases.'",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "'Earn 5% cash back on up to $1,500 in rotating categories each quarter you activate. Plus, earn 5% back on travel purchased through Chase Travel, 3% on dining including takeout and drugstores, and 1% on all other purchases.'",
+        "'ANNUAL FEE $0' + 'No annual fee'"
+      ],
+      "source_specificity": "specific_product_page",
+      "source_url_stored": "https://creditcards.chase.com/cash-back-credit-cards/freedom/flex",
+      "variant_notes": "No variant ambiguity; Freedom Flex distinct from Freedom Unlimited/Rise.",
+      "verification_state": "rates_confirmed_display_limited",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    },
+    {
+      "slug": "freedom-rise",
+      "annual_fee_cents_stored": 0,
+      "benefits_stored": [
+        "$0 annual fee",
+        "1.5% cash back on all purchases",
+        "Verify current terms with Chase"
+      ],
+      "credits_assessment": "same promo separation as Flex: DashPass/Lyft promos in evidence are time-bound, not recurring credits. Not verified.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/freedom-rise.txt",
+        "evidence/issuer-pages/freedom-rise.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://creditcards.chase.com/cash-back-credit-cards/freedom/rise"
+      ],
+      "fee_assessment": "match: '$0' + 'ANNUAL FEE $0' + 'No annual fee'.",
+      "issues": [
+        "Core rate match: 'Earn 1.5% cash back on all purchases' + '1.5% Cash Back: You'll earn 1.5% for each $1 spent' confirmed. Scoring {other:1.5} matches evidence; intentionally conservative (no portal uplift).",
+        "Display limited (low severity): stored 3 lines vs evidence DashPass/Lyft promo detail; keep limited until promo vs recurring review. Not a mismatch."
+      ],
+      "issuer": "Chase",
+      "name": "Freedom Rise",
+      "network": "Visa",
+      "priority": "P2",
+      "protections_assessment": "not_verified.",
+      "rates_assessment": "evidence confirms match.",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "'Establish credit and earn 1.5% cash back on all purchases' + 'ANNUAL FEE $0'",
+        "'1.5% Cash Back: You'll earn 1.5% Cash Back rewards for each $1 spent.'"
+      ],
+      "source_specificity": "specific_product_page",
+      "source_url_stored": "https://creditcards.chase.com/cash-back-credit-cards/freedom/rise",
+      "variant_notes": "Rise is credit-builder positioning distinct from Flex/Unlimited; do not conflate.",
+      "verification_state": "rates_confirmed_display_limited",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    },
+    {
+      "slug": "freedom-unlimited",
+      "annual_fee_cents_stored": 0,
+      "benefits_stored": [
+        "$0 annual fee",
+        "1.5% on all other purchases",
+        "3% dining and drugstores",
+        "5% Chase Travel",
+        "Verify current terms with Chase"
+      ],
+      "credits_assessment": "same promo separation: DashPass/Lyft promos not recurring credits.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/freedom-unlimited.txt",
+        "evidence/issuer-pages/freedom-unlimited.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited"
+      ],
+      "fee_assessment": "match: 'ANNUAL FEE $0'.",
+      "issues": [
+        "Core match: 'Earn 3% on dining at restaurants ... 3% on drugstore ... 5% on travel purchased through Chase Travel ... 1.5% on all other purchases' confirmed. Scoring {other:1.5, dining:3, drugstores:3} intentionally omits 5% travel uplift \u2014 separate from display."
+      ],
+      "issuer": "Chase",
+      "name": "Freedom Unlimited",
+      "network": "Visa",
+      "priority": "P2",
+      "protections_assessment": "not_verified.",
+      "rates_assessment": "evidence confirms match on core tiers.",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "'Unlimited 1.5% cash back ... 3% on dining and drugstores and 5% on travel purchased through Chase Travel'",
+        "'Earn 3% on dining at restaurants, including takeout and eligible delivery services. Earn 3% on drugstore purchases. Earn 5% on travel purchased through Chase Travel. Earn 1.5% on all other purchases.'"
+      ],
+      "source_specificity": "specific_product_page",
+      "source_url_stored": "https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited",
+      "variant_notes": "Distinct from Flex/Rise.",
+      "verification_state": "rates_confirmed_display_limited",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    },
+    {
+      "slug": "sapphire-preferred",
+      "annual_fee_cents_stored": 9500,
+      "benefits_stored": [
+        "Up to $100 Chase Travel hotel credit each account anniversary year; eligible hotel stays must be purchased through Chase Travel",
+        "Up to $120 Global Entry, TSA PreCheck or NEXUS application-fee credit every four years; charge the eligible fee to the card",
+        "Transfer points to participating airline and hotel partners",
+        "Primary rental-car coverage; exclusions and limits apply",
+        "Trip cancellation, interruption and delay coverage; terms apply",
+        "Verify current terms with Chase; conditional credits are not included in reward estimates"
+      ],
+      "credits_assessment": "evidence confirms stored credits: $100 hotel + $120 Global Entry/TSA/NEXUS. Do not 'correct' to older remembered $50 hotel term (per TASK). $300+ dining/StubHub/Lyft/Peloton stacks seen on Reserve page are NOT Preferred terms \u2014 do not copy across cards. Peloton 5x/10x, Lyft 5x, DashPass + $10/mo non-restaurant promo in Preferred evidence are time-bound promos, intentionally excluded from recurring display/scoring.",
+      "dataset_version": "benefit-display-2026-10-13-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/sapphire-preferred.txt",
+        "evidence/issuer-pages/sapphire-preferred.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://creditcards.chase.com/rewards-credit-cards/sapphire/preferred"
+      ],
+      "fee_assessment": "match: '$95 annual fee' + 'same low annual fee'. Finding: evidence_confirms_match.",
+      "issues": [
+        "No hotel/Global Entry mismatch: stored correctly reflects current page ($100 hotel + $120 Global Entry/TSA/NEXUS). Older $50 hotel memory must not be applied.",
+        "Rates intentionally conservative: stored {other:1, dining:3, travel:2} omits 5x Chase Travel, 3x streaming/grocery, 5x Lyft/Peloton promos. This is intentionally conservative scoring per disclaimer, separate from display completeness. Display benefits (6 lines) cover recurring credits + protections but omit promo Lyft/Peloton/DashPass detail by design."
+      ],
+      "issuer": "Chase",
+      "name": "Sapphire Preferred",
+      "network": "Visa",
+      "priority": "P2",
+      "protections_assessment": "stored lists primary rental, trip cancellation/interruption/delay; evidence confirms 'Auto Rental Coverage ... up to $60,000' + 'Trip Cancellation ... up to $10,000/$20,000' + 'Trip Delay ... $3,000'. Evidence confirms match on protections summarized (full Guide to Benefits still required for limits).",
+      "rates_assessment": "stored rates are intentionally conservative subset. Evidence shows '5x points on Chase Travel / 3x dining / 3x streaming / 3x online grocery / 2x other travel' \u2014 stored omits portal/streaming uplift by design. Do not conflate with display error.",
+      "source_published_at": "2026-10-13T00:00:00+00:00",
+      "source_snippets": [
+        "'$95 annual fee' + 'Earn more than ever, same low annual fee.'",
+        "'$100 Chase Travel Hotel Credit Earn up to $100 in statement credits each account anniversary year for hotel stays purchased through Chase Travel'",
+        "'Global Entry or TSA PreCheck or NEXUS Application Fee credit Receive one statement credit of up to $120 every four years'",
+        "'Auto Rental Coverage ... primary ... up to $60,000' + 'Trip Cancellation and Interruption Insurance ... up to $10,000 per covered traveler and $20,000 per trip'"
+      ],
+      "source_specificity": "specific_product_page",
+      "source_url_stored": "https://creditcards.chase.com/rewards-credit-cards/sapphire/preferred",
+      "variant_notes": "Preferred ($95) distinct from Reserve ($795) and Reserve for Business; do not copy Reserve $300/$500/Edit credits to Preferred.",
+      "verification_state": "specific_source_reviewed_conservative_scoring",
+      "version_created_at": "2026-10-13T17:53:30.553024+00:00"
+    },
+    {
+      "slug": "sapphire-reserve",
+      "annual_fee_cents_stored": 79500,
+      "benefits_stored": [
+        "$795 annual fee",
+        "8x Chase Travel",
+        "4x flights and hotels booked direct",
+        "3x dining",
+        "$300 annual travel credit",
+        "Verify current terms with Chase"
+      ],
+      "credits_assessment": "fresh issuer evidence confirms mismatch (P0): stored lists only $300 travel credit. Evidence shows $300 travel + $500 Edit prepaid credit + $300 dining ($150 halves) + $300 StubHub ($150 halves) + $120 Lyft ($10/mo thru 9/30/27) + $120 Peloton ($10/mo thru 12/31/27) + Global Entry/TSA/NEXUS $120 + $250 Shops at Chase + $500 Southwest Chase Travel + lounge value ($850+). All absent from current data. Missing must never imply no benefit, but here missing understates display severely. Do not auto-add to projected value; needs reviewed version.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/sapphire-reserve.txt",
+        "evidence/issuer-pages/sapphire-reserve.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://creditcards.chase.com/rewards-credit-cards/sapphire/reserve"
+      ],
+      "fee_assessment": "match on fee: '$795 annual fee' confirmed. Fee not the issue; everything else is.",
+      "issues": [
+        "Highest-priority display gap (Javed report confirmed): stored 6 lines vs evidence 80k+ chars with full 2025-2026 Reserve refresh. Absent: Edit $500, dining $300, StubHub $300, Lyft/Peloton, Global Entry, lounge network (Sapphire Lounges + Priority Pass 1,300+ + Maple Leaf), Points Boost (up to 2x on Edit/select flights), transfer partners, full protections.",
+        "Protections absent: evidence lists primary rental to $75k, trip cancellation $10k/$20k, trip delay, baggage, evacuation $100k, medical $2.5k \u2014 none in stored beyond generic verify line.",
+        "Rates partially present but simplified: stored 8x/4x/3x matches '8x Chase Travel incl. Edit / 4x flights/hotels direct / 3x dining' but omits Points Boost nuance and exclusions ('purchases that qualify for $300/$500 credits will not earn points'). Scoring intentionally conservative, but display must be rebuilt."
+      ],
+      "issuer": "Chase",
+      "name": "Sapphire Reserve",
+      "network": "Visa",
+      "priority": "P0",
+      "protections_assessment": "absent from current data: full suite in evidence \u2014 'Auto Rental Coverage ... up to $75,000', 'Trip Cancellation ... $10,000/$20,000', 'Trip Delay Reimbursement', 'Emergency evacuation $100,000', 'Purchase/Return/Extended Warranty' \u2014 none modeled. Not verified.",
+      "rates_assessment": "partial match on headline multipliers, but fresh evidence confirms mismatch on completeness and exclusions. Scoring subset {other:1, dining:3, flights:4, hotels:4} intentionally conservative (omits 8x portal); display gap is separate and P0.",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "'$795 annual fee' + '8x points on all purchases through Chase Travel, including The Edit' + '4x points on flights and hotels booked direct' + '3x points on dining'",
+        "'$300 annual travel credit ... in statement credits for travel purchases each account anniversary year. Purchases that qualify will not earn points.'",
+        "'$500 credit for stays with The Edit ... $550+ in value ... property credit, daily breakfast for two ...' + '$850+ in value with the Chase Sapphire Reserve Lounge Network ... 1,300+ Priority Pass ... up to two guests' + 'Global Entry, TSA PreCheck, or NEXUS fee credit' + '$300 dining credit ... $300 in StubHub credits ... $120 in Lyft ride credits + 5x points ... $120 in Peloton credits + 10x points'"
+      ],
+      "source_specificity": "specific_product_page",
+      "source_url_stored": "https://creditcards.chase.com/rewards-credit-cards/sapphire/reserve",
+      "variant_notes": "Reserve consumer ($795) distinct from Reserve for Business and J.P. Morgan Reserve; stored correctly pinned to consumer Reserve URL.",
+      "verification_state": "mismatch_confirmed",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    },
+    {
+      "slug": "double-cash",
+      "annual_fee_cents_stored": 0,
+      "benefits_stored": [
+        "No annual fee",
+        "Unlimited 2% cash back: 1% when you buy, 1% as you pay",
+        "Verify current terms with Citi"
+      ],
+      "credits_assessment": "absent from current data: specific page shows 'Plus, earn a total of 5% on select travel: additional 3% on hotels, car rentals, attractions via Citi Travel (on top of 1%+1%)' + ThankYou Points mechanics + Extended warranty + Citi Entertainment/Merchant Offers + FICO + ID Theft. None in stored beyond 2% line. Missing must never imply none.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/double-cash.txt",
+        "evidence/issuer-pages/double-cash.html",
+        "evidence/fetched/citi-double-cash-specific.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://www.citi.com/credit-cards/rewards-credit-cards",
+        "https://www.citi.com/credit-cards/citi-double-cash-credit-card/"
+      ],
+      "fee_assessment": "match: 'No Annual Fee' on both broad and specific pages. Fee not the gap.",
+      "issues": [
+        "Source too broad (fresh issuer evidence confirms mismatch): stored source_url is generic Rewards hub (https://www.citi.com/credit-cards/rewards-credit-cards); cached double-cash.txt is 10k chars of hub listing Strata Elite/Premier, AAdvantage, Costco, not Double Cash terms. Specific product page discovered via search: https://www.citi.com/credit-cards/citi-double-cash-credit-card/ (fetched 200, 704k html, evidence/fetched/citi-double-cash-specific.html). Recommend upgrade in recommendations, NOT in app/DB.",
+        "Rates incomplete: stored {other:2} omits 5% total Citi Travel tier (1%+1%+3%). Scoring conservative subset; display must add travel tier after review.",
+        "Protections absent: extended warranty, $0 liability, ID Theft, FICO in specific page but not stored."
+      ],
+      "issuer": "Citi",
+      "name": "Double Cash",
+      "network": "Mastercard",
+      "priority": "P0",
+      "protections_assessment": "absent: 'Extended warranty', '$0 liability on unauthorized charges', 'Mastercard ID Theft Protection' on specific page but not in stored. Not verified.",
+      "rates_assessment": "fresh evidence confirms mismatch: specific page 'Earn unlimited 1% cash back when you buy, plus an additional 1% as you pay ... Plus, earn a total of 5% on select travel ... additional 3% on hotels, car rentals, attractions via Citi Travel'. Stored captures 2% base but omits 5% travel tier.",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "Broad hub cached (stored source) shows no Double Cash terms: 'Rewards Credit Cards ... Citi Strata Elite Card ... Citi Strata Premier ...' (evidence/issuer-pages/double-cash.txt) \u2014 confirms broad-source problem.",
+        "Specific page (evidence/fetched/citi-double-cash-specific.html, 200 2026-10-25): 'Earn unlimited 1% cash back when you buy, plus an additional 1% as you pay, on every purchase.' + 'Plus, earn a total of 5% on select travel ... additional 3% cash back on hotels, car rentals, and attractions booked through the Citi Travel portal.' + 'No Annual Fee' + 'Extended warranty' + 'Citi Entertainment'"
+      ],
+      "source_specificity": "broad_category_page",
+      "source_url_stored": "https://www.citi.com/credit-cards/rewards-credit-cards",
+      "variant_notes": "Double Cash (Mastercard, ThankYou Points, 2%/5% travel) distinct from Citi Custom Cash, Diamond Preferred, Simplicity. Must pin to exact /citi-double-cash-credit-card/ product, not hub.",
+      "verification_state": "mismatch_confirmed_broad_source",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    },
+    {
+      "slug": "strata",
+      "annual_fee_cents_stored": 0,
+      "benefits_stored": [
+        "$0 annual fee",
+        "3x supermarkets, gas/EV, transit, and one self-select category",
+        "2x restaurants",
+        "1x everything else",
+        "Verify current terms with Citi"
+      ],
+      "credits_assessment": "base Strata ($0) has no hotel/splurge/Blacklane/lounge/Global Entry stack \u2014 those belong to Elite/Premier tiers in family-page Benefits block. Stored correctly omits Elite credits for base card. Not verified beyond that; missing must never imply none.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/strata.txt",
+        "evidence/issuer-pages/strata.html",
+        "evidence/fetched/citi-strata-specific.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://www.citi.com/credit-cards/citi-strata-all-cards",
+        "https://www.citi.com/credit-cards/citi-strata-credit-card"
+      ],
+      "fee_assessment": "match: '$0 Annual Fee' for Citi Strata Card on both family and specific pages.",
+      "issues": [
+        "Source too broad (family page): stored source_url is /citi-strata-all-cards hub mixing Elite/Premier/Strata tiers; specific base product discovered: https://www.citi.com/credit-cards/citi-strata-credit-card (fetched 200, evidence/fetched/citi-strata-specific.html). Recommend upgrade, not in app.",
+        "Rates gap (absent from current data): stored reward_rates {gas:3, other:1, dining:2, groceries:3} omits 5x hotels/cars/attractions via cititravel.com shown on both family ('5 points per dollar ... Hotels, Car Rentals and Attractions') and specific page ('5x ... Hotels, Car Rentals, and Attractions'). Stored benefits text also omits 5x tier. Scoring conservative; display must add 5x after review.",
+        "Tier-confusion risk: family-page Benefits block lists Elite-only $300 hotel / $200 Splurge / $200 Blacklane / Admirals/Priority Pass / $120 Global Entry \u2014 must NOT copy to base Strata display. Specific base page correctly shows no such credits."
+      ],
+      "issuer": "Citi",
+      "name": "Strata",
+      "network": "Mastercard",
+      "priority": "P0",
+      "protections_assessment": "not_verified: base-page protections limited to ID Theft/Fraud/Quick Lock in evidence; travel insurances listed under Elite block do not apply to base. Must not copy Elite protections to base.",
+      "rates_assessment": "fresh evidence confirms mismatch on travel tier: specific page '5x Hotels/Cars/Attractions via cititravel.com / 3x Supermarkets / 3x Gas & EV + Select Transit / 3x Self-Select (Fitness/Streaming/Live/Cosmetic/Pet) / 2x Restaurants / 1x else'. Stored omits 5x.",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "Family page rates block (evidence/issuer-pages/strata.txt lines 144-162): '5 points per dollar spent on Hotels, Car Rentals and Attractions booked on cititravel.com' + '3 points ... Supermarkets' + '3 points ... Select Transit and at Gas & EV' + '3 points ... Self-Select Category' + '2 points ... Restaurants' + '1 point ... All Other'",
+        "Specific base page (evidence/fetched/citi-strata-specific.html): '5x Hotels, Car Rentals, Attractions via cititravel.com / 3x Supermarkets / 3x Gas & EV + Select Transit / 3x Self-Select / 2x Restaurants / 1x else' + '$0 Annual Fee' + 'No Authorized User Fee'"
+      ],
+      "source_specificity": "broad_family_page",
+      "source_url_stored": "https://www.citi.com/credit-cards/citi-strata-all-cards",
+      "variant_notes": "Precisely: Citi Strata ($0) vs Strata Premier ($95, 10x travel + $100 hotel) vs Strata Elite ($595, 12x + $300 hotel + Splurge/Blacklane/lounge). Stored Strata must stay base-tier only; Elite/Premier credits must never be copied to base.",
+      "verification_state": "mismatch_confirmed_broad_source",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    },
+    {
+      "slug": "strata-elite",
+      "annual_fee_cents_stored": 59500,
+      "benefits_stored": [
+        "$595 annual fee",
+        "12x hotels/cars/attractions via Citi Travel",
+        "6x air via Citi Travel",
+        "3x restaurants",
+        "1.5x everything else",
+        "Hotel and lounge benefits",
+        "Verify current terms with Citi"
+      ],
+      "credits_assessment": "fresh issuer evidence confirms mismatch: stored 'Hotel and lounge benefits' with no amounts. Evidence shows $300 hotel (2-night min via cititravel.com), $200 Splurge (choice of 2 brands: 1stDibs/American/ Best Buy/Future/Live Nation), $200 Blacklane ($100 halves), 4 Admirals passes (~$300 value) + Priority Pass Select 1,500+ ($469 fee value), $120 Global Entry/PreCheck (4yr), Reserve hotel collection + points transfer + entertainment. All absent from current data in itemized form.",
+      "dataset_version": "conservative-2026-09-23-v1",
+      "evidence_paths": [
+        "evidence/issuer-pages/strata-elite.txt",
+        "evidence/issuer-pages/strata-elite.html",
+        "issuer-fetch.json",
+        "inventory.json"
+      ],
+      "evidence_urls": [
+        "https://www.citi.com/credit-cards/citi-strata-elite-credit-card"
+      ],
+      "fee_assessment": "match: '$595 annual fee' + 'Annual fee' block. Fee confirmed; gaps are credits/protections/rates nuance.",
+      "issues": [
+        "Rates nuance absent: stored '3x restaurants' omits Citi Nights 6x (Fri-Sat 6PM-6AM ET) vs 3x other times shown in evidence ('6 points at Restaurants on Citi Nights ... 3 points other times'). Scoring {other:1.5, dining:3} intentionally conservative (omits 12x/6x portal/Citi Nights uplift).",
+        "Credits absent itemized: $300/$200/$200/lounge/Global Entry detailed above. Protections absent: 'Trip Delay, Enhanced Cancellation/Interruption, Lost/Damaged Luggage, MasterRental, Extended Warranty, Purchase Assurance Plus' in evidence but stored has only generic lounge line.",
+        "Source is specific (good) but 2026-09-23 snapshot stale vs 2026-10-25 evidence; needs reviewed version with field-level quotes/hashes, not app edit now."
+      ],
+      "issuer": "Citi",
+      "name": "Strata Elite",
+      "network": "Mastercard",
+      "priority": "P0",
+      "protections_assessment": "absent from current data: 'Travel and Shopping Protection ... Trip Delay, Enhanced Trip Cancellation/Interruption, Lost/Damaged Luggage, MasterRental, Extended Warranty, Purchase Assurance Plus' + 'Mastercard ID Theft Protection' in evidence but not in stored benefits.",
+      "rates_assessment": "partial: 12x hotels/cars/attractions + 6x air + 1.5x else confirmed; Citi Nights 6x nuance absent. Scoring intentionally conservative.",
+      "source_published_at": "2026-09-23T00:00:00+00:00",
+      "source_snippets": [
+        "'12 points per dollar spent on Hotels, Car Rentals, and Attractions booked on cititravel.com' + '6 points per dollar spent on Air Travel' + '6 points per dollar spent at Restaurants on Citi Nights purchases every Friday & Saturday from 6 PM to 6 AM ET' + '3 points ... Restaurants any other time' + '1.5 points ... All Other'",
+        "'Up to $300 Annual Hotel Benefit ... 2 nights or more via cititravel.com' + 'Up to $200 Splurge Credit ... 1stDibs, American Airlines, Best Buy, Future Personal Training, Live Nation' + 'Up to $200 Annual Blacklane Credit ... $100 Jan-Jun + $100 Jul-Dec' + '4 Admirals Club Passes (over $300 value)' + 'Priority Pass Select 1,500+ lounges ($469 value)' + 'Up to $120 Global Entry or TSA PreCheck Credit every 4 years'"
+      ],
+      "source_specificity": "specific_product_page",
+      "source_url_stored": "https://www.citi.com/credit-cards/citi-strata-elite-credit-card",
+      "variant_notes": "Strata Elite ($595) distinct from Premier ($95) and base Strata ($0). Stored correctly pinned to Elite URL; do not copy Premier $100 hotel terms to Elite.",
+      "verification_state": "mismatch_confirmed",
+      "version_created_at": "2026-09-26T18:15:24.900142+00:00"
+    }
+  ]
+}

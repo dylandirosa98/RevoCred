@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How RevoCred picks S01–S09</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --fg: var(--foreground, #e7e5e4);
+    --muted: var(--muted-foreground, #a8a29e);
+    --line: var(--border, #44403c);
+    --panel: var(--card, #1c1917);
+    --hi: var(--accent, #f97316);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--fg); background: #0c0a09; }
+  .wrap { max-width: 52rem; padding: 1.25rem 1.1rem 2.4rem; }
+  h1 { font-size: 1.08rem; font-weight: 650; letter-spacing: -.02em; margin: 0 0 .3rem; }
+  h2 { font-size: .92rem; font-weight: 650; margin: 1.35rem 0 .45rem; }
+  .sub, .note { color: var(--muted); font-size: .8rem; line-height: 1.45; margin: 0 0 1rem; }
+  .note { font-size: .72rem; margin: .7rem 0 0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem .9rem; margin: 0 0 1rem; }
+  label { display: flex; flex-direction: column; gap: .2rem; font-size: .72rem; color: var(--muted); }
+  select {
+    color: #fafaf9; background: #292524; border: 1px solid #57534e;
+    border-radius: 6px; padding: .4rem .5rem; font: inherit; color-scheme: dark;
+  }
+  select option { color: #fafaf9; background: #292524; }
+  .result {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 10px;
+    padding: .75rem .85rem; margin: 0 0 1rem;
+  }
+  .code { font-size: 1.35rem; font-weight: 700; letter-spacing: -.03em; }
+  .cards { font-size: .84rem; margin: .25rem 0 0; }
+  .eco { font-size: .72rem; color: var(--muted); margin-top: .2rem; }
+  ol.path { margin: 0 0 .2rem; padding-left: 1.15rem; font-size: .82rem; line-height: 1.45; }
+  ol.path .hit { color: var(--hi); font-weight: 650; }
+  table { width: 100%; border-collapse: collapse; font-size: .72rem; }
+  th, td { text-align: left; padding: .32rem .35rem .32rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .66rem; }
+  tr.here td { color: var(--hi); font-weight: 650; }
+  .block {
+    border: 1px solid var(--line); border-radius: 10px; padding: .7rem .8rem; margin: 0 0 .65rem;
+    background: var(--panel);
+  }
+  .block h3 { margin: 0 0 .35rem; font-size: .88rem; }
+  .block ul { margin: 0; padding-left: 1.1rem; font-size: .75rem; line-height: 1.45; }
+  .count { color: var(--muted); font-weight: 500; font-size: .72rem; }
+  [hidden] { display: none !important; }
+  nav.tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:.9rem 0 1.2rem; }
+  .tabs button, .button { cursor:pointer; color:#fafaf9; background:#292524; border:1px solid #57534e; border-radius:7px; padding:.65rem .8rem; font:inherit; font-size:.8rem; min-height:44px; }
+  .tabs button[aria-selected="true"] { background:#f97316; color:#140b03; border-color:#f97316; font-weight:700; }
+  button:focus-visible,select:focus-visible,summary:focus-visible { outline:2px solid #fb923c; outline-offset:3px; }
+  .notice { font-size:.82rem; line-height:1.55; padding:.8rem; border:1px solid #57534e; border-radius:8px; margin:.8rem 0; background:#1c1917; }
+  .proposal-badge { display:inline-block; font-size:.7rem; padding:.2rem .45rem; border:1px solid #fb923c; border-radius:5px; color:#fdba74; margin-bottom:.5rem; }
+  .warnings { color:#fcd34d; font-size:.8rem; line-height:1.5; }
+  .table-scroll { max-width:100%; overflow:auto; max-height:20rem; }
+  .pager { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.7rem 0 .1rem; }
+  button:disabled { opacity:.4; cursor:default; }
+  .table-scroll thead { position:sticky; top:0; background:#1c1917; }
+  details { border:1px solid #44403c; border-radius:8px; padding:.7rem; margin:.55rem 0; }
+  summary { cursor:pointer; min-height:32px; font-size:.9rem; font-weight:650; }
+  .rule-list { font-size:.82rem; line-height:1.6; padding-left:1.2rem; }
+  .proposal .grid { grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); }
+  .proposal .code { font-size:1.12rem; }
+  .small { font-size:.75rem; color:var(--muted); line-height:1.5; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RevoCred strategy decision lab</h1>
+  <nav class="tabs" role="tablist" aria-label="Decision flow versions">
+    <button id="tab-current" type="button" role="tab" aria-controls="panel-current" aria-selected="false" data-tab="current">Current backend flow</button>
+    <button id="tab-proposed" type="button" role="tab" aria-controls="panel-proposed" aria-selected="true" data-tab="proposed">Proposed new flow</button>
+    <button id="tab-changes" type="button" role="tab" aria-controls="panel-changes" aria-selected="false" data-tab="changes">What changes &amp; why</button>
+  </nav>
+  <section id="panel-current" role="tabpanel" aria-labelledby="tab-current" hidden>
+  <h2>Current backend decision matrix</h2>
+  <div class="notice"><strong>This is the backend's full matrix, not the exact current questionnaire.</strong> The live form no longer asks fee comfort; a fresh submission defaults to $100. The fee dropdown below is a backend what-if control. Card count and life stage currently do not choose the strategy.</div>
+  <p class="sub">64 answer combinations. Only credit, goal, fee over $300, and travel feed <code>SelectFromQuestionnaire</code>. Spend, life stage, wallet size, and owned cards do not pick the code.</p>
+
+  <div class="grid">
+    <label>Credit tier
+      <select id="tier">
+        <option value="building">Building</option>
+        <option value="fair">Fair</option>
+        <option value="good" selected>Good</option>
+        <option value="excellent">Excellent</option>
+      </select>
+    </label>
+    <label>Rewards goal
+      <select id="goal">
+        <option value="cash_back">Simple cash back</option>
+        <option value="travel" selected>Flexible travel points</option>
+      </select>
+    </label>
+    <label>Annual-fee comfort
+      <select id="fee">
+        <option value="0">$300 or less</option>
+        <option value="100000">More than $300</option>
+      </select>
+    </label>
+    <label>Travel
+      <select id="travel">
+        <option value="none">No travel focus</option>
+        <option value="domestic">Mostly domestic</option>
+        <option value="international">Mostly international</option>
+        <option value="both" selected>Domestic and international</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="result">
+    <div class="code" id="code"></div>
+    <div class="cards" id="cards"></div>
+    <div class="eco" id="eco"></div>
+  </div>
+  <ol class="path" id="path"></ol>
+
+  <h2>Every combination → strategy</h2>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Credit</th><th>Goal</th><th>Fee</th><th>Travel (as answered)</th><th>Used as</th><th>Strategy</th></tr>
+    </thead>
+    <tbody id="all"></tbody>
+  </table>
+
+  <h2>Each strategy → every way to get there</h2>
+  <div id="by"></div>
+  <p class="note">“No travel focus” is rewritten to both before the tree. Building and fair ignore fee and travel. S09 is the only excellent-only cell: travel + fee &gt; $300 + both (including none→both).</p>
+  </section>
+  <section id="panel-proposed" class="proposal" role="tabpanel" aria-labelledby="tab-proposed">
+    <span class="proposal-badge">PROPOSAL ONLY · NOT IMPLEMENTED IN THE APP</span>
+    <h2>Choose a fixed strategy using the new questionnaire</h2>
+    <p class="sub">Keep the nine original card lists. Replace the hidden fee branch with explicit simplicity and experience signals. These are proposed product rules—not facts inferred from spending, income, fee approval, or likelihood of credit approval.</p>
+    <div class="notice"><strong>Important trade-off:</strong> the new questions cannot reveal willingness to pay annual fees. Premium paths below are <em>candidates to review</em>, not permission to apply. The proposal does not add an onboarding question, but would require a fee-and-terms acknowledgement before any application action. That gate is not built here.</div>
+    <div class="grid" id="proposed-inputs">
+      <label>Credit tier<select id="p-tier"><option value="building">Building or rebuilding</option><option value="fair">Fair</option><option value="good" selected>Good</option><option value="excellent">Excellent</option></select></label>
+      <label>Rewards goal<select id="p-goal"><option value="cash_back">Simple cash back</option><option value="travel" selected>Flexible travel points</option></select></label>
+      <label>Ideal total number of cards<select id="p-count"><option value="1-2">1–2 cards</option><option value="2-4" selected>2–4 cards</option><option value="4+">4+ cards</option></select></label>
+      <label>Travel plans<select id="p-travel"><option value="none">No travel focus</option><option value="domestic">Mostly domestic</option><option value="international">Mostly international</option><option value="both" selected>Domestic and international</option></select></label>
+      <label>Adult life stage<select id="p-life"><option value="adult-learning">18+ and learning credit basics</option><option value="adult-building">Adult and building a foundation</option><option value="adult-established" selected>Established and expanding rewards</option><option value="adult-optimizing">Experienced and optimizing</option></select></label>
+    </div>
+    <div class="result"><div id="p-code" class="code"></div><div id="p-cards" class="cards"></div><p id="p-baseline" class="small"></p><ul id="p-warnings" class="warnings"></ul></div>
+    <h2>Your exact decision path</h2><ol id="p-path" class="path"></ol>
+    <details><summary>Proposed rules, in order</summary>
+    <ol class="rule-list">
+      <li><strong>Credit first:</strong> building → S01 cash back / S02 travel; fair → S03 cash back / S04 travel. A large wallet target never overrides the starting credit band.</li>
+      <li><strong>Good/excellent + cash back:</strong> 1–2 cards → S03; 2–4 or 4+ → S07. Both remain the original two-card plans; wanting more cards does not mean we must fill that quota.</li>
+      <li><strong>Good/excellent + travel, no travel focus:</strong> provisional S04 foundation only; flag conflicting answers. Do not reinterpret “none” as “both” or promote to premium.</li>
+      <li><strong>Broader exploration:</strong> 4+ cards <em>and</em> established/optimizing life stage allows a premium candidate. This is a conservative complexity threshold, not fee consent.</li>
+      <li><strong>Domestic travel:</strong> broader exploration → S08; otherwise S04.</li>
+      <li><strong>International travel:</strong> broader exploration → S05; otherwise S06. This keeps the original international targets rather than treating card count as an arbitrary issuer preference.</li>
+      <li><strong>Domestic + international:</strong> broader exploration + excellent → S09; broader exploration + good → S06; otherwise S04.</li>
+      <li><strong>After selection:</strong> preserve every original card name/order. Show already-owned cards; flag three-card plans against a 1–2-card preference. Do not secretly drop a matrix card, force a fourth card, or close existing accounts.</li>
+    </ol></details>
+    <h2>Answer combinations by strategy</h2>
+    <p class="small">Choose a strategy to see its answer sets immediately below. The full cross-strategy table is collapsed underneath.</p>
+    <label>Show strategy<select id="p-filter"><option value="all">All strategies — expand one below</option></select></label>
+    <p id="p-counts" class="small"></p>
+    <div id="p-by"></div>
+    <details id="p-table-details"><summary>Full combinations table — scroll to browse</summary>
+    <div class="table-scroll"><table><thead><tr><th>#</th><th>Credit</th><th>Goal</th><th>Ideal count</th><th>Travel</th><th>Life stage</th><th>Proposed</th><th>Fresh form now</th><th>Review flags</th></tr></thead><tbody id="p-all"></tbody></table></div>
+    </details>
+    <p class="small">Flags: Fees = review annual fees before applying; Size = three-card template vs 1–2 target; Student = eligibility unconfirmed; Travel = conflicting goal/scope; Premium = candidate only. Full explanations remain in the selected result above.</p>
+  </section>
+  <section id="panel-changes" role="tabpanel" aria-labelledby="tab-changes" hidden>
+    <span class="proposal-badge">DESIGN COMPARISON · NO APP LOGIC CHANGED</span>
+    <h2>What changes, and what stays fixed</h2>
+    <table><thead><tr><th>Input / rule</th><th>Current fresh questionnaire</th><th>Proposed interpretation</th></tr></thead><tbody>
+      <tr><td>Credit</td><td>Building/fair/good/excellent are mapped to internal score bands.</td><td>Preserve the original credit-first starter and foundation branches. These are self-reported tiers, not approval predictions.</td></tr>
+      <tr><td>Cash back / travel</td><td>Selects cash-back vs travel family.</td><td>Preserve that split exactly.</td></tr>
+      <tr><td>Card count</td><td>Saved, not used by the strategy selector.</td><td>1–2 = simpler target; 2–4 = standard; 4+ + established/optimizing = explore a premium candidate. Treat the range as desired total wallet size, not cards to open now.</td></tr>
+      <tr><td>Life stage</td><td>Not used by the strategy selector.</td><td>A conservative complexity tie-breaker for premium exploration only. It cannot override credit, prove student eligibility, establish income, or approve fees.</td></tr>
+      <tr><td>No travel focus</td><td>Silently becomes both.</td><td>Retain “none.” Travel goal + none is a flagged provisional foundation; ask for clarification before acting.</td></tr>
+      <tr><td>Annual fees</td><td>Hidden $100 default blocks four premium branches on fresh completion.</td><td>Remove fee as an invented questionnaire answer. Preserve fee disclosure; require explicit review before applying for any annual-fee product. No spend-based affordability inference.</td></tr>
+      <tr><td>Monthly spending</td><td>Not used for S0X; used in other value/ranking calculations.</td><td>Still excluded entirely from this decision tree.</td></tr>
+      <tr><td>Owned cards</td><td>Adapt roadmap completion/next step.</td><td>Still adapt after selection; do not quietly switch the selected strategy. Existing holdings can create an unresolved total-wallet-size mismatch.</td></tr>
+      <tr><td>Original nine strategies</td><td>Fixed S01–S09 definitions.</td><td>Same nine definitions and exact card lists. All are reachable in the proposal, subject to disclosed eligibility/fee/size review.</td></tr>
+    </tbody></table>
+    <h2>Original targets preserved</h2><div id="target-summary"></div>
+    <h2>Unavoidable gaps—not hidden assumptions</h2>
+    <ul class="rule-list"><li>Several original travel strategies contain three cards. No exact one- or two-card travel template exists; a strict 1–2-card limit cannot be fully met without changing the matrix.</li><li>S01 names Savor for Students; the adult-life-stage question does not confirm student eligibility. Keep a visible eligibility hold rather than substituting a different product silently.</li><li>A 4+ preference does not prove willingness to pay fees. Premium results remain review candidates until the member accepts current terms.</li><li>Choosing 2–4 vs 4+ is a proposal for complexity—not a mathematically equivalent replacement for the original fee question. Javed can review every changed case in the proposed table.</li></ul>
+    <p class="note">Current references: internal/strategy/selector.go, internal/strategy/matrix.go, questionnaire_screen.dart, and QuestionnaireAnswers serialization. The proposed rules exist only in this HTML review artifact.</p>
+  </section>
+</div>
+<script>
+const DEFS = {
+  S01: { title: 'Build credit with simple cash back', eco: 'Capital One', cards: ['Savor for Students', 'Quicksilver'] },
+  S02: { title: 'Build toward flexible travel', eco: 'Chase', cards: ['Freedom Rise', 'Freedom Flex', 'Sapphire Preferred'] },
+  S03: { title: 'Everyday cash-back foundation', eco: 'Capital One', cards: ['SavorOne', 'Quicksilver'] },
+  S04: { title: 'Flexible travel foundation', eco: 'Chase', cards: ['Freedom Unlimited', 'Freedom Flex', 'Sapphire Preferred'] },
+  S05: { title: 'Premium international travel', eco: 'Amex', cards: ['Venture X', 'Gold', 'Platinum'] },
+  S06: { title: 'Flexible international travel', eco: 'Capital One', cards: ['SavorOne', 'Venture X', 'Amex Gold'] },
+  S07: { title: 'High-value cash back', eco: 'Chase', cards: ['Freedom Unlimited', 'Freedom Flex'] },
+  S08: { title: 'Domestic travel through Citi', eco: 'Citi', cards: ['Double Cash', 'Strata', 'Strata Elite'] },
+  S09: { title: 'Premium Chase travel', eco: 'Chase', cards: ['Freedom Unlimited', 'Freedom Flex', 'Sapphire Reserve'] }
+};
+const SCORE = { building: 600, fair: 680, good: 720, excellent: 750 };
+const TIERS = ['building', 'fair', 'good', 'excellent'];
+const GOALS = ['cash_back', 'travel'];
+const FEES = [false, true];
+const TRAVELS = ['none', 'domestic', 'international', 'both'];
+const TIER_L = { building: 'Building', fair: 'Fair', good: 'Good', excellent: 'Excellent' };
+const GOAL_L = { cash_back: 'Cash back', travel: 'Travel' };
+const FEE_L = { false: '$300 or less', true: 'More than $300' };
+const TRAVEL_L = { none: 'No travel focus', domestic: 'Domestic', international: 'International', both: 'Both' };
+
+function pick(tier, goal, premium, travelAnswer) {
+  const score = SCORE[tier];
+  const travel = travelAnswer === 'none' ? 'both' : travelAnswer;
+  if (score >= 720) {
+    if (score >= 750 && goal === 'travel' && premium && travel === 'both') return 'S09';
+    if (goal === 'cash_back') return premium ? 'S07' : 'S03';
+    if (premium) {
+      if (travel === 'domestic') return 'S08';
+      if (travel === 'international') return 'S05';
+      return 'S06';
+    }
+    if (travel === 'international') return 'S06';
+    return 'S04';
+  }
+  if (score >= 650) return goal === 'cash_back' ? 'S03' : 'S04';
+  return goal === 'travel' ? 'S02' : 'S01';
+}
+
+function explain(tier, goal, premium, travelAnswer) {
+  const score = SCORE[tier];
+  const rewritten = travelAnswer === 'none';
+  const travel = rewritten ? 'both' : travelAnswer;
+  const steps = [
+    { t: 'Monthly spend is not an input.', hit: false },
+    { t: 'Map credit ' + tier + ' → internal score ' + score + '.', hit: false }
+  ];
+  if (rewritten) steps.push({ t: 'Travel “none” is rewritten to both.', hit: false });
+  steps.push({ t: 'Premium = fee tolerance > $300 → ' + premium + '.', hit: false });
+  let code;
+  if (score >= 720) {
+    steps.push({ t: 'Credit ≥ 720 (good or excellent).', hit: false });
+    if (score >= 750 && goal === 'travel' && premium && travel === 'both') {
+      steps.push({ t: 'Excellent + travel + fee > $300 + both → S09.', hit: true });
+      code = 'S09';
+    } else if (goal === 'cash_back') {
+      steps.push({ t: 'Goal is cash back.', hit: false });
+      if (premium) { steps.push({ t: 'Fee > $300 → S07.', hit: true }); code = 'S07'; }
+      else { steps.push({ t: 'Fee ≤ $300 → S03.', hit: true }); code = 'S03'; }
+    } else {
+      steps.push({ t: 'Goal is travel.', hit: false });
+      if (premium) {
+        steps.push({ t: 'Fee > $300.', hit: false });
+        if (travel === 'domestic') { steps.push({ t: 'Domestic → S08.', hit: true }); code = 'S08'; }
+        else if (travel === 'international') { steps.push({ t: 'International → S05.', hit: true }); code = 'S05'; }
+        else { steps.push({ t: 'Both, and not the S09 case → S06.', hit: true }); code = 'S06'; }
+      } else if (travel === 'international') {
+        steps.push({ t: 'Fee ≤ $300 and international → S06.', hit: true });
+        code = 'S06';
+      } else {
+        steps.push({ t: 'Fee ≤ $300 and ' + travel + ' → S04.', hit: true });
+        code = 'S04';
+      }
+    }
+  } else if (score >= 650) {
+    steps.push({ t: 'Fair band. Fee and travel do not change the code.', hit: false });
+    if (goal === 'cash_back') { steps.push({ t: 'Cash back → S03.', hit: true }); code = 'S03'; }
+    else { steps.push({ t: 'Travel → S04.', hit: true }); code = 'S04'; }
+  } else {
+    steps.push({ t: 'Building band. Fee and travel do not change the code.', hit: false });
+    if (goal === 'travel') { steps.push({ t: 'Travel → S02.', hit: true }); code = 'S02'; }
+    else { steps.push({ t: 'Cash back → S01.', hit: true }); code = 'S01'; }
+  }
+  return { code, steps };
+}
+
+function combos() {
+  const rows = [];
+  let n = 0;
+  for (const tier of TIERS) for (const goal of GOALS) for (const premium of FEES) for (const travel of TRAVELS) {
+    n += 1;
+    rows.push({
+      n, tier, goal, premium, travel,
+      used: travel === 'none' ? 'both' : travel,
+      code: pick(tier, goal, premium, travel)
+    });
+  }
+  return rows;
+}
+
+function render() {
+  const tier = document.getElementById('tier').value;
+  const goal = document.getElementById('goal').value;
+  const premium = Number(document.getElementById('fee').value) > 30000;
+  const travel = document.getElementById('travel').value;
+  const { code, steps } = explain(tier, goal, premium, travel);
+  const d = DEFS[code];
+  document.getElementById('code').textContent = code + ' · ' + d.title;
+  document.getElementById('cards').textContent = d.cards.join(' → ');
+  document.getElementById('eco').textContent = d.eco + ' ecosystem · apply in that order';
+  document.getElementById('path').innerHTML = steps.map(s =>
+    '<li class="' + (s.hit ? 'hit' : '') + '">' + s.t + '</li>'
+  ).join('');
+
+  const rows = combos();
+  document.getElementById('all').innerHTML = rows.map(r => {
+    const here = r.tier === tier && r.goal === goal && r.premium === premium && r.travel === travel;
+    return '<tr class="' + (here ? 'here' : '') + '"><td>' + r.n + '</td><td>' + TIER_L[r.tier] + '</td><td>' + GOAL_L[r.goal] + '</td><td>' + FEE_L[r.premium] + '</td><td>' + TRAVEL_L[r.travel] + '</td><td>' + TRAVEL_L[r.used] + '</td><td>' + r.code + '</td></tr>';
+  }).join('');
+
+  document.getElementById('by').innerHTML = Object.keys(DEFS).map(code => {
+    const d = DEFS[code];
+    const hits = rows.filter(r => r.code === code);
+    const items = hits.map(r => {
+      const here = r.tier === tier && r.goal === goal && r.premium === premium && r.travel === travel;
+      const line = TIER_L[r.tier] + ' · ' + GOAL_L[r.goal] + ' · ' + FEE_L[r.premium] + ' · ' + TRAVEL_L[r.travel] +
+        (r.travel === 'none' ? ' (used as both)' : '');
+      return '<li' + (here ? ' class="hit"' : '') + '>' + line + '</li>';
+    }).join('');
+    return '<div class="block"><h3>' + code + ' · ' + d.title + ' <span class="count">(' + hits.length + ' of 64)</span></h3>' +
+      '<div class="eco">' + d.eco + ' · ' + d.cards.join(' → ') + '</div>' +
+      '<ul>' + items + '</ul></div>';
+  }).join('');
+}
+document.querySelectorAll('select').forEach(el => el.addEventListener('input', render));
+render();
+const LIFE_OPTIONS = ['adult-learning','adult-building','adult-established','adult-optimizing'];
+const COUNT_OPTIONS = ['1-2','2-4','4+'];
+const LIFE_LABELS = {'adult-learning':'Learning credit basics','adult-building':'Building a foundation','adult-established':'Established / expanding','adult-optimizing':'Experienced / optimizing'};
+const COUNT_LABELS = {'1-2':'1–2 cards','2-4':'2–4 cards','4+':'4+ cards'};
+const TARGETS = {
+ S01:'Starter credit + cash back. Student eligibility needs confirmation.',
+ S02:'Starter credit + long-term travel foundation.',
+ S03:'Simple cash-back foundation.',
+ S04:'Foundation / standard flexible travel.',
+ S05:'Higher-complexity international travel candidate.',
+ S06:'Capital One / Amex international or good-tier broad travel.',
+ S07:'Good/excellent credit + broader cash-back ecosystem.',
+ S08:'Higher-complexity domestic travel candidate.',
+ S09:'Excellent credit + higher-complexity domestic and international travel.'
+};
+function propose(a) {
+ const path = [], flags = [];
+ const advanced = a.count === '4+' && ['adult-established','adult-optimizing'].includes(a.life);
+ path.push('Credit tier stays '+TIER_L[a.tier]+'. It is self-reported, not a credit check.');
+ path.push('Goal stays '+GOAL_L[a.goal]+'.');
+ let code;
+ if(a.tier === 'building') {
+   code = a.goal === 'cash_back' ? 'S01':'S02';
+   path.push('Building credit → starter family. Goal chooses '+code+'; count/experience cannot jump to a premium plan.');
+ } else if(a.tier === 'fair') {
+   code = a.goal === 'cash_back' ? 'S03':'S04';
+   path.push('Fair credit → foundation family. Goal chooses '+code+'; count/experience cannot override credit.');
+ } else if(a.goal === 'cash_back') {
+   code = a.count === '1-2' ? 'S03':'S07';
+   path.push('Good/excellent + cash back. '+COUNT_LABELS[a.count]+' → '+(a.count==='1-2'?'simple Capital One foundation':'broader Chase ecosystem')+' → '+code+'.');
+   path.push('Life stage and travel do not select a different cash-back strategy. This is a proposed simplicity split, not fee inference.');
+ } else if(a.travel === 'none') {
+   code = 'S04';
+   path.push('Travel goal + no travel focus conflict. Keep provisional S04; do not treat none as both or select a premium plan.');
+ } else {
+   path.push('Broader exploration = 4+ cards AND established/optimizing → '+advanced+'. This is complexity, not annual-fee acceptance.');
+   if(a.travel === 'domestic') {
+     code = advanced ? 'S08':'S04';
+     path.push('Domestic travel → '+(advanced?'Citi exploration candidate':'Chase foundation')+' → '+code+'.');
+   } else if(a.travel === 'international') {
+     code = advanced ? 'S05':'S06';
+     path.push('International travel → '+(advanced?'premium international candidate':'standard international family')+' → '+code+'.');
+   } else {
+     code = advanced ? (a.tier === 'excellent' ? 'S09':'S06'):'S04';
+     path.push('Both travel scopes → '+(advanced?(a.tier==='excellent'?'excellent credit permits S09 candidate':'good credit retains S06'):'foundation S04')+'.');
+   }
+ }
+ if(a.goal==='travel' && a.travel==='none') flags.push('Travel conflict: provisional result only; clarify the travel goal before acting.');
+ if(code==='S01') flags.push('Student eligibility unknown: Savor for Students must not be treated as eligible merely because someone chose an adult life stage.');
+ if(a.count==='1-2' && DEFS[code].cards.length>2) flags.push('Wallet-size mismatch: original template has three cards. No exact 1–2-card travel template exists. Preserve the plan but disclose this mismatch; do not apply for a third card without agreement.');
+ if(['S02','S04','S05','S06','S08','S09'].includes(code)) flags.push('Annual fees unconfirmed: review current fees and get explicit acceptance before an application action. These questionnaire answers do not establish affordability or fee consent.');
+ if(advanced && ['S05','S08','S09'].includes(code)) flags.push('Premium exploration candidate—not an approved fee preference or a prediction of credit approval.');
+ if(a.count==='4+') path.push('A 4+ target permits exploration; it never fabricates a fourth card. The fixed '+code+' list has '+DEFS[code].cards.length+' cards.');
+ path.push('Stop: select only '+code+'. Monthly spend, AI and affiliate offers never enter this proposed tree.');
+ return {code,path,flags,advanced};
+}
+const PROPOSED_ROWS = [];
+for(const tier of TIERS) for(const goal of GOALS) for(const count of COUNT_OPTIONS) for(const travel of TRAVELS) for(const life of LIFE_OPTIONS) {
+ const a={tier,goal,count,travel,life};
+ const p=propose(a);
+ PROPOSED_ROWS.push({...a,n:PROPOSED_ROWS.length+1,...p,current:pick(tier,goal,false,travel)});
+}
+function pAnswer(){ return {tier:document.getElementById('p-tier').value,goal:document.getElementById('p-goal').value,count:document.getElementById('p-count').value,travel:document.getElementById('p-travel').value,life:document.getElementById('p-life').value}; }
+function pSame(a,b){return ['tier','goal','count','travel','life'].every(k=>a[k]===b[k]);}
+function pFlagLabels(r){return r.flags.map(x=>x.startsWith('Travel conflict')?'Travel':x.startsWith('Student')?'Student':x.startsWith('Wallet-size')?'Size':x.startsWith('Annual fees')?'Fees':'Premium').join(' · ')||'—';}
+function pCells(r){return '<td>'+r.n+'</td><td>'+TIER_L[r.tier]+'</td><td>'+GOAL_L[r.goal]+'</td><td>'+COUNT_LABELS[r.count]+'</td><td>'+TRAVEL_L[r.travel]+'</td><td>'+LIFE_LABELS[r.life]+'</td><td>'+r.code+'</td><td>'+r.current+'</td><td>'+pFlagLabels(r)+'</td>';}
+function renderProposed(){
+ const a=pAnswer(), p=propose(a), d=DEFS[p.code], filter=document.getElementById('p-filter').value;
+ document.getElementById('p-code').textContent=p.code+' · '+d.title+(p.flags.some(x=>x.startsWith('Travel conflict'))?' · provisional':'');
+ document.getElementById('p-cards').textContent=d.cards.join(' → ');
+ document.getElementById('p-baseline').textContent='Same answers on a fresh questionnaire today: '+pick(a.tier,a.goal,false,a.travel)+' (hidden low-fee default). Proposal: '+p.code+'. No current app behavior is changed.';
+ document.getElementById('p-warnings').innerHTML=p.flags.map(x=>'<li>'+x+'</li>').join('');
+ document.getElementById('p-path').innerHTML=p.path.map((x,i)=>'<li'+(i===p.path.length-1?' class="hit"':'')+'>'+x+'</li>').join('');
+ const visible=PROPOSED_ROWS.filter(r=>filter==='all'||r.code===filter), changed=PROPOSED_ROWS.filter(r=>r.current!==r.code).length;
+ document.getElementById('p-counts').textContent=PROPOSED_ROWS.length+' unique combinations: 4 credit tiers × 2 goals × 3 card-count ranges × 4 travel answers × 4 life stages. '+changed+' differ from the current fresh-form result. Showing '+visible.length+'; your selected answer row is highlighted.';
+ document.getElementById('p-all').innerHTML=visible.map(r=>'<tr'+(pSame(r,a)?' class="here"':'')+'>'+pCells(r)+'</tr>').join('');
+ document.getElementById('p-by').innerHTML=Object.keys(DEFS).filter(code=>filter==='all'||code===filter).map(code=>{
+   const rows=PROPOSED_ROWS.filter(r=>r.code===code),d=DEFS[code];
+   return '<details data-strategy="'+code+'"'+(filter!=='all'?' open':'')+'><summary>'+code+' · '+d.title+' <span class="count">('+rows.length+' answer sets)</span></summary><p class="small">'+TARGETS[code]+'</p><p>'+d.cards.join(' → ')+'</p><div class="table-scroll"><table><thead><tr><th>#</th><th>Credit</th><th>Goal</th><th>Count</th><th>Travel</th><th>Life stage</th><th>Proposed</th><th>Now</th><th>Review flags</th></tr></thead><tbody>'+rows.map(r=>'<tr'+(pSame(r,a)?' class="here"':'')+'>'+pCells(r)+'</tr>').join('')+'</tbody></table></div></details>';
+ }).join('');
+}
+for(const code of Object.keys(DEFS)){
+ const o=document.createElement('option');o.value=code;o.textContent=code+' · '+DEFS[code].title+' ('+PROPOSED_ROWS.filter(r=>r.code===code).length+' combinations)';document.getElementById('p-filter').appendChild(o);
+}
+document.getElementById('target-summary').innerHTML=Object.keys(DEFS).map(code=>'<div class="block"><h3>'+code+' · '+DEFS[code].title+'</h3><p class="small">'+TARGETS[code]+'</p><div class="cards">'+DEFS[code].cards.join(' → ')+'</div></div>').join('');
+document.querySelectorAll('#proposed-inputs select, #p-filter').forEach(el=>el.addEventListener('input',renderProposed));
+function setTab(name){
+ if(!['current','proposed','changes'].includes(name))name='proposed';
+ document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===name)));
+ for(const tab of ['current','proposed','changes'])document.getElementById('panel-'+tab).hidden=tab!==name;
+ history.replaceState(null,'','#'+name);
+}
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+window.addEventListener('hashchange',()=>setTab(location.hash.slice(1)));
+renderProposed();setTab(location.hash.slice(1)||'proposed');
+
+</script>
+</body>
+</html>

@@ -74,7 +74,7 @@ Card information may come from OpenCard DB and issuer websites. Downloading that
 - Your account data is kept while your account is open.
 - REVO keeps your latest 1,000 chat messages and up to 100 recommendation runs; older ones are deleted automatically as new ones arrive.
 - When you delete your account, we delete your sign-in account and your profile, questionnaire, wallet, recommendations, chat, feedback and AI consent records from our live database right away.
-- Copies in our database backups are deleted when those backups expire, within [[BACKUP RETENTION PERIOD]].
+- Copies in our database backups are deleted when those backups expire, within 7 days.
 - AI and search providers keep data under their own terms, as described above.
 - On your device, the app stores your sign-in session and appearance setting. A guest questionnaire draft expires after 24 hours.
 
