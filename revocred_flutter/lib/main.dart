@@ -12,6 +12,8 @@ import 'core/data/api_app_repository.dart';
 import 'core/data/auth_timeout_client.dart';
 import 'core/data/app_repository.dart';
 import 'core/data/mock_app_repository.dart';
+import 'core/services/revenuecat_subscription_service.dart';
+import 'core/services/subscriptions.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -74,6 +76,32 @@ Future<void> main() async {
       config: config,
       repository: repository,
       preferences: preferences,
+      subscriptions: _subscriptions(config, supabaseClient),
     ),
   );
+}
+
+/// RevenueCat runs only in the iOS app with a configured public SDK key and
+/// real sign-in. Its user follows the Supabase account: identified on
+/// sign-in, logged out on sign-out.
+SubscriptionService _subscriptions(
+  AppConfig config,
+  SupabaseClient? supabaseClient,
+) {
+  if (kIsWeb ||
+      defaultTargetPlatform != TargetPlatform.iOS ||
+      config.revenueCatIosApiKey.isEmpty ||
+      supabaseClient == null) {
+    return const UnavailableSubscriptionService();
+  }
+  final service = RevenueCatSubscriptionService(
+    apiKey: config.revenueCatIosApiKey,
+    currentUserId: () => supabaseClient.auth.currentUser?.id,
+  );
+  unawaited(service.identify(supabaseClient.auth.currentUser?.id));
+  supabaseClient.auth.onAuthStateChange.listen(
+    (state) => unawaited(service.identify(state.session?.user.id)),
+    onError: (_) {},
+  );
+  return service;
 }

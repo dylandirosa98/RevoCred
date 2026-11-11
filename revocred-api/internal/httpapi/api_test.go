@@ -43,6 +43,30 @@ type fakeRepository struct {
 	chatCleared bool
 	savedModes  []string
 	feedback    string
+	// entitlements records ApplyRevenueCatEntitlement calls; outcome is
+	// returned from them (default "applied").
+	entitlements []store.EntitlementUpdate
+	outcome      string
+	plan         store.AIPlan
+}
+
+func (f *fakeRepository) AIPlan(_ context.Context, _ string, freeLimit, paidLimit int) (store.AIPlan, error) {
+	plan := f.plan
+	plan.Subscriber = plan.Subscriber || f.subscriber
+	plan.Limit = freeLimit
+	if plan.Subscriber {
+		plan.Limit = paidLimit
+	}
+	plan.Used = f.aiUsed
+	return plan, nil
+}
+
+func (f *fakeRepository) ApplyRevenueCatEntitlement(_ context.Context, update store.EntitlementUpdate) (string, error) {
+	f.entitlements = append(f.entitlements, update)
+	if f.outcome != "" {
+		return f.outcome, nil
+	}
+	return "applied", nil
 }
 
 func (f *fakeRepository) ListOffers(context.Context) ([]affiliate.Offer, error) {

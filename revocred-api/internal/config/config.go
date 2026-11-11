@@ -44,6 +44,13 @@ type Config struct {
 	DatabaseRootCAs *x509.CertPool
 	// ClientIPHeader is a trusted edge-proxy header carrying the client IP.
 	ClientIPHeader string
+	// RevenueCat in-app subscriptions. An empty RevenueCatWebhookAuth keeps
+	// the webhook disabled; RevenueCatSecretAPIKey (optional) lets the API
+	// read current subscriber state for transfers and app refreshes.
+	RevenueCatWebhookAuth   string
+	RevenueCatSecretAPIKey  string
+	RevenueCatEntitlementID string
+	RevenueCatAllowSandbox  bool
 }
 
 func Load() (Config, error) {
@@ -62,6 +69,10 @@ func Load() (Config, error) {
 		SearchAPIKey:      strings.TrimSpace(os.Getenv("SEARCH_API_KEY")),
 		SearchProvider:    strings.ToLower(valueOrDefault("SEARCH_PROVIDER", "brave")),
 		SearchBaseURL:     strings.TrimSpace(os.Getenv("SEARCH_BASE_URL")),
+
+		RevenueCatWebhookAuth:   strings.TrimSpace(os.Getenv("REVENUECAT_WEBHOOK_AUTH")),
+		RevenueCatSecretAPIKey:  strings.TrimSpace(os.Getenv("REVENUECAT_SECRET_API_KEY")),
+		RevenueCatEntitlementID: valueOrDefault("REVENUECAT_ENTITLEMENT_ID", "revo_ai"),
 	}
 	if cfg.SearchProvider != "brave" && cfg.SearchProvider != "searxng" {
 		return Config{}, errors.New("SEARCH_PROVIDER must be brave or searxng")
@@ -79,6 +90,24 @@ func Load() (Config, error) {
 		return Config{}, errors.New("CHAT_FREE_DAILY_AI_LIMIT must be zero or a positive integer")
 	}
 	cfg.ChatFreeDailyAILimit = freeLimit
+	// Sandbox (TestFlight and App Review) purchases count outside production
+	// by default; production must opt in explicitly.
+	sandboxDefault := "true"
+	if cfg.Environment == "production" {
+		sandboxDefault = "false"
+	}
+	if cfg.RevenueCatAllowSandbox, err = strconv.ParseBool(valueOrDefault("REVENUECAT_ALLOW_SANDBOX", sandboxDefault)); err != nil {
+		return Config{}, errors.New("REVENUECAT_ALLOW_SANDBOX must be true or false")
+	}
+	if cfg.RevenueCatWebhookAuth != "" && len(cfg.RevenueCatWebhookAuth) < 32 {
+		return Config{}, errors.New("REVENUECAT_WEBHOOK_AUTH must be at least 32 characters")
+	}
+	if cfg.RevenueCatSecretAPIKey != "" && !strings.HasPrefix(cfg.RevenueCatSecretAPIKey, "sk_") {
+		return Config{}, errors.New("REVENUECAT_SECRET_API_KEY must be a RevenueCat secret key (sk_...)")
+	}
+	if cfg.RevenueCatSecretAPIKey != "" && cfg.RevenueCatWebhookAuth == "" {
+		return Config{}, errors.New("REVENUECAT_SECRET_API_KEY requires REVENUECAT_WEBHOOK_AUTH")
+	}
 	if cfg.RequestTimeout, err = durationOrDefault("REQUEST_TIMEOUT", 30*time.Second); err != nil {
 		return Config{}, err
 	}

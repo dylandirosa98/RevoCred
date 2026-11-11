@@ -11,6 +11,7 @@ import '../../../core/logic/strategy_digest.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/content_layout.dart';
 import '../../../shared/widgets/theme_switcher.dart';
+import '../../subscription/presentation/revo_ai_paywall.dart';
 import '../../../core/logic/friendly_error.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -190,6 +191,7 @@ class ProfileScreen extends ConsumerWidget {
           ),
         ),
         if (state.isAuthenticated) const _AiAnswersSetting(),
+        if (state.isAuthenticated) const RevoAIPlanRow(),
         SizedBox(height: product.sectionGap),
         const SectionLabel('Expert help'),
         const SizedBox(height: 10),

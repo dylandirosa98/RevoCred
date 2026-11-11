@@ -23,6 +23,16 @@ type Options struct {
 	// ChatFreeDailyAILimit is the allowance for signed-in members without an
 	// AI subscription. Nil uses defaultChatFreeDailyAILimit; zero means none.
 	ChatFreeDailyAILimit *int
+	// RevenueCatWebhookAuth is the exact Authorization header RevenueCat
+	// sends. Empty disables the webhook (404) and in-app purchases.
+	RevenueCatWebhookAuth string
+	// RevenueCatEntitlementID unlocks REVO AI; empty uses "revo_ai".
+	RevenueCatEntitlementID string
+	// RevenueCatAllowSandbox accepts sandbox/TestFlight purchases.
+	RevenueCatAllowSandbox bool
+	// RevenueCatSubscribers reads current state with a secret API key, for
+	// TRANSFER events and app refreshes. Nil relies on webhooks alone.
+	RevenueCatSubscribers SubscriberLookup
 }
 
 type window struct {

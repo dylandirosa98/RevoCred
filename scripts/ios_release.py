@@ -28,6 +28,9 @@ PUBLIC_KEYS = frozenset((
     "REVOCRED_USE_MOCKS", "REVOCRED_PRODUCTION", "REVOCRED_API_URL",
     "SUPABASE_URL", "SUPABASE_ANON_KEY", "REVOCRED_AUTH_REDIRECT_URL",
 ))
+# Optional public keys. RevenueCat's iOS SDK key (appl_...) is public by
+# design; leaving it out or empty keeps in-app purchases off.
+OPTIONAL_PUBLIC_KEYS = frozenset(("REVENUECAT_IOS_API_KEY",))
 
 
 def load_config(path, *, allow_fixture=False):
@@ -36,10 +39,13 @@ def load_config(path, *, allow_fixture=False):
         config = json.loads(Path(path).read_text())
     except (OSError, ValueError):
         raise ValueError("Cannot read public iOS JSON configuration.") from None
-    if not isinstance(config, dict) or set(config) != PUBLIC_KEYS:
+    if not isinstance(config, dict) or set(config) - OPTIONAL_PUBLIC_KEYS != PUBLIC_KEYS:
         raise ValueError("iOS configuration must contain exactly the public example keys.")
     if not all(isinstance(value, str) for value in config.values()):
         raise ValueError("All iOS configuration values must be strings, including booleans.")
+    revenuecat = config.get("REVENUECAT_IOS_API_KEY", "")
+    if revenuecat and not re.fullmatch(r"appl_[A-Za-z0-9]{10,}", revenuecat):
+        raise ValueError("REVENUECAT_IOS_API_KEY must be RevenueCat's public iOS key (appl_...), never a secret key.")
     validate(config)
     if config["REVOCRED_AUTH_REDIRECT_URL"] != MOBILE_AUTH_CALLBACK:
         raise ValueError("iOS requires the exact registered native auth callback.")

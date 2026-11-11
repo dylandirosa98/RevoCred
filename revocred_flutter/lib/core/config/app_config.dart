@@ -23,6 +23,7 @@ class AppConfig {
     this.privacyUrl = '',
     this.termsUrl = '',
     this.supportUrl = '',
+    this.revenueCatIosApiKey = '',
   });
 
   const AppConfig.fromEnvironment()
@@ -59,6 +60,9 @@ class AppConfig {
       supportUrl = const String.fromEnvironment(
         'REVOCRED_SUPPORT_URL',
         defaultValue: defaultSupportUrl,
+      ),
+      revenueCatIosApiKey = const String.fromEnvironment(
+        'REVENUECAT_IOS_API_KEY',
       );
 
   final bool useMocks;
@@ -76,8 +80,13 @@ class AppConfig {
   final String termsUrl;
   final String supportUrl;
 
+  /// RevenueCat's public iOS SDK key (appl_...). Empty keeps in-app
+  /// purchases off; the app then never offers the REVO AI subscription.
+  final String revenueCatIosApiKey;
+
   void validate() {
-    if (supabaseAnonKey.startsWith('sb_secret_')) {
+    if (supabaseAnonKey.startsWith('sb_secret_') ||
+        revenueCatIosApiKey.startsWith('sk_')) {
       throw StateError('Secret keys must never be embedded in the client.');
     }
     if (production && useMocks) {

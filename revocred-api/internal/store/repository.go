@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/revocred/revocred-api/internal/affiliate"
+	"time"
 
 	"github.com/revocred/revocred-api/internal/domain"
 )
@@ -51,6 +52,11 @@ type Repository interface {
 	// ChatFeedback upserts feedback on the caller's own assistant message and
 	// reports whether such a message exists.
 	ChatFeedback(ctx context.Context, userID, messageID, rating, reason string) (bool, error)
+	// AIPlan reports the account's plan and rolling 24-hour AI usage.
+	AIPlan(ctx context.Context, userID string, freeLimit, paidLimit int) (AIPlan, error)
+	// ApplyRevenueCatEntitlement records RevenueCat subscription state and
+	// returns "applied", "duplicate", "stale", "manual" or "unknown_user".
+	ApplyRevenueCatEntitlement(ctx context.Context, update EntitlementUpdate) (string, error)
 }
 
 // AIUse is the outcome of reserving an external-AI answer.
@@ -59,4 +65,25 @@ type AIUse struct {
 	ID         string
 	Subscriber bool
 	Limit      int
+}
+
+// AIPlan is the account's REVO AI plan and today's usage.
+type AIPlan struct {
+	Subscriber bool
+	// Source is "manual" or "revenuecat" for subscribers, otherwise "".
+	Source      string
+	ExpiresAt   *time.Time
+	Used        int
+	Limit       int
+	NextResetAt *time.Time
+}
+
+// EntitlementUpdate is RevenueCat subscription state for one account.
+// EventID is empty for a refresh read from the RevenueCat API.
+type EntitlementUpdate struct {
+	EventID   string
+	UserID    string
+	EventAt   time.Time
+	ExpiresAt time.Time
+	ProductID string
 }

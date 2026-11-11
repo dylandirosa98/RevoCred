@@ -71,7 +71,13 @@ ChatSendException chatErrorFromJson(Object? json, int status) {
   final message = error is Map && error['message'] is String
       ? error['message'] as String
       : 'REVO could not send. Please try again.';
-  return ChatSendException(code, message);
+  final details = error is Map && error['details'] is Map
+      ? {
+          for (final entry in (error['details'] as Map).entries)
+            '${entry.key}': '${entry.value}',
+        }
+      : const <String, String>{};
+  return ChatSendException(code, message, details: details);
 }
 
 /// Parses server-sent events (`status`, then `done` or `error`). Comment

@@ -6,9 +6,16 @@ import '../data/app_repository.dart' show SessionExpiredException;
 
 /// A REVO send failure with a server or client error code.
 class ChatSendException implements Exception {
-  const ChatSendException(this.code, this.message);
+  const ChatSendException(this.code, this.message, {this.details = const {}});
   final String code;
   final String message;
+
+  /// Server error details, e.g. `plan` and `limit` for `chat_daily_limit`.
+  final Map<String, String> details;
+
+  /// The free daily AI allowance is spent; a subscription would add more.
+  bool get freeLimitReached =>
+      code == 'chat_daily_limit' && details['plan'] != 'subscriber';
 
   @override
   String toString() => message;

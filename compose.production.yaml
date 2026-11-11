@@ -58,6 +58,11 @@ services:
       SEARCH_API_KEY: ${SEARCH_API_KEY:-}
       CHAT_DAILY_AI_LIMIT: ${CHAT_DAILY_AI_LIMIT:-60}
       CHAT_FREE_DAILY_AI_LIMIT: ${CHAT_FREE_DAILY_AI_LIMIT:-3}
+      # REVO AI subscriptions; empty keeps them off (docs/app-store/subscription.md).
+      REVENUECAT_WEBHOOK_AUTH: ${REVENUECAT_WEBHOOK_AUTH:-}
+      REVENUECAT_SECRET_API_KEY: ${REVENUECAT_SECRET_API_KEY:-}
+      REVENUECAT_ENTITLEMENT_ID: ${REVENUECAT_ENTITLEMENT_ID:-revo_ai}
+      REVENUECAT_ALLOW_SANDBOX: ${REVENUECAT_ALLOW_SANDBOX:-false}
 volumes:
   caddy_data:
   caddy_config:

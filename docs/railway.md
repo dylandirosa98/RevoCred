@@ -41,6 +41,10 @@ TLS, issues certificates and routes the custom domain to the container.
     | `SEARCH_API_KEY` | Only needed for Brave. SearXNG needs no key; Brave without a key disables search |
     | `CHAT_DAILY_AI_LIMIT` | External-AI REVO replies per subscriber per rolling 24 hours (default 60). Basic answers are not capped |
     | `CHAT_FREE_DAILY_AI_LIMIT` | External-AI REVO replies per signed-in member without an AI subscription (default 3; 0 turns free AI off). Guests always get basic answers. Testers get the subscriber allowance through a `manual` row in `revocred.ai_entitlements` |
+    | `REVENUECAT_WEBHOOK_AUTH` | Optional. Leave unset until the subscription launches. Exact `Authorization` header value RevenueCat sends to `/v1/webhooks/revenuecat` (e.g. `Bearer ` + `openssl rand -hex 32`, 32+ characters). Unset disables the webhook and in-app purchases. See [subscription.md](app-store/subscription.md) |
+    | `REVENUECAT_SECRET_API_KEY` | Optional RevenueCat V1 secret key (`sk_…`, seal it). Lets the API read subscriber state for transfers and right after a purchase/restore. Requires `REVENUECAT_WEBHOOK_AUTH` |
+    | `REVENUECAT_ENTITLEMENT_ID` | Entitlement that unlocks REVO AI (default `revo_ai`) |
+    | `REVENUECAT_ALLOW_SANDBOX` | `true` to honour sandbox/TestFlight purchases (needed through TestFlight and App Review). Defaults to `false` in production |
 
    Never add the Supabase service-role key or the owner database login.
 6. **Create the service.**
