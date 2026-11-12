@@ -234,7 +234,7 @@ class AppController extends Notifier<AppState> {
     final result = await _repository.signIn(email, password);
     if (result.success && _repository.isAuthenticated) {
       state = state.copyWith(isAuthenticated: true);
-      await refresh();
+      await _settle();
     }
     return result;
   }
@@ -264,9 +264,24 @@ class AppController extends Notifier<AppState> {
     );
     if (result.success && _repository.isAuthenticated) {
       state = state.copyWith(isAuthenticated: true);
-      await refresh();
+      await _settle();
     }
     return result;
+  }
+
+  /// Loads the signed-in account and waits until that load is current. The
+  /// sign-in also arrives on the session stream, which can start a newer load
+  /// (importing a pending plan) and supersede the one started here. Callers
+  /// route on the result, so they must not read the superseded, empty state.
+  Future<void> _settle() async {
+    await refresh();
+    for (
+      var attempt = 0;
+      attempt < 3 && state.isAuthenticated && state.isLoading;
+      attempt++
+    ) {
+      await refresh();
+    }
   }
 
   Future<void> signOut() async {

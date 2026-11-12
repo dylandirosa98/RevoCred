@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,6 +74,22 @@ class PreviewRepository extends MockAppRepository {
   Map<String, dynamic>? get pendingPlan => authenticated ? handoff : null;
   @override
   Future<void> clearPendingPlan() async => handoff = null;
+  final sessions = StreamController<AccountSession>.broadcast();
+  @override
+  Stream<AccountSession> get sessionChanges => sessions.stream;
+  @override
+  Future<AuthResult> signIn(String email, String password) async {
+    authenticated = true;
+    this.email = email;
+    // Like GoTrue on the web: the signed-in event lands after signIn returns.
+    Timer.run(
+      () => sessions.add(
+        const AccountSession(authenticated: true, userId: 'member'),
+      ),
+    );
+    return const AuthResult(success: true);
+  }
+
   @override
   bool get isAuthenticated => authenticated;
   @override
@@ -91,11 +108,15 @@ class PreviewRepository extends MockAppRepository {
   }
 
   @override
-  Future<AppData> loadAppData() async => AppData.fromApiJson(
-    planJson(saved: saved != null),
-    messages: [],
-    email: email,
-  );
+  Future<AppData> loadAppData() async {
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    return AppData.fromApiJson(
+      planJson(saved: saved != null),
+      messages: [],
+      email: email,
+    );
+  }
+
   @override
   Future<AppData> previewQuestionnaire(QuestionnaireAnswers input) async =>
       AppData.fromApiJson(
@@ -192,6 +213,31 @@ void main() {
         container.read(appControllerProvider).data!.questionnaireAnswers,
         isNotNull,
       );
+    },
+  );
+  test(
+    'signing in on a fresh device returns only after the handoff is imported',
+    () async {
+      final repo = PreviewRepository();
+      var container = containerFor(repo, OnboardingDraftStore());
+      final controller = container.read(appControllerProvider.notifier);
+      await controller.completeQuestionnaire(answers);
+      await controller.signUp('member@example.test', 'longpassword123');
+      container.dispose();
+      container = containerFor(repo, OnboardingDraftStore());
+      addTearDown(container.dispose);
+      final fresh = container.read(appControllerProvider.notifier);
+      await fresh.initialize();
+      final result = await fresh.signIn(
+        'member@example.test',
+        'longpassword123',
+      );
+      expect(result.success, isTrue);
+      // The sign-in screen routes on exactly this state.
+      final state = container.read(appControllerProvider);
+      expect(state.isLoading, isFalse);
+      expect(state.data?.questionnaireAnswers, isNotNull);
+      expect(repo.saves, 1);
     },
   );
   test('sign-up handoff never overwrites a saved plan', () async {

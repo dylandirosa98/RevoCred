@@ -394,7 +394,7 @@ class _StrategyHero extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'A ${strategyRoadmapSlots(data).length}-role plan to maximize your rewards and reach your goals. ${data.wallet.length} cards currently in your wallet.',
+            'A ${strategyRoadmapSlots(data).length}-role plan to maximize your rewards and reach your goals. ${data.wallet.length} ${data.wallet.length == 1 ? 'card' : 'cards'} currently in your wallet.',
             style: TextStyle(color: product.ink, fontSize: 15, height: 1.4),
           ),
           const SizedBox(height: 8),
@@ -480,7 +480,7 @@ class _OverviewGrid extends StatelessWidget {
         'Annual fee preference',
         strategyFeePreference(data),
       ),
-      (Icons.flight_takeoff, 'Travel focus', plan.travelScope),
+      (Icons.flight_takeoff, 'Travel focus', strategyTravelFocus(data)),
       (
         Icons.shopping_cart_outlined,
         'Top spending',

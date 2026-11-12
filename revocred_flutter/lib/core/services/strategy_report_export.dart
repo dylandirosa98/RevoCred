@@ -153,7 +153,7 @@ Future<Uint8List> buildStrategyReportPdf(
               strategyFeePreference(data),
               'fees',
             ),
-            _summary('Travel focus', plan.travelScope, 'travel'),
+            _summary('Travel focus', strategyTravelFocus(data), 'travel'),
             _summary(
               'Top spending categories',
               digest.spending.isEmpty

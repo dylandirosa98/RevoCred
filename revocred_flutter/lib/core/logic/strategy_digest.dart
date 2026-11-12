@@ -53,6 +53,17 @@ String strategyFeePreference(AppData data) =>
       _ => '${data.strategyPlan?.feeLevel ?? 'Unknown'} fee preference',
     };
 
+/// The member's own travel answer, not the strategy's travel profile, so the
+/// summary repeats what they told us.
+String strategyTravelFocus(AppData data) =>
+    switch (data.questionnaireAnswers?.travelScope) {
+      'none' => 'Not a priority',
+      'domestic' => 'Mostly domestic',
+      'international' => 'Mostly international',
+      'both' => 'Domestic and international',
+      _ => data.strategyPlan?.travelScope ?? 'Not a priority',
+    };
+
 class StrategyRoadmapSlot {
   const StrategyRoadmapSlot({
     required this.targetName,
