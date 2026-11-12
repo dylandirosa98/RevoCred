@@ -30,6 +30,21 @@ WITH candidates AS (
            trim(regexp_replace(regexp_replace(lower(r.issuer), '[.''&®™]', '', 'g'), '[^a-z0-9+]+', ' ', 'g')) AS plain_issuer
     FROM revocred.card_reference_index r
     WHERE r.is_active
+), keyed AS (
+    -- product_key strips issuer names and generic words, so "Chase Sapphire
+    -- Preferred® Card" and the curated "Sapphire Preferred" share one key.
+    SELECT r.*, `+productKey("r.plain_name", "r.plain_issuer")+` AS product_key,
+           EXISTS (SELECT 1 FROM revocred.catalog_cards c
+                   WHERE c.owner_user_id IS NULL AND c.data_kind = 'issuer_snapshot'
+                     AND lower(c.name) = lower(r.name) AND lower(c.issuer) = lower(r.issuer)) AS curated
+    FROM candidates r
+), deduped AS (
+    -- Hide an index-only listing when a curated, scored card is the same
+    -- product; otherwise search shows two near-identical choices.
+    SELECT r.* FROM keyed r
+    WHERE r.curated OR NOT EXISTS (
+        SELECT 1 FROM keyed o
+        WHERE o.curated AND o.plain_issuer = r.plain_issuer AND o.product_key = r.product_key)
 ), ranked AS (
     SELECT r.*,
            r.plain_name ~ '(aadvantage|amazon|atmos|best buy|bjs|choice privileges|costco|delta|hilton|home depot|hyatt|kohls|macys|marriott|one key|rei|southwest|spirit|t mobile|united)' AS partner_card,
@@ -40,7 +55,7 @@ WITH candidates AS (
              WHEN r.plain_name ~ '(quicksilver|freedom flex|green|autograph|discover it cash back)' THEN 4
              ELSE 100
            END AS core_rank
-    FROM candidates r
+    FROM deduped r
 )
 SELECT r.id::text, r.slug, r.issuer, r.name, r.network, r.rewards_type, r.annual_fee_cents,
        COALESCE(r.opencard_product_id, r.slug), r.reward_rates, r.terms_status, r.source_url, r.source_captured_on::text, r.disclaimer,
@@ -76,6 +91,18 @@ LIMIT $3`, tokens, phrase, limit)
 		cards = append(cards, card)
 	}
 	return cards, rows.Err()
+}
+
+// productKey builds the SQL for a card's product identity: its plain name
+// without issuer names or generic words like "card", "credit" and "rewards".
+// The replacement runs three times because adjacent words share a space.
+func productKey(name, issuer string) string {
+	words := "' (' || " + issuer + " || '|amex|american express|capital one|citi|chase|discover|wells fargo|bank of america|us bank|card|credit|rewards|from|the) '"
+	expr := "' ' || trim(" + name + ") || ' '"
+	for range 3 {
+		expr = "regexp_replace(" + expr + ", " + words + ", ' ', 'g')"
+	}
+	return "trim(" + expr + ")"
 }
 
 // issuerAliases maps what people type to the issuer names the index stores.

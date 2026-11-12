@@ -29,7 +29,8 @@ class ProfileScreen extends ConsumerWidget {
       'Strategy number':
           data.strategyPlan?.code ?? data.playbook?.code ?? profile.strategy,
       'Goal': profile.goal,
-      'Setup': '${data.wallet.length} active cards',
+      'Setup':
+          '${data.wallet.length} active ${data.wallet.length == 1 ? 'card' : 'cards'}',
       'Top spend categories': profile.topSpendCategories,
       'Next application target':
           strategyNextCardName(data) ?? 'No application recommended',

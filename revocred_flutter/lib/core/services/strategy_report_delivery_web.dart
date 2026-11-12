@@ -1,5 +1,6 @@
 import 'dart:ui' show Rect;
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
@@ -36,8 +37,25 @@ Future<void> deliverStrategyReportShare(
     text: 'My personalized RevoCred credit card strategy.',
   );
 
-  if (web.window.navigator.canShare(shareData)) {
-    await web.window.navigator.share(shareData).toDart;
+  // Many browsers have no Web Share API at all (Firefox, most desktop and
+  // headless Chromium), so feature-detect before calling it.
+  final navigator = web.window.navigator;
+  var canShareFile = false;
+  if (navigator.has('canShare') && navigator.has('share')) {
+    try {
+      canShareFile = navigator.canShare(shareData);
+    } catch (_) {
+      canShareFile = false;
+    }
+  }
+  if (canShareFile) {
+    try {
+      await navigator.share(shareData).toDart;
+    } catch (error) {
+      // Closing the share sheet is not a failure.
+      if (error.toString().contains('AbortError')) return;
+      await deliverStrategyReportDownload(bytes, filename);
+    }
     return;
   }
 

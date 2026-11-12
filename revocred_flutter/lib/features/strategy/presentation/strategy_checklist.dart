@@ -51,7 +51,9 @@ class StrategyChecklist extends ConsumerWidget {
         Text(plan.title, style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 10),
         Text(
-          '$done of $needed in place',
+          slots.length > needed
+              ? '$done of $needed in place · ${slots.length - needed} not needed now'
+              : '$done of $needed in place',
           key: const ValueKey('strategy-progress'),
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),

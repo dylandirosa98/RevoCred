@@ -38,6 +38,21 @@ class _CustomCardFormState extends State<_CustomCardForm> {
   };
   String network = 'Visa';
   bool transferable = false;
+  // Errors appear after the first save attempt, not while typing.
+  bool showErrors = false;
+
+  String? _required(TextEditingController field, String label) =>
+      showErrors && field.text.trim().isEmpty ? 'Enter the $label.' : null;
+
+  /// Matches the API: each rate is 0–20x and the catch-all is at least 1x.
+  String? _rateError(String key) {
+    if (!showErrors) return null;
+    final rate = double.tryParse(rates[key]!.text.trim());
+    if (rate == null) return 'Enter a number, like 1 or 1.5.';
+    if (rate < 0 || rate > 20) return 'Use a rate from 0 to 20.';
+    if (key == 'other' && rate < 1) return 'The catch-all rate is at least 1.';
+    return null;
+  }
 
   @override
   void dispose() {
@@ -74,13 +89,21 @@ class _CustomCardFormState extends State<_CustomCardForm> {
               key: const ValueKey('custom-card-name'),
               controller: name,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Card name'),
+              onChanged: (_) => showErrors ? setState(() {}) : null,
+              decoration: InputDecoration(
+                labelText: 'Card name',
+                errorText: _required(name, 'card name'),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: issuer,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Issuer'),
+              onChanged: (_) => showErrors ? setState(() {}) : null,
+              decoration: InputDecoration(
+                labelText: 'Issuer',
+                errorText: _required(issuer, 'issuer, like Chase'),
+              ),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -123,7 +146,11 @@ class _CustomCardFormState extends State<_CustomCardForm> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: InputDecoration(labelText: _rateLabel(entry.key)),
+                  onChanged: (_) => showErrors ? setState(() {}) : null,
+                  decoration: InputDecoration(
+                    labelText: _rateLabel(entry.key),
+                    errorText: _rateError(entry.key),
+                  ),
                 ),
               ),
             SwitchListTile(
@@ -146,7 +173,12 @@ class _CustomCardFormState extends State<_CustomCardForm> {
   void _submit() {
     final cardName = name.text.trim();
     final cardIssuer = issuer.text.trim();
-    if (cardName.isEmpty || cardIssuer.isEmpty) return;
+    setState(() => showErrors = true);
+    if (cardName.isEmpty ||
+        cardIssuer.isEmpty ||
+        rates.keys.any((key) => _rateError(key) != null)) {
+      return;
+    }
     Navigator.pop(
       context,
       CustomCardDraft(
@@ -155,7 +187,7 @@ class _CustomCardFormState extends State<_CustomCardForm> {
         network: network,
         annualFeeDollars: int.tryParse(fee.text) ?? 0,
         rates: rates.map(
-          (key, value) => MapEntry(key, double.tryParse(value.text) ?? 1),
+          (key, value) => MapEntry(key, double.parse(value.text.trim())),
         ),
         transferablePoints: transferable,
         bestUse: bestUse.text.trim(),

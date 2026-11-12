@@ -46,6 +46,29 @@ func testReferenceIndex(t *testing.T, ctx context.Context, repo *Postgres, a, b 
 			}
 		}
 	}
+	// A curated card and its full-catalog listing are one product in search.
+	for query, hidden := range map[string]string{
+		"sapphire preferred": "Chase Sapphire Preferred® Card",
+		"amex gold":          "American Express® Gold Card",
+		"venture x":          "Capital One Venture X Rewards Credit Card",
+	} {
+		found, err := repo.SearchReferenceCards(ctx, query, 20)
+		if err != nil {
+			t.Fatal(err)
+		}
+		curated := 0
+		for _, card := range found {
+			if card.Name == hidden {
+				t.Fatalf("%q listed the duplicate %q next to the curated card", query, hidden)
+			}
+			if card.CatalogCardID != "" {
+				curated++
+			}
+		}
+		if curated == 0 {
+			t.Fatalf("%q lost the curated card: %+v", query, found)
+		}
+	}
 	index, err := repo.SearchReferenceCards(ctx, "freedom", 20)
 	if err != nil {
 		t.Fatal(err)

@@ -365,7 +365,7 @@ class _ExploreBodyState extends State<_ExploreBody> {
           const SizedBox(height: 2),
           Text(
             cash
-                ? '${_money((annualPoints / 1200).round())} a month · ${rewards.estimateDisclaimer}'
+                ? '${_money((annualPoints / 1200).round())} a month · Estimated from your spending; actual cash back depends on each card\'s terms.'
                 : '${_count(monthlyPoints)} points a month · ${rewards.estimateDisclaimer}',
             style: TextStyle(color: product.muted, fontSize: 12),
           ),
@@ -406,8 +406,10 @@ class _ExploreBodyState extends State<_ExploreBody> {
             divisions: (maxSpend - _minSpend) ~/ _spendStep,
             value: spend.toDouble(),
             label: _money(spend),
+            // At the starting position the screen shows the exact wallet
+            // spend; announce that same number.
             semanticFormatterCallback: (value) =>
-                '${_money(value.round())} a month',
+                '${_money(value.round() == _startSpend ? wallet.monthlySpend : value.round())} a month',
             onChanged: (value) => setState(() => spend = value.round()),
           ),
           Text(
