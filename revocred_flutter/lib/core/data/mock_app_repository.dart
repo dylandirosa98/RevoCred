@@ -85,11 +85,18 @@ class MockAppRepository implements AppRepository, AIPlanSource {
       );
 
   @override
+  Map<String, dynamic>? get pendingPlan => null;
+
+  @override
+  Future<void> clearPendingPlan() async {}
+
+  @override
   Future<AuthResult> signUp(
     String email,
     String password, {
     String displayName = '',
     bool notificationsOptIn = false,
+    Map<String, dynamic>? pendingPlan,
   }) async {
     if (displayName.trim().isNotEmpty) {
       _data = _data.copyWith(

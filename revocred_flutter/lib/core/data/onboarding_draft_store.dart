@@ -32,22 +32,38 @@ class OnboardingDraftStore {
   }
 
   QuestionnaireAnswers? get answers {
+    final data = _value;
+    if (data == null) return null;
+    final answers = parseHandoff(data);
+    if (answers == null) unawaited(clear());
+    return answers;
+  }
+
+  /// The draft as it rides along in the new account's sign-up metadata, so a
+  /// confirmation link opened in another browser or device still finds it.
+  Map<String, dynamic>? get handoff {
+    final data = _value;
+    if (data == null || data['answers'] is! Map) return null;
+    return {
+      'answers': data['answers'],
+      'card_labels': data['card_labels'] ?? const <String, dynamic>{},
+      if (data['display_name'] != null) 'display_name': data['display_name'],
+    };
+  }
+
+  /// Reads a draft or a sign-up handoff. Returns null when it is malformed.
+  static QuestionnaireAnswers? parseHandoff(Map<dynamic, dynamic> data) {
     try {
-      final data = _value;
-      return data == null
-          ? null
-          : QuestionnaireAnswers.fromRecommendationJson(
-              {
-                ...(data['answers'] as Map).cast<String, dynamic>(),
-                if (data['display_name'] != null)
-                  'display_name': data['display_name'],
-              },
-              cardLabels:
-                  (data['card_labels'] as Map?)?.cast<String, dynamic>() ??
-                  const {},
-            );
+      return QuestionnaireAnswers.fromRecommendationJson(
+        {
+          ...(data['answers'] as Map).cast<String, dynamic>(),
+          if (data['display_name'] != null)
+            'display_name': data['display_name'],
+        },
+        cardLabels:
+            (data['card_labels'] as Map?)?.cast<String, dynamic>() ?? const {},
+      );
     } catch (_) {
-      unawaited(clear());
       return null;
     }
   }

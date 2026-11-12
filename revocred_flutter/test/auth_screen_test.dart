@@ -325,6 +325,7 @@ class _ConfirmationRepository extends _GuestRepository {
     String password, {
     String displayName = '',
     bool notificationsOptIn = false,
+    Map<String, dynamic>? pendingPlan,
   }) async {
     recordedNotificationsOptIn = notificationsOptIn;
     return const AuthResult(
@@ -352,6 +353,7 @@ class _AuthenticatingRepository extends MockAppRepository {
     String password, {
     String displayName = '',
     bool notificationsOptIn = false,
+    Map<String, dynamic>? pendingPlan,
   }) => signIn(email, password);
 
   @override

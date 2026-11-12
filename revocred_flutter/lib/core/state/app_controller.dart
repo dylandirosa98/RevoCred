@@ -173,17 +173,32 @@ class AppController extends Notifier<AppState> {
     try {
       var data = await _repository.loadAppData();
       if (generation != _sessionGeneration) return;
-      final pending = draftStore.answers;
+      final local =
+          draftStore.email != null &&
+              draftStore.email == _repository.accountEmail?.trim().toLowerCase()
+          ? draftStore.answers
+          : null;
+      final handoff = _repository.pendingPlan;
+      final pending =
+          local ??
+          (handoff == null ? null : OnboardingDraftStore.parseHandoff(handoff));
       if (!_config.useMocks &&
           pending != null &&
-          data.questionnaireAnswers == null &&
-          draftStore.email != null &&
-          draftStore.email == _repository.accountEmail?.trim().toLowerCase()) {
+          data.questionnaireAnswers == null) {
         await _repository.saveQuestionnaire(pending);
         if (generation != _sessionGeneration) return;
         data = await _repository.loadAppData();
         if (generation != _sessionGeneration) return;
         await draftStore.clear();
+      }
+      if (!_config.useMocks && handoff != null) {
+        // Imported, or the account already had a plan. Either way it is done.
+        try {
+          await _repository.clearPendingPlan();
+        } catch (_) {
+          /* Harmless: a saved plan is never overwritten by a handoff. */
+        }
+        if (generation != _sessionGeneration) return;
       }
       state = state.copyWith(
         isAuthenticated: true,
@@ -242,6 +257,10 @@ class AppController extends Notifier<AppState> {
       password,
       displayName: trimmedName,
       notificationsOptIn: notificationsOptIn,
+      pendingPlan:
+          !state.isAuthenticated && state.data?.isPersonalPreview == true
+          ? draftStore.handoff
+          : null,
     );
     if (result.success && _repository.isAuthenticated) {
       state = state.copyWith(isAuthenticated: true);

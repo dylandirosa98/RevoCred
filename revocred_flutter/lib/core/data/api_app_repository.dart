@@ -202,6 +202,7 @@ class ApiAppRepository implements AppRepository, AIPlanSource {
     String password, {
     String displayName = '',
     bool notificationsOptIn = false,
+    Map<String, dynamic>? pendingPlan,
   }) async {
     if (_supabase == null) return _configurationError();
     final generation = ++_authGeneration;
@@ -216,6 +217,9 @@ class ApiAppRepository implements AppRepository, AIPlanSource {
           'notification_preference_recorded_at': DateTime.now()
               .toUtc()
               .toIso8601String(),
+          // The guest questionnaire travels with the account, so confirming the
+          // email in another browser or on another device keeps the plan.
+          'pending_plan': ?pendingPlan,
         },
       );
       if (generation != _authGeneration) {
@@ -258,6 +262,20 @@ class ApiAppRepository implements AppRepository, AIPlanSource {
       }
       return AuthResult(success: false, message: error.message);
     }
+  }
+
+  @override
+  Map<String, dynamic>? get pendingPlan {
+    final plan = _supabase?.auth.currentUser?.userMetadata?['pending_plan'];
+    return plan is Map ? plan.cast<String, dynamic>() : null;
+  }
+
+  @override
+  Future<void> clearPendingPlan() async {
+    if (pendingPlan == null) return;
+    await _authClient.auth.updateUser(
+      UserAttributes(data: {'pending_plan': null}),
+    );
   }
 
   Future<void> _discardStaleAuth(AuthResponse result) async {

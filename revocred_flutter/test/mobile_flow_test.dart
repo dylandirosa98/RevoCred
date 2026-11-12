@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:revocred_flutter/core/logic/spend_scale.dart';
 import 'package:revocred_flutter/app.dart';
 import 'package:revocred_flutter/core/config/app_config.dart';
 import 'package:revocred_flutter/core/data/mock_app_repository.dart';
@@ -140,7 +141,9 @@ void main() {
             of: find.byKey(const ValueKey('spend-dining')),
             matching: find.byType(Slider),
           );
-          tester.widget<Slider>(dining).onChanged!(350);
+          tester.widget<Slider>(dining).onChanged!(
+            SpendScale.positionOf(350).toDouble(),
+          );
           await tester.pump();
           expect(find.text(r'$350'), findsOneWidget);
         }

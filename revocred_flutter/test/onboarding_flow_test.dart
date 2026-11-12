@@ -68,6 +68,11 @@ class PreviewRepository extends MockAppRepository {
   QuestionnaireAnswers? saved;
   int saves = 0;
   bool failSave = false;
+  Map<String, dynamic>? handoff;
+  @override
+  Map<String, dynamic>? get pendingPlan => authenticated ? handoff : null;
+  @override
+  Future<void> clearPendingPlan() async => handoff = null;
   @override
   bool get isAuthenticated => authenticated;
   @override
@@ -78,8 +83,10 @@ class PreviewRepository extends MockAppRepository {
     String password, {
     String displayName = '',
     bool notificationsOptIn = false,
+    Map<String, dynamic>? pendingPlan,
   }) async {
     this.email = email;
+    handoff = pendingPlan == null ? null : jsonDecode(jsonEncode(pendingPlan));
     return const AuthResult(success: true, message: 'Confirm email.');
   }
 
@@ -158,6 +165,46 @@ void main() {
       expect(drafts.answers, isNull);
     },
   );
+  test(
+    'guest plan survives confirming the email in another browser or device',
+    () async {
+      final repo = PreviewRepository();
+      var container = containerFor(repo, OnboardingDraftStore());
+      final controller = container.read(appControllerProvider.notifier);
+      await controller.completeQuestionnaire(answers);
+      await controller.signUp(
+        'member@example.test',
+        'longpassword123',
+        displayName: 'Avery Chen',
+      );
+      container.dispose();
+      // The confirmation link opens somewhere with no local draft.
+      repo.authenticated = true;
+      container = containerFor(repo, OnboardingDraftStore());
+      addTearDown(container.dispose);
+      await container.read(appControllerProvider.notifier).initialize();
+      expect(repo.saves, 1);
+      expect(repo.saved!.existingCardIds, ['owned']);
+      expect(repo.saved!.monthlySpend['groceries'], 450);
+      expect(repo.saved!.displayName, 'Avery Chen');
+      expect(repo.handoff, isNull);
+      expect(
+        container.read(appControllerProvider).data!.questionnaireAnswers,
+        isNotNull,
+      );
+    },
+  );
+  test('sign-up handoff never overwrites a saved plan', () async {
+    final repo = PreviewRepository()
+      ..authenticated = true
+      ..saved = answers
+      ..handoff = {'answers': answers.toRecommendationJson()};
+    final container = containerFor(repo, OnboardingDraftStore());
+    addTearDown(container.dispose);
+    await container.read(appControllerProvider.notifier).initialize();
+    expect(repo.saves, 0);
+    expect(repo.handoff, isNull);
+  });
   test(
     'draft never imports into a different email or overwrites a saved plan',
     () async {

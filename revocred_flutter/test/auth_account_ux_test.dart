@@ -29,6 +29,7 @@ class RecordingRepository extends MockAppRepository {
     String password, {
     String displayName = '',
     bool notificationsOptIn = false,
+    Map<String, dynamic>? pendingPlan,
   }) async {
     calls++;
     receivedEmail = email;

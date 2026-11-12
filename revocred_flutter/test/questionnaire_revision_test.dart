@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:revocred_flutter/core/logic/spend_scale.dart';
 import 'package:revocred_flutter/app.dart';
 import 'package:revocred_flutter/core/config/app_config.dart';
 import 'package:revocred_flutter/core/data/mock_app_repository.dart';
@@ -100,12 +101,12 @@ void main() {
     );
     expect(dining, findsOneWidget);
     final slider = tester.widget<Slider>(dining);
-    expect(slider.divisions, 100);
-    slider.onChanged!(126);
+    expect(slider.divisions, SpendScale.divisions);
+    slider.onChanged!(SpendScale.positionOf(130).toDouble());
     await tester.pump();
-    expect(find.text(r'$150'), findsOneWidget);
+    expect(find.text(r'$130'), findsOneWidget);
     expect(find.text(r'$0'), findsWidgets);
-    expect(find.text(r'$2,500'), findsWidgets);
+    expect(find.text(r'$1,000'), findsWidgets);
     expect(find.text(r'$5,000+'), findsWidgets);
   });
 }

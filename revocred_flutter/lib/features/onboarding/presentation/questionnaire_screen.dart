@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/logic/card_search.dart';
+import '../../../core/logic/spend_scale.dart';
 import '../../../core/models/app_models.dart';
 import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
@@ -1003,8 +1004,7 @@ class _SpendSlider extends StatelessWidget {
     super.key,
   });
 
-  static const max = 5000;
-  static const step = 50;
+  static const max = SpendScale.max;
   final String label;
   final int value;
   final ValueChanged<int> onChanged;
@@ -1064,11 +1064,7 @@ class _SpendSlider extends StatelessWidget {
                 thumbColor: product.action,
                 overlayColor: product.action.withValues(alpha: .14),
                 trackHeight: 4,
-                tickMarkShape: const RoundSliderTickMarkShape(
-                  tickMarkRadius: 1.15,
-                ),
-                activeTickMarkColor: product.actionInk.withValues(alpha: .7),
-                inactiveTickMarkColor: product.muted.withValues(alpha: .45),
+                tickMarkShape: SliderTickMarkShape.noTickMark,
                 valueIndicatorColor: product.action,
                 valueIndicatorTextStyle: TextStyle(
                   color: product.actionInk,
@@ -1076,18 +1072,18 @@ class _SpendSlider extends StatelessWidget {
                 ),
               ),
               child: Slider(
-                value: value.toDouble(),
+                value: SpendScale.positionOf(value).toDouble(),
                 min: 0,
-                max: max.toDouble(),
-                divisions: max ~/ step,
+                max: SpendScale.divisions.toDouble(),
+                divisions: SpendScale.divisions,
                 label: value == max ? r'$5,000+' : '\$${_money(value)}',
                 semanticFormatterCallback: (next) {
-                  final snapped = (next / step).round() * step;
-                  return snapped == max
+                  final amount = SpendScale.amountAt(next);
+                  return amount == max
                       ? r'$5,000 or more per month'
-                      : '\$${_money(snapped)} per month';
+                      : '\$${_money(amount)} per month';
                 },
-                onChanged: (next) => onChanged((next / step).round() * step),
+                onChanged: (next) => onChanged(SpendScale.amountAt(next)),
               ),
             ),
             Row(
@@ -1098,7 +1094,7 @@ class _SpendSlider extends StatelessWidget {
                   style: TextStyle(color: product.muted, fontSize: 11),
                 ),
                 Text(
-                  r'$2,500',
+                  '\$${_money(SpendScale.amountAt(SpendScale.divisions / 2))}',
                   style: TextStyle(color: product.muted, fontSize: 11),
                 ),
                 Text(

@@ -31,7 +31,13 @@ abstract interface class AppRepository {
     String password, {
     String displayName = '',
     bool notificationsOptIn = false,
+    Map<String, dynamic>? pendingPlan,
   });
+
+  /// A guest questionnaire saved with the account at sign-up, waiting to be
+  /// imported on the first signed-in load.
+  Map<String, dynamic>? get pendingPlan;
+  Future<void> clearPendingPlan();
   Future<void> signOut();
   Future<AppData> loadAppData();
   Future<PurchaseGuide> loadPurchaseGuide({
