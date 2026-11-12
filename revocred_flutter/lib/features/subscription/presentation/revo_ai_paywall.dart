@@ -111,7 +111,12 @@ class _RevoAIPaywallState extends ConsumerState<RevoAIPaywall> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                subscriber ? 'You have REVO AI' : 'REVO AI — $price/month',
+                subscriber
+                    ? 'You have REVO AI'
+                    // Never show a price the member cannot act on.
+                    : canSell
+                    ? 'REVO AI — $price/month'
+                    : 'REVO AI',
                 key: const ValueKey('paywall-title'),
                 style: title,
               ),
@@ -155,10 +160,11 @@ class _RevoAIPaywallState extends ConsumerState<RevoAIPaywall> {
                 Icons.credit_card,
                 'For card and money questions only',
               ),
-              const _Benefit(
-                Icons.event_repeat,
-                'Monthly. Cancel anytime in Settings',
-              ),
+              if (canSell || subscriber)
+                const _Benefit(
+                  Icons.event_repeat,
+                  'Monthly. Cancel anytime in Settings',
+                ),
               const SizedBox(height: 16),
               if (subscriber) ...[
                 if (plan!.appStoreSubscription)
@@ -200,7 +206,9 @@ class _RevoAIPaywallState extends ConsumerState<RevoAIPaywall> {
                 ),
               ] else
                 Text(
-                  'AI answers reset within 24 hours. Basic answers from your plan are always available.',
+                  'Upgrading to REVO AI is not available yet. AI answers '
+                  'reset within 24 hours, and basic answers from your plan '
+                  'are always available.',
                   key: const ValueKey('paywall-free-note'),
                   style: TextStyle(color: product.muted),
                 ),

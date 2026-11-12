@@ -268,7 +268,7 @@ class _PopularCard extends StatelessWidget {
                 children: [
                   Text(
                     card.name,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),

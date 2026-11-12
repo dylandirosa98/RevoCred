@@ -44,7 +44,11 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('Strategy report'),
+        // Scale down instead of truncating when large text meets the actions.
+        title: const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text('Strategy report'),
+        ),
         actions: [
           TextButton(
             key: const ValueKey('continue-strategy-report'),
@@ -91,33 +95,31 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
             ),
             const SizedBox(height: 16),
           ],
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  key: const ValueKey('download-strategy-report'),
-                  onPressed: exporting ? null : () => _export(data),
-                  icon: const Icon(Icons.download_outlined),
-                  label: const Text('Download PDF'),
-                ),
+          // Side by side normally; stacked when large text would otherwise
+          // break "Download PDF" mid-word.
+          _ExportButtons(
+            stacked:
+                MediaQuery.textScalerOf(context).scale(16) > 20 ||
+                MediaQuery.sizeOf(context).width < 340,
+            download: FilledButton.icon(
+              key: const ValueKey('download-strategy-report'),
+              onPressed: exporting ? null : () => _export(data),
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('Download PDF'),
+            ),
+            share: Builder(
+              builder: (shareContext) => OutlinedButton.icon(
+                onPressed: exporting
+                    ? null
+                    : () => _export(
+                        data,
+                        share: true,
+                        shareContext: shareContext,
+                      ),
+                icon: const Icon(Icons.ios_share_outlined),
+                label: const Text('Share'),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Builder(
-                  builder: (shareContext) => OutlinedButton.icon(
-                    onPressed: exporting
-                        ? null
-                        : () => _export(
-                            data,
-                            share: true,
-                            shareContext: shareContext,
-                          ),
-                    icon: const Icon(Icons.ios_share_outlined),
-                    label: const Text('Share'),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
           SizedBox(height: product.sectionGap),
           const ApplyOfferButton(placement: ApplyPlacement.report),
@@ -170,4 +172,30 @@ class _StrategyReportScreenState extends ConsumerState<StrategyReportScreen> {
       if (mounted) setState(() => exporting = false);
     }
   }
+}
+
+class _ExportButtons extends StatelessWidget {
+  const _ExportButtons({
+    required this.stacked,
+    required this.download,
+    required this.share,
+  });
+
+  final bool stacked;
+  final Widget download;
+  final Widget share;
+
+  @override
+  Widget build(BuildContext context) => stacked
+      ? Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [download, const SizedBox(height: 10), share],
+        )
+      : Row(
+          children: [
+            Expanded(child: download),
+            const SizedBox(width: 10),
+            Expanded(child: share),
+          ],
+        );
 }
