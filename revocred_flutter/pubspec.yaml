@@ -42,7 +42,7 @@ dependencies:
   pdf: ^3.13.1
   printing: ^5.15.1
   url_launcher: ^6.3.2
-  web: ^1.1.1
+  web: ^1.1.2
   purchases_flutter: ^11.0.1
 
 dev_dependencies:
