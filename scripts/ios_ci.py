@@ -121,8 +121,14 @@ def smoke(device, app, output):
         pid = launched_pid((output / (family + '-launch.log')).read_text(), bundle)
         time.sleep(15)
         alive = app_alive(sim, udid, bundle, pid, output / (family + '-alive.log'))
-        run(sim + ['io', udid, 'screenshot', str(output / (family + '-launch.png'))],
-            output, family + '-screenshot', timeout=30)
+        try:
+            run(sim + ['io', udid, 'screenshot', str(output / (family + '-launch.png'))],
+                output, family + '-screenshot', timeout=60)
+        except (ValueError, subprocess.SubprocessError) as error:
+            # The screenshot is evidence for a human, not the launch check. A
+            # slow hosted simulator can hang it while the app runs fine.
+            with (output / (family + '-screenshot.log')).open('a') as log:
+                log.write(f'screenshot not captured: {type(error).__name__}\n')
         if not alive:
             raise ValueError(family + ' app exited within 15 seconds of cold launch.')
         return {'device': device['name'], 'udid': udid, 'status': 'launch-process-alive',
