@@ -31,8 +31,11 @@ String formatPlanDate(DateTime value) {
 }
 
 /// Opens Apple's subscription settings, where members cancel or change plans.
-Future<void> openManageSubscriptions() =>
-    launchUrl(appStoreSubscriptionsUrl, mode: LaunchMode.externalApplication);
+Future<void> openManageSubscriptions() => launchUrl(
+  appStoreSubscriptionsUrl,
+  mode: LaunchMode.externalApplication,
+  webOnlyWindowName: '_blank',
+);
 
 /// The REVO AI subscription: what it adds, its price from the App Store,
 /// Apple's required renewal terms, Restore Purchases, and the legal links.
@@ -255,7 +258,11 @@ class _RevoAIPaywallState extends ConsumerState<RevoAIPaywall> {
     final url = terms ? config.termsUrl : config.privacyUrl;
     if (url.isNotEmpty) {
       unawaited(
-        launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+        launchUrl(
+          Uri.parse(url),
+          mode: LaunchMode.externalApplication,
+          webOnlyWindowName: '_blank',
+        ),
       );
       return;
     }

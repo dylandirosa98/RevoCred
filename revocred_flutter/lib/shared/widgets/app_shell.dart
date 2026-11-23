@@ -26,7 +26,9 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final desktop = MediaQuery.sizeOf(context).width >= 900;
     final extendedRail = MediaQuery.sizeOf(context).width >= 1180;
-    final narrow = MediaQuery.sizeOf(context).width < 360;
+    final narrow =
+        MediaQuery.sizeOf(context).width < 360 ||
+        MediaQuery.textScalerOf(context).scale(11) > 13;
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final product = context.product;
     final dark = Theme.of(context).brightness == Brightness.dark;

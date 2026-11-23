@@ -44,6 +44,7 @@ class ChatLinkText extends StatelessWidget {
             alignment: PlaceholderAlignment.baseline,
             baseline: TextBaseline.alphabetic,
             child: Semantics(
+              container: true,
               link: true,
               label: label,
               child: InkWell(
@@ -54,6 +55,7 @@ class ChatLinkText extends StatelessWidget {
                             launchUrl(
                               uri,
                               mode: LaunchMode.externalApplication,
+                              webOnlyWindowName: '_blank',
                             ));
                     if (!opened) throw StateError('launch failed');
                   } catch (_) {
@@ -68,11 +70,13 @@ class ChatLinkText extends StatelessWidget {
                     }
                   }
                 },
-                child: Text(
-                  label,
-                  style: style.copyWith(
-                    color: accent,
-                    decoration: TextDecoration.underline,
+                child: ExcludeSemantics(
+                  child: Text(
+                    label,
+                    style: style.copyWith(
+                      color: accent,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
               ),

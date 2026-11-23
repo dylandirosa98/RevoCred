@@ -112,8 +112,22 @@ class CommunityCardDetails extends StatelessWidget {
             issuerUri.scheme == 'https' &&
             issuerUri.host.isNotEmpty)
           TextButton(
-            onPressed: () =>
-                launchUrl(issuerUri, mode: LaunchMode.externalApplication),
+            onPressed: () async {
+              final opened = await launchUrl(
+                issuerUri,
+                mode: LaunchMode.externalApplication,
+                webOnlyWindowName: '_blank',
+              );
+              if (!opened && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Could not open this link. Please try again.',
+                    ),
+                  ),
+                );
+              }
+            },
             child: const Text('Issuer terms'),
           ),
       ],
