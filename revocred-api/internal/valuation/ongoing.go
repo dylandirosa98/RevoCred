@@ -21,6 +21,52 @@ type benefitRule struct {
 	Category  string `json:"category"`
 }
 
+// CreditRule is a human-reviewed, recurring statement credit from benefits.json.
+type CreditRule struct {
+	CardID           string
+	ProductID        string
+	ID               string
+	Title            string
+	FaceCents        int64
+	Category         string
+	Frequency        string
+	Conditions       string
+	SourceURL        string
+	ReviewedOn       string
+	SourceVerifiedOn string
+	EvidenceVersion  string
+}
+
+// ReviewedCreditRules returns all human-reviewed recurring credit rules from
+// the embedded evidence file in stable order.
+func ReviewedCreditRules() []CreditRule {
+	rules := []benefitRule{}
+	if err := json.Unmarshal(reviewedEvidence, &rules); err != nil {
+		panic("invalid embedded reviewed benefit evidence")
+	}
+	out := make([]CreditRule, 0, len(rules))
+	for _, r := range rules {
+		if r.Kind != "credit" || r.FaceCents <= 0 {
+			continue
+		}
+		out = append(out, CreditRule{
+			CardID:           r.CardID,
+			ProductID:        r.ProductID,
+			ID:               r.ID,
+			Title:            r.Title,
+			FaceCents:        r.FaceCents,
+			Category:         r.Category,
+			Frequency:        r.Frequency,
+			Conditions:       r.Conditions,
+			SourceURL:        r.SourceURL,
+			ReviewedOn:       r.ReviewedOn,
+			SourceVerifiedOn: r.SourceVerifiedOn,
+			EvidenceVersion:  r.EvidenceVersion,
+		})
+	}
+	return out
+}
+
 // Ongoing is wallet-only. Net remains rewards less fees for application rankings.
 func Ongoing(spend map[string]int64, cards []domain.CatalogCard, travelScope string) domain.OngoingValue {
 	out := domain.OngoingValue{ModelVersion: "ongoing-v1", Benefits: []domain.BenefitValue{}, Assumptions: []string{

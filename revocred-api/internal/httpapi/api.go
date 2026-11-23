@@ -16,6 +16,7 @@ import (
 	"github.com/revocred/revocred-api/internal/domain"
 	"github.com/revocred/revocred-api/internal/legal"
 	"github.com/revocred/revocred-api/internal/purchaseguide"
+	"github.com/revocred/revocred-api/internal/reminders"
 	"github.com/revocred/revocred-api/internal/revenuecat"
 	"github.com/revocred/revocred-api/internal/store"
 	"github.com/revocred/revocred-api/internal/strategy"
@@ -106,6 +107,9 @@ func New(
 	mux.HandleFunc("GET /v1/offers", api.offers)
 	mux.HandleFunc("GET /v1/offers/{id}/apply", api.applyOffer)
 	api.protected(mux, "GET /v1/bootstrap", api.bootstrap)
+	api.protected(mux, "GET /v1/reminders", api.getReminders)
+	api.protected(mux, "PUT /v1/reminders/{key}", api.putReminderState)
+	api.protected(mux, "POST /v1/reminders/{key}/dismiss", api.dismissReminder)
 	api.protected(mux, "GET /v1/purchase-guide", api.purchaseGuide)
 	api.protected(mux, "POST /v1/client-errors", api.clientError)
 	api.protected(mux, "GET /v1/account/export", api.exportAccount)
@@ -117,6 +121,7 @@ func New(
 	api.protected(mux, "GET /v1/wallet", api.getWallet)
 	api.protected(mux, "POST /v1/wallet", api.postWallet)
 	api.protected(mux, "POST /v1/wallet/custom", api.postCustomWallet)
+	api.protected(mux, "PUT /v1/wallet/{id}/renewal-month", api.putWalletRenewalMonth)
 	api.protected(mux, "DELETE /v1/wallet", api.deleteWallet)
 	api.protected(mux, "POST /v1/recommendations", api.postRecommendations)
 	api.protected(mux, "PUT /v1/strategy", api.putStrategy)
@@ -168,7 +173,13 @@ func (a *API) deleteAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) bootstrap(w http.ResponseWriter, r *http.Request) {
-	value, err := a.repository.Bootstrap(r.Context(), authenticatedUser(r.Context()).ID)
+	userID := authenticatedUser(r.Context()).ID
+	value, err := a.repository.Bootstrap(r.Context(), userID)
+	if err != nil {
+		a.internalError(w, r, err)
+		return
+	}
+	reminderStates, err := a.repository.ListReminderStates(r.Context(), userID)
 	if err != nil {
 		a.internalError(w, r, err)
 		return
@@ -183,7 +194,12 @@ func (a *API) bootstrap(w http.ResponseWriter, r *http.Request) {
 	writeData(w, http.StatusOK, struct {
 		domain.Bootstrap
 		PurchaseGuide purchaseguide.Guide `json:"purchase_guide"`
-	}{value, purchaseguide.NewGuide(value.Wallet, purchaseguide.DefaultOptions())})
+		Reminders     reminders.Feed      `json:"reminders"`
+	}{
+		value,
+		purchaseguide.NewGuide(value.Wallet, purchaseguide.DefaultOptions()),
+		reminders.Build(time.Now().UTC(), value.Wallet, value.Playbook, reminderStates),
+	})
 }
 
 func (a *API) cards(w http.ResponseWriter, r *http.Request) {

@@ -41,6 +41,9 @@ func validateWalletCard(input domain.CreateWalletCard) map[string]string {
 	if !oneOf(input.Status, "active", "inactive") {
 		errors["status"] = "must be active or inactive"
 	}
+	if input.RenewalMonth != nil && (*input.RenewalMonth < 1 || *input.RenewalMonth > 12) {
+		errors["renewal_month"] = "must be between 1 and 12"
+	}
 	return errors
 }
 

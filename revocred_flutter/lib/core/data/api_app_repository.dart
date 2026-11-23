@@ -109,6 +109,29 @@ class ApiAppRepository implements AppRepository, AIPlanSource {
     emailRedirectTo: authRedirectUrl,
   );
   @override
+  bool get emailNotificationsOptIn =>
+      _supabase
+          ?.auth
+          .currentUser
+          ?.userMetadata?['email_notifications_opt_in'] ==
+      true;
+  @override
+  Future<bool> updateEmailNotificationsOptIn(bool enabled) async {
+    final response = await _authClient.auth.updateUser(
+      UserAttributes(
+        data: {
+          'email_notifications_opt_in': enabled,
+          'notification_preference_recorded_at': DateTime.now()
+              .toUtc()
+              .toIso8601String(),
+        },
+      ),
+    );
+    final saved = response.user?.userMetadata?['email_notifications_opt_in'];
+    return saved is bool ? saved : enabled;
+  }
+
+  @override
   Future<String> exportAccount() async => const JsonEncoder.withIndent(
     '  ',
   ).convert(await _request('GET', '/v1/account/export'));
@@ -380,6 +403,46 @@ class ApiAppRepository implements AppRepository, AIPlanSource {
       '/v1/wallet',
       body: {'wallet_card_id': walletCardId},
     );
+  }
+
+  @override
+  Future<void> updateWalletRenewalMonth(
+    String walletCardId,
+    int? renewalMonth,
+  ) async {
+    await _request(
+      'PUT',
+      '/v1/wallet/${Uri.encodeComponent(walletCardId)}/renewal-month',
+      body: {'renewal_month': renewalMonth},
+    );
+  }
+
+  @override
+  Future<ReminderFeed> loadReminders() async {
+    final json = await _request('GET', '/v1/reminders');
+    final data = json['data'];
+    if (data is! Map) {
+      throw const FormatException('Invalid reminders response.');
+    }
+    return ReminderFeed.fromJson(data.cast<String, dynamic>());
+  }
+
+  @override
+  Future<ReminderFeed> updateReminderState(
+    String key, {
+    required String status,
+    int? snoozeDays,
+  }) async {
+    final json = await _request(
+      'PUT',
+      '/v1/reminders/${Uri.encodeComponent(key)}',
+      body: {'status': status, 'snooze_days': ?snoozeDays},
+    );
+    final data = json['data'];
+    if (data is! Map) {
+      throw const FormatException('Invalid reminders response.');
+    }
+    return ReminderFeed.fromJson(data.cast<String, dynamic>());
   }
 
   @override

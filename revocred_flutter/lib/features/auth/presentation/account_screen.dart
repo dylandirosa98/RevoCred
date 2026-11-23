@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/data/app_repository.dart';
 import '../../../core/state/app_controller.dart';
+import 'email_notifications_setting.dart';
 
 class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({this.recovery = false, this.help = false, super.key});
@@ -200,6 +201,18 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   child: const Text('Update password'),
                 ),
                 if (!widget.recovery) ...[
+                  const Divider(height: 40),
+                  Text(
+                    'Email preferences',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 6),
+                  EmailNotificationsToggle(
+                    toggleKey: const ValueKey('email-notifications-toggle'),
+                    onStatusMessage: (text) {
+                      if (mounted) setState(() => message = text);
+                    },
+                  ),
                   const Divider(height: 40),
                   OutlinedButton(
                     onPressed: busy

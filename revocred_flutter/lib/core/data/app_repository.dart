@@ -22,6 +22,8 @@ abstract interface class AppRepository {
   Future<void> resendVerification(String email);
   Future<void> updatePassword(String password);
   Future<void> updateEmail(String email);
+  bool get emailNotificationsOptIn;
+  Future<bool> updateEmailNotificationsOptIn(bool enabled);
   Future<String> exportAccount();
   Future<void> deleteAccount(String password);
   bool get isAuthenticated;
@@ -47,6 +49,13 @@ abstract interface class AppRepository {
   Future<void> addCard(String cardId);
   Future<void> addCustomCard(CustomCardDraft card);
   Future<void> removeCard(String walletCardId);
+  Future<void> updateWalletRenewalMonth(String walletCardId, int? renewalMonth);
+  Future<ReminderFeed> loadReminders();
+  Future<ReminderFeed> updateReminderState(
+    String key, {
+    required String status,
+    int? snoozeDays,
+  });
   Future<ChatDisclosure> loadChatDisclosure();
 
   /// Illustrative flight and hotel redemptions for Explore Rewards.
