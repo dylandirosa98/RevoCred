@@ -160,6 +160,8 @@ class DeployPwaVercelTests(unittest.TestCase):
         self.assertNotIn("Reload preview", index_html)
         self.assertNotIn("The preview could not start", bootstrap_js)
         self.assertIn("pwa_sw.js", bootstrap_js)
+        self.assertIn("rc-safe-area-probe", index_html)
+        self.assertIn("safeAreaInsets", bootstrap_js)
         self.assertTrue((ROOT / "revocred_flutter/web/pwa_sw.js").is_file())
 
 

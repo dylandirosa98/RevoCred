@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
+import 'package:flutter/widgets.dart';
 import 'package:web/web.dart' as web;
 
 import 'pwa_install.dart';
@@ -35,12 +36,40 @@ class _WebPwaInstallClient implements PwaInstallClient {
     }
   }
 
+  double _readInset(JSObject obj, String key) {
+    final value = obj.getProperty(key.toJS);
+    if (!value.isA<JSNumber>()) return 0;
+    final parsed = (value as JSNumber).toDartDouble;
+    return parsed.isFinite && parsed > 0 ? parsed : 0;
+  }
+
+  EdgeInsets _readSafeAreaInsets() {
+    final bridge = _bridge;
+    if (bridge == null || !bridge.has('safeAreaInsets')) {
+      return EdgeInsets.zero;
+    }
+    try {
+      final result = bridge.callMethod<JSAny?>('safeAreaInsets'.toJS);
+      if (!result.isA<JSObject>()) return EdgeInsets.zero;
+      final obj = result as JSObject;
+      return EdgeInsets.fromLTRB(
+        _readInset(obj, 'left'),
+        _readInset(obj, 'top'),
+        _readInset(obj, 'right'),
+        _readInset(obj, 'bottom'),
+      );
+    } catch (_) {
+      return EdgeInsets.zero;
+    }
+  }
+
   @override
   PwaInstallStatus readStatus() => PwaInstallStatus(
     isMobileBrowser: _callBool('isMobileBrowser'),
     isStandalone: _callBool('isStandalone'),
     canPrompt: _callBool('canPrompt'),
     isIos: _callBool('isIos'),
+    safeAreaInsets: _readSafeAreaInsets(),
   );
 
   @override

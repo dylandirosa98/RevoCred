@@ -149,9 +149,24 @@
     @media (prefers-reduced-motion: reduce) {
       .app-loader__mark { animation-duration: 1600ms; }
     }
+
+    #rc-safe-area-probe {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 0;
+      height: 0;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-left: env(safe-area-inset-left, 0px);
+      visibility: hidden;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
+  <div id="rc-safe-area-probe" aria-hidden="true"></div>
   <main id="app-loader" class="app-loader" role="status" aria-live="polite">
     <div>
       <div class="app-loader__mark" aria-hidden="true"></div>

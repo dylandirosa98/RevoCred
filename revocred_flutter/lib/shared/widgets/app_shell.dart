@@ -76,22 +76,27 @@ class AppShell extends StatelessWidget {
         ),
       );
     }
-    final navigation = NavigationBar(
-      selectedIndex: navigationShell.currentIndex,
-      onDestinationSelected: _select,
-      destinations: destinations
-          .map(
-            (item) => NavigationDestination(
-              icon: _NavigationIcon(label: item.label, icon: item.icon),
-              selectedIcon: _NavigationIcon(
-                label: item.label,
-                icon: item.icon,
-                selected: true,
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final extraBottom = bottomInset < 12 ? 12.0 - bottomInset : 0.0;
+    final navigation = Padding(
+      padding: EdgeInsets.only(bottom: extraBottom),
+      child: NavigationBar(
+        selectedIndex: navigationShell.currentIndex,
+        onDestinationSelected: _select,
+        destinations: destinations
+            .map(
+              (item) => NavigationDestination(
+                icon: _NavigationIcon(label: item.label, icon: item.icon),
+                selectedIcon: _NavigationIcon(
+                  label: item.label,
+                  icon: item.icon,
+                  selected: true,
+                ),
+                label: narrow ? item.shortLabel : item.label,
               ),
-              label: narrow ? item.shortLabel : item.label,
-            ),
-          )
-          .toList(),
+            )
+            .toList(),
+      ),
     );
     final bottomNavigation = switch (product.navigationTreatment) {
       NavigationTreatment.floating => Padding(
@@ -103,6 +108,7 @@ class AppShell extends StatelessWidget {
       ),
       NavigationTreatment.editorial => DecoratedBox(
         decoration: BoxDecoration(
+          color: product.surface,
           border: Border(
             top: BorderSide(color: product.ink, width: 2),
             bottom: BorderSide(color: product.border),
@@ -112,6 +118,7 @@ class AppShell extends StatelessWidget {
       ),
       NavigationTreatment.technical => DecoratedBox(
         decoration: BoxDecoration(
+          color: product.surface,
           border: Border(top: BorderSide(color: product.action, width: 1)),
         ),
         child: navigation,
@@ -131,6 +138,7 @@ class AppShell extends StatelessWidget {
       ),
       NavigationTreatment.understated => DecoratedBox(
         decoration: BoxDecoration(
+          color: product.surface,
           border: Border(top: BorderSide(color: product.border)),
         ),
         child: navigation,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:revocred_flutter/app.dart';
 import 'package:revocred_flutter/core/services/pwa_install.dart';
 import 'package:revocred_flutter/core/state/theme_controller.dart';
 import 'package:revocred_flutter/core/theme/app_theme.dart';
@@ -172,4 +173,67 @@ void main() {
     );
     expect(find.byKey(const ValueKey('pwa-install-banner')), findsNothing);
   });
+
+  testWidgets(
+    'WebSafeAreaScope merges browser safe-area insets and respects keyboard',
+    (tester) async {
+      final client = _FakePwaInstallClient(
+        const PwaInstallStatus(
+          isMobileBrowser: true,
+          isStandalone: true,
+          canPrompt: false,
+          isIos: true,
+          safeAreaInsets: EdgeInsets.only(top: 59, bottom: 34),
+        ),
+      );
+      addTearDown(client.controller.close);
+
+      late MediaQueryData observed;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [pwaInstallClientProvider.overrideWithValue(client)],
+          child: MediaQuery(
+            data: const MediaQueryData(size: Size(390, 844)),
+            child: WebSafeAreaScope(
+              child: Builder(
+                builder: (context) {
+                  observed = MediaQuery.of(context);
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(observed.padding.top, 59);
+      expect(observed.padding.bottom, 34);
+      expect(observed.viewPadding.bottom, 34);
+
+      // When the virtual keyboard opens, padding.bottom yields to viewInsets
+      // while viewPadding.bottom keeps the physical safe area.
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [pwaInstallClientProvider.overrideWithValue(client)],
+          child: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(390, 844),
+              viewInsets: EdgeInsets.only(bottom: 300),
+            ),
+            child: WebSafeAreaScope(
+              child: Builder(
+                builder: (context) {
+                  observed = MediaQuery.of(context);
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(observed.padding.bottom, 0);
+      expect(observed.viewPadding.bottom, 34);
+    },
+  );
 }

@@ -121,18 +121,21 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ),
               ),
             ),
-            Wrap(
-              alignment: WrapAlignment.center,
-              children: [
-                TextButton(
-                  onPressed: () => context.push('/account-recovery'),
-                  child: const Text('Forgot password / confirm email'),
-                ),
-                TextButton(
-                  onPressed: () => context.push('/legal'),
-                  child: const Text('Privacy and terms'),
-                ),
-              ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: () => context.push('/account-recovery'),
+                    child: const Text('Forgot password / confirm email'),
+                  ),
+                  TextButton(
+                    onPressed: () => context.push('/legal'),
+                    child: const Text('Privacy and terms'),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

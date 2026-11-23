@@ -28,6 +28,24 @@
     return mobileUa || isIosBrowser() || (coarsePointer && narrowViewport);
   }
 
+  function readSafeAreaInsets() {
+    const probe = document.getElementById('rc-safe-area-probe');
+    if (!probe) {
+      return { top: 0, right: 0, bottom: 0, left: 0 };
+    }
+    const style = window.getComputedStyle(probe);
+    const px = (value) => {
+      const parsed = parseFloat(value);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    };
+    return {
+      top: px(style.paddingTop),
+      right: px(style.paddingRight),
+      bottom: px(style.paddingBottom),
+      left: px(style.paddingLeft),
+    };
+  }
+
   function notifyPwaState() {
     window.dispatchEvent(new CustomEvent('revocred-pwa-change'));
   }
@@ -37,6 +55,7 @@
     isStandalone: isStandaloneMode,
     isMobileBrowser,
     isIos: isIosBrowser,
+    safeAreaInsets: readSafeAreaInsets,
     promptInstall: async () => {
       if (!deferredInstallPrompt) {
         return 'unavailable';
@@ -64,6 +83,10 @@
     deferredInstallPrompt = null;
     notifyPwaState();
   });
+
+  window.addEventListener('resize', notifyPwaState, { passive: true });
+  window.addEventListener('orientationchange', notifyPwaState, { passive: true });
+  window.visualViewport?.addEventListener('resize', notifyPwaState, { passive: true });
 })();
 
 function showStartupError(error) {
