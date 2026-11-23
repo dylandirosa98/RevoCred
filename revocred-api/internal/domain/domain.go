@@ -80,6 +80,7 @@ type WalletCard struct {
 	Nickname      string       `json:"nickname"`
 	Status        string       `json:"status"`
 	OpenedOn      *time.Time   `json:"opened_on,omitempty"`
+	RenewalMonth  *int         `json:"renewal_month,omitempty"`
 	CreatedAt     time.Time    `json:"created_at"`
 	Card          *CatalogCard `json:"card,omitempty"`
 }
@@ -89,6 +90,16 @@ type CreateWalletCard struct {
 	Nickname      string     `json:"nickname"`
 	Status        string     `json:"status"`
 	OpenedOn      *time.Time `json:"opened_on,omitempty"`
+	RenewalMonth  *int       `json:"renewal_month,omitempty"`
+}
+
+// ReminderState stores a member's action (completed, dismissed, or snoozed)
+// for a deterministic server-generated reminder key.
+type ReminderState struct {
+	ReminderKey  string     `json:"reminder_key"`
+	Status       string     `json:"status"`
+	SnoozedUntil *time.Time `json:"snoozed_until,omitempty"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 type CreateCustomCard struct {

@@ -11,6 +11,7 @@ import '../../../core/logic/strategy_digest.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/content_layout.dart';
 import '../../../shared/widgets/theme_switcher.dart';
+import '../../auth/presentation/email_notifications_setting.dart';
 import '../../subscription/presentation/revo_ai_paywall.dart';
 import '../../../core/logic/friendly_error.dart';
 
@@ -193,6 +194,16 @@ class ProfileScreen extends ConsumerWidget {
         ),
         if (state.isAuthenticated) const _AiAnswersSetting(),
         if (state.isAuthenticated) const RevoAIPlanRow(),
+        if (state.isAuthenticated && !config.useMocks) ...[
+          SizedBox(height: product.sectionGap),
+          const SectionLabel('Email updates'),
+          const SizedBox(height: 10),
+          const AppPanel(
+            child: EmailNotificationsToggle(
+              toggleKey: ValueKey('profile-email-notifications-toggle'),
+            ),
+          ),
+        ],
         SizedBox(height: product.sectionGap),
         const SectionLabel('Expert help'),
         const SizedBox(height: 10),

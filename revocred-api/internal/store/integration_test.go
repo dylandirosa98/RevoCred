@@ -66,6 +66,7 @@ func TestPostgresIntegration(t *testing.T) {
 	t.Run("AI allowance survives clearing chat", func(t *testing.T) { testAIAllowance(t, ctx, admin, repo) })
 	t.Run("RevenueCat entitlements are narrow and ordered", func(t *testing.T) { testRevenueCatEntitlements(t, ctx, admin, repo) })
 	t.Run("moderation triage workflow and runtime isolation", func(t *testing.T) { testModerationWorkflow(t, ctx, admin, repo) })
+	t.Run("reminders state, renewal month, isolation and cascade delete", func(t *testing.T) { testReminders(t, ctx, admin, pool, repo, cards) })
 	draft := domain.CreateCustomCard{Name: "My  Card", Issuer: "Test", Network: "Visa", RewardRates: map[string]float64{"other": 2}, TravelScope: "none", RewardsType: "cash_back", MinimumCreditTier: "good"}
 	mine, err := repo.CreateCustomCard(ctx, a, draft)
 	if err != nil {

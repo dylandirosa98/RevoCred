@@ -13,8 +13,20 @@ class MockAppRepository implements AppRepository, AIPlanSource {
     : _data = initialData ?? createDemoAppData();
 
   AppData _data;
+  bool _emailNotificationsOptIn = false;
+  final Map<String, ({String status, DateTime? snoozedUntil})> _reminderStates =
+      {};
+
   @override
   String? get accountEmail => null;
+  @override
+  bool get emailNotificationsOptIn => _emailNotificationsOptIn;
+  @override
+  Future<bool> updateEmailNotificationsOptIn(bool enabled) async {
+    _emailNotificationsOptIn = enabled;
+    return enabled;
+  }
+
   @override
   Future<List<CreditCard>> loadCatalog() async => _data.catalog;
   @override
@@ -98,6 +110,7 @@ class MockAppRepository implements AppRepository, AIPlanSource {
     bool notificationsOptIn = false,
     Map<String, dynamic>? pendingPlan,
   }) async {
+    _emailNotificationsOptIn = notificationsOptIn;
     if (displayName.trim().isNotEmpty) {
       _data = _data.copyWith(
         profile: UserProfile(
@@ -116,11 +129,14 @@ class MockAppRepository implements AppRepository, AIPlanSource {
   @override
   Future<void> signOut() async {
     _data = createDemoAppData();
+    _emailNotificationsOptIn = false;
+    _reminderStates.clear();
   }
 
   @override
   Future<AppData> loadAppData() async => _data.copyWith(
     purchaseGuide: _data.purchaseGuide ?? demoPurchaseGuide(_data.wallet),
+    reminders: _buildDemoReminders(),
   );
 
   @override
@@ -192,6 +208,162 @@ class MockAppRepository implements AppRepository, AIPlanSource {
       _data.wallet
           .where((card) => (card.walletCardId ?? card.id) != walletCardId)
           .toList(),
+    );
+  }
+
+  @override
+  Future<void> updateWalletRenewalMonth(
+    String walletCardId,
+    int? renewalMonth,
+  ) async {
+    _data = _data.copyWith(
+      wallet: [
+        for (final card in _data.wallet)
+          if ((card.walletCardId ?? card.id) == walletCardId)
+            card.copyWith(
+              renewalMonth: renewalMonth,
+              clearRenewalMonth: renewalMonth == null,
+            )
+          else
+            card,
+      ],
+    );
+  }
+
+  @override
+  Future<ReminderFeed> loadReminders() async => _buildDemoReminders();
+
+  @override
+  Future<ReminderFeed> updateReminderState(
+    String key, {
+    required String status,
+    int? snoozeDays,
+  }) async {
+    if (status == 'active') {
+      _reminderStates.remove(key);
+    } else {
+      final until = status == 'snoozed'
+          ? DateTime.now().toUtc().add(Duration(days: snoozeDays ?? 7))
+          : null;
+      _reminderStates[key] = (status: status, snoozedUntil: until);
+    }
+    return _buildDemoReminders();
+  }
+
+  ReminderFeed _buildDemoReminders() {
+    final now = DateTime.now().toUtc();
+    final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final items = <ReminderItem>[];
+    for (final card in _data.wallet) {
+      final wid = card.walletCardId ?? card.id;
+      final lower = card.name.toLowerCase();
+      if (lower.contains('gold')) {
+        items.add(
+          ReminderItem(
+            key: 'credit.${card.id}.dining.$monthKey',
+            kind: 'credit',
+            priority: 'medium',
+            status: 'active',
+            title: r'Use $10 Dining credit',
+            detail:
+                'Monthly credit · Enrollment required; participating dining partners only.',
+            cardId: card.id,
+            walletCardId: wid,
+            cardName: card.name,
+            amountCents: 1000,
+            periodLabel: monthKey,
+            actionKind: 'mark_used',
+            actionLabel: 'Mark used',
+            route: '/cards',
+            canComplete: true,
+          ),
+        );
+      }
+      final feeDollars =
+          int.tryParse(card.annualFee.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      if (feeDollars > 0 && card.renewalMonth == null) {
+        items.add(
+          ReminderItem(
+            key: 'renewal-month.$wid',
+            kind: 'annual_fee',
+            priority: 'low',
+            status: 'active',
+            title: 'Set renewal month for ${card.name}',
+            detail:
+                '\$$feeDollars/yr annual fee. Add your renewal month so RevoCred reminds you 30 days before renewal.',
+            cardId: card.id,
+            walletCardId: wid,
+            cardName: card.name,
+            amountCents: feeDollars * 100,
+            actionKind: 'set_renewal_month',
+            actionLabel: 'Set month',
+            route: '/cards',
+            canComplete: false,
+          ),
+        );
+      }
+      if (card.termsUnknown) {
+        items.add(
+          ReminderItem(
+            key: 'wallet-terms.$wid',
+            kind: 'wallet',
+            priority: 'low',
+            status: 'active',
+            title: 'Add terms for ${card.name}',
+            detail:
+                'This card is excluded from your wallet score and purchase guide because its rates are missing.',
+            cardId: card.id,
+            walletCardId: wid,
+            cardName: card.name,
+            actionKind: 'review_card',
+            actionLabel: 'Open wallet',
+            route: '/cards',
+            canComplete: false,
+          ),
+        );
+      }
+    }
+    final nextCard = _data.playbook?.nextCard ?? '';
+    if (nextCard.isNotEmpty) {
+      final code = _data.playbook?.code ?? 'plan';
+      items.add(
+        ReminderItem(
+          key:
+              'strategy-next.${code.toLowerCase()}.${nextCard.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}',
+          kind: 'strategy',
+          priority: 'low',
+          status: 'active',
+          title: 'Next strategy step: $nextCard',
+          detail:
+              'Your $code roadmap highlights $nextCard when you are ready for your next card.',
+          cardName: nextCard,
+          actionKind: 'open_strategy',
+          actionLabel: 'View strategy',
+          route: '/strategy',
+          canComplete: false,
+        ),
+      );
+    }
+    final resolved = [
+      for (final item in items)
+        () {
+          final saved = _reminderStates[item.key];
+          if (saved == null) return item;
+          if (saved.status == 'snoozed' &&
+              (saved.snoozedUntil == null ||
+                  !saved.snoozedUntil!.isAfter(now))) {
+            return item;
+          }
+          return item.copyWith(
+            status: saved.status,
+            snoozedUntil: saved.snoozedUntil,
+          );
+        }(),
+    ];
+    return ReminderFeed(
+      generatedAt: now,
+      activeCount: resolved.where((item) => item.isActive).length,
+      reminders: resolved,
     );
   }
 

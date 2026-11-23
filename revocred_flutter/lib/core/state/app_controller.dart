@@ -638,4 +638,55 @@ class AppController extends Notifier<AppState> {
   void clearMessages() {
     state = state.copyWith(clearError: true, clearActionMessage: true);
   }
+
+  bool get emailNotificationsOptIn => _repository.emailNotificationsOptIn;
+
+  Future<bool> updateEmailNotificationsOptIn(bool enabled) async {
+    return _repository.updateEmailNotificationsOptIn(enabled);
+  }
+
+  Future<ReminderFeed> refreshReminders() async {
+    final generation = _sessionGeneration;
+    final feed = await _repository.loadReminders();
+    if (generation == _sessionGeneration && state.data != null) {
+      state = state.copyWith(data: state.data!.copyWith(reminders: feed));
+    }
+    return feed;
+  }
+
+  Future<ReminderFeed> updateReminderState(
+    String key, {
+    required String status,
+    int? snoozeDays,
+  }) async {
+    final generation = _sessionGeneration;
+    final feed = await _repository.updateReminderState(
+      key,
+      status: status,
+      snoozeDays: snoozeDays,
+    );
+    if (generation == _sessionGeneration && state.data != null) {
+      state = state.copyWith(data: state.data!.copyWith(reminders: feed));
+    }
+    return feed;
+  }
+
+  Future<void> updateWalletRenewalMonth(
+    String walletCardId,
+    int? renewalMonth,
+  ) async {
+    final generation = _sessionGeneration;
+    await _repository.updateWalletRenewalMonth(walletCardId, renewalMonth);
+    if (generation != _sessionGeneration) return;
+    final data = await _repository.loadAppData();
+    if (generation != _sessionGeneration) return;
+    state = state.copyWith(
+      data: data,
+      isLoading: false,
+      clearError: true,
+      actionMessage: renewalMonth == null
+          ? 'Renewal month cleared.'
+          : 'Renewal month saved.',
+    );
+  }
 }

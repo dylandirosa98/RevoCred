@@ -33,6 +33,10 @@ type Repository interface {
 	CreateWalletCard(ctx context.Context, userID string, input domain.CreateWalletCard) (domain.WalletCard, error)
 	CreateCustomCard(ctx context.Context, userID string, input domain.CreateCustomCard) (domain.WalletCard, error)
 	DeleteWalletCard(ctx context.Context, userID, walletCardID string) error
+	UpdateWalletRenewalMonth(ctx context.Context, userID, walletCardID string, renewalMonth *int) (domain.WalletCard, error)
+	ListReminderStates(ctx context.Context, userID string) (map[string]domain.ReminderState, error)
+	UpsertReminderState(ctx context.Context, userID, key, status string, snoozedUntil *time.Time) error
+	DeleteReminderState(ctx context.Context, userID, key string) error
 	SaveRecommendation(ctx context.Context, userID string, input domain.RecommendationInput, result domain.RecommendationResult) (domain.RecommendationResult, error)
 	ListMessages(ctx context.Context, userID string, limit int) ([]domain.ChatMessage, error)
 	// AppendChatExchange saves a prompt and its reply; mode ("ai" or "basic")

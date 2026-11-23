@@ -45,9 +45,11 @@ type fakeRepository struct {
 	feedback    string
 	// entitlements records ApplyRevenueCatEntitlement calls; outcome is
 	// returned from them (default "applied").
-	entitlements []store.EntitlementUpdate
-	outcome      string
-	plan         store.AIPlan
+	entitlements   []store.EntitlementUpdate
+	outcome        string
+	plan           store.AIPlan
+	reminderStates map[string]domain.ReminderState
+	bootstrapData  *domain.Bootstrap
 }
 
 func (f *fakeRepository) AIPlan(_ context.Context, _ string, freeLimit, paidLimit int) (store.AIPlan, error) {
@@ -91,7 +93,10 @@ func (f *fakeRepository) ExportAccount(context.Context, string) (map[string]json
 }
 func (f *fakeRepository) DeleteAccount(context.Context, string) error { return nil }
 func (f *fakeRepository) Bootstrap(context.Context, string) (domain.Bootstrap, error) {
-	return domain.Bootstrap{Wallet: []domain.WalletCard{}, Catalog: []domain.CatalogCard{}, QuickPrompts: []string{}}, nil
+	if f.bootstrapData != nil {
+		return *f.bootstrapData, nil
+	}
+	return domain.Bootstrap{Wallet: f.wallet, Catalog: f.cards, QuickPrompts: []string{}}, nil
 }
 func (f *fakeRepository) ListCatalog(context.Context) ([]domain.CatalogCard, error) {
 	if f.cards == nil {
@@ -116,6 +121,45 @@ func (f *fakeRepository) CreateCustomCard(_ context.Context, _ string, input dom
 	return domain.WalletCard{ID: "custom-wallet", CatalogCardID: "custom-card", Nickname: input.Nickname, Status: "active", Card: &domain.CatalogCard{Name: input.Name, Issuer: input.Issuer}}, nil
 }
 func (f *fakeRepository) DeleteWalletCard(context.Context, string, string) error { return nil }
+func (f *fakeRepository) UpdateWalletRenewalMonth(_ context.Context, _ string, walletCardID string, renewalMonth *int) (domain.WalletCard, error) {
+	for i := range f.wallet {
+		if f.wallet[i].ID == walletCardID {
+			f.wallet[i].RenewalMonth = renewalMonth
+			if f.bootstrapData != nil {
+				for j := range f.bootstrapData.Wallet {
+					if f.bootstrapData.Wallet[j].ID == walletCardID {
+						f.bootstrapData.Wallet[j].RenewalMonth = renewalMonth
+					}
+				}
+			}
+			return f.wallet[i], nil
+		}
+	}
+	return domain.WalletCard{}, store.ErrNotFound
+}
+func (f *fakeRepository) ListReminderStates(context.Context, string) (map[string]domain.ReminderState, error) {
+	out := make(map[string]domain.ReminderState, len(f.reminderStates))
+	for k, v := range f.reminderStates {
+		out[k] = v
+	}
+	return out, nil
+}
+func (f *fakeRepository) UpsertReminderState(_ context.Context, _, key, status string, snoozedUntil *time.Time) error {
+	if f.reminderStates == nil {
+		f.reminderStates = map[string]domain.ReminderState{}
+	}
+	f.reminderStates[key] = domain.ReminderState{
+		ReminderKey:  key,
+		Status:       status,
+		SnoozedUntil: snoozedUntil,
+		UpdatedAt:    time.Now().UTC(),
+	}
+	return nil
+}
+func (f *fakeRepository) DeleteReminderState(_ context.Context, _, key string) error {
+	delete(f.reminderStates, key)
+	return nil
+}
 func (f *fakeRepository) SaveRecommendation(_ context.Context, _ string, input domain.RecommendationInput, result domain.RecommendationResult) (domain.RecommendationResult, error) {
 	f.savedInput = input
 	f.savedResult = result

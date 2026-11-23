@@ -3,6 +3,8 @@ import 'ongoing_value.dart';
 export 'ongoing_value.dart';
 import 'purchase_guide.dart';
 export 'purchase_guide.dart';
+import 'reminder.dart';
+export 'reminder.dart';
 
 enum MessageRole { user, assistant }
 
@@ -101,6 +103,7 @@ class CreditCard {
     this.isActive = false,
     this.feeTier = '0',
     this.walletCardId,
+    this.renewalMonth,
     this.sourceDisclaimer =
         'Verify current terms with the issuer. Educational use only.',
     this.termsUnknown = false,
@@ -131,6 +134,8 @@ class CreditCard {
     isActive: (json['isActive'] ?? json['is_active'] ?? false) as bool,
     feeTier: (json['feeTier'] ?? json['annual_fee_tier'] ?? '0') as String,
     walletCardId: (json['walletCardId'] ?? json['wallet_card_id']) as String?,
+    renewalMonth: (json['renewalMonth'] ?? json['renewal_month'] as num?)
+        ?.round(),
     termsUnknown: json['termsUnknown'] == true || json['terms_unknown'] == true,
     rewardsType: (json['rewardsType'] ?? json['rewards_type'] ?? '').toString(),
     pointValueCents: _pointValue(json['point_value_cents']),
@@ -147,6 +152,7 @@ class CreditCard {
     Map<String, dynamic> json, {
     bool isActive = false,
     String? walletCardId,
+    int? renewalMonth,
   }) {
     final rewardRates = (json['reward_rates'] as Map?)?.cast<String, dynamic>();
     final rates =
@@ -179,6 +185,7 @@ class CreditCard {
       transferablePoints: json['transferable_points'] == true,
       isActive: isActive,
       walletCardId: walletCardId,
+      renewalMonth: renewalMonth,
       feeTier: annualFeeCents == 0
           ? '0'
           : annualFeeCents <= 10000
@@ -228,6 +235,7 @@ class CreditCard {
   final bool isActive;
   final String feeTier;
   final String? walletCardId;
+  final int? renewalMonth;
   final String sourceDisclaimer;
   final CommunityCardData? communityData;
 
@@ -253,6 +261,8 @@ class CreditCard {
   CreditCard copyWith({
     bool? isActive,
     String? walletCardId,
+    int? renewalMonth,
+    bool clearRenewalMonth = false,
     bool? termsUnknown,
     String? minimumCreditTier,
   }) => CreditCard(
@@ -271,6 +281,9 @@ class CreditCard {
     isActive: isActive ?? this.isActive,
     feeTier: feeTier,
     walletCardId: walletCardId ?? this.walletCardId,
+    renewalMonth: clearRenewalMonth
+        ? null
+        : (renewalMonth ?? this.renewalMonth),
     sourceDisclaimer: sourceDisclaimer,
     termsUnknown: termsUnknown ?? this.termsUnknown,
     communityData: communityData,
@@ -656,6 +669,7 @@ class AppData {
     this.ongoingValue,
     this.nextCardReasons = const [],
     this.purchaseGuide,
+    this.reminders,
   });
 
   factory AppData.fromJson(Map<String, dynamic> json) {
@@ -694,6 +708,11 @@ class AppData {
               (json['purchase_guide'] as Map).cast<String, dynamic>(),
             )
           : null,
+      reminders: json['reminders'] is Map
+          ? ReminderFeed.fromJson(
+              (json['reminders'] as Map).cast<String, dynamic>(),
+            )
+          : null,
     );
   }
 
@@ -721,6 +740,7 @@ class AppData {
             cardJson,
             isActive: true,
             walletCardId: walletJson['id']?.toString(),
+            renewalMonth: (walletJson['renewal_month'] as num?)?.round(),
           );
         })
         .toList();
@@ -819,6 +839,11 @@ class AppData {
               (json['purchase_guide'] as Map).cast<String, dynamic>(),
             )
           : null,
+      reminders: json['reminders'] is Map
+          ? ReminderFeed.fromJson(
+              (json['reminders'] as Map).cast<String, dynamic>(),
+            )
+          : null,
       questionnaireAnswers: latestQuestionnaire.isEmpty
           ? null
           : QuestionnaireAnswers.fromRecommendationJson(latestQuestionnaire),
@@ -845,6 +870,7 @@ class AppData {
   final QuestionnaireAnswers? questionnaireAnswers;
   final List<String> nextCardReasons;
   final PurchaseGuide? purchaseGuide;
+  final ReminderFeed? reminders;
 
   AppData copyWith({
     List<CreditCard>? catalog,
@@ -862,6 +888,7 @@ class AppData {
     List<RoadmapStep>? roadmap,
     PurchaseGuide? purchaseGuide,
     OngoingValue? ongoingValue,
+    ReminderFeed? reminders,
   }) => AppData(
     profile: profile ?? this.profile,
     wallet: wallet ?? this.wallet,
@@ -882,6 +909,7 @@ class AppData {
     questionnaireAnswers: questionnaireAnswers ?? this.questionnaireAnswers,
     nextCardReasons: nextCardReasons,
     purchaseGuide: purchaseGuide ?? this.purchaseGuide,
+    reminders: reminders ?? this.reminders,
   );
 }
 

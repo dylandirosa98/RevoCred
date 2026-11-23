@@ -83,7 +83,7 @@ Card information may come from OpenCard DB and issuer websites. Downloading that
 - **Export:** Profile → Account settings → Export my data downloads your data as a JSON file.
 - **Delete:** Profile → Account settings → Delete my account permanently deletes your account. You will be asked for your password. Files you exported or shared are not recalled.
 - **AI permission:** turn off Profile → AI answers (REVO) at any time. You will get basic answers until you agree again.
-- **Update emails:** unsubscribe using the link in any update email, or email us.
+- **Update emails:** turn off Profile → Account settings → Email me RevoCred updates at any time, unsubscribe using the link in any update email, or email us.
 - **Subscription:** manage or cancel REVO AI in your iPhone's Settings → [your name] → Subscriptions.
 - **Requests:** email [support@revocred.com](mailto:support@revocred.com) to access, correct or delete your information, or if you cannot sign in. Depending on your state, you may have additional privacy rights; we will honor them as the law requires. We will verify your request using your account email and never ask for your password.
 

@@ -21,6 +21,7 @@ import '../../../shared/widgets/content_layout.dart';
 import '../../../shared/widgets/pwa_install_banner.dart';
 import '../../../shared/widgets/send_revo_message.dart';
 import 'purchase_recommendations_sheet.dart';
+import 'reminders_sheet.dart';
 
 OngoingValue _ongoingValue(AppData data) =>
     data.ongoingValue ??
@@ -75,6 +76,9 @@ class HomeScreen extends ConsumerWidget {
       initials: data.profile.initials,
       cards: data.wallet,
       purchaseGuide: data.purchaseGuide,
+      reminders: data.reminders,
+      showReminders: config.useMocks || appState.isAuthenticated,
+      onOpenReminders: () => showRemindersSheet(context, ref),
       onLoadGuide: (mode, caps) => ref
           .read(appRepositoryProvider)
           .loadPurchaseGuide(travelMode: mode, capsAvailable: caps),
@@ -92,6 +96,9 @@ class _DecisionFlowHome extends StatefulWidget {
   const _DecisionFlowHome({
     required this.cards,
     required this.purchaseGuide,
+    required this.reminders,
+    required this.showReminders,
+    required this.onOpenReminders,
     required this.onLoadGuide,
     this.name = '',
     this.initials = '',
@@ -106,6 +113,9 @@ class _DecisionFlowHome extends StatefulWidget {
   final String initials;
   final List<CreditCard> cards;
   final PurchaseGuide? purchaseGuide;
+  final ReminderFeed? reminders;
+  final bool showReminders;
+  final VoidCallback onOpenReminders;
   final Future<PurchaseGuide> Function(String, bool) onLoadGuide;
   final int estimatedValue;
   final int projectedValue;
@@ -182,9 +192,11 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
               _WalletGreeting(
                 name: widget.name,
                 initials: widget.initials,
+                showReminders: widget.showReminders,
+                activeReminderCount: widget.reminders?.activeCount ?? 0,
                 onProfile: () => context.go('/profile'),
                 onSearch: () => context.go('/cards?search=1'),
-                onAlerts: () => _showAlerts(context),
+                onAlerts: widget.onOpenReminders,
               ),
               const SizedBox(height: 27),
               Text(
@@ -393,7 +405,11 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
               ),
               const ApplyOfferButton(placement: ApplyPlacement.recommendation),
               const SizedBox(height: 14),
-              _DecisionUpcoming(onOpenCards: () => context.go('/cards')),
+              if (widget.showReminders)
+                _DecisionUpcoming(
+                  reminders: widget.reminders,
+                  onOpenReminders: widget.onOpenReminders,
+                ),
             ],
           ),
         ),
@@ -454,14 +470,6 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  void _showAlerts(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Two demo wallet reminders are listed below.'),
       ),
     );
   }
@@ -880,44 +888,72 @@ class _DecisionNextMove extends StatelessWidget {
   );
 }
 
-class _DecisionUpcoming extends ConsumerWidget {
-  const _DecisionUpcoming({required this.onOpenCards});
+class _DecisionUpcoming extends StatelessWidget {
+  const _DecisionUpcoming({
+    required this.reminders,
+    required this.onOpenReminders,
+  });
 
-  final VoidCallback onOpenCards;
+  final ReminderFeed? reminders;
+  final VoidCallback onOpenReminders;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) =>
-      !ref.watch(appConfigProvider).useMocks
-      ? const SizedBox.shrink()
-      : Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: context.product.surface,
-            borderRadius: BorderRadius.circular(18),
+  Widget build(BuildContext context) {
+    final active = reminders?.activeReminders ?? const <ReminderItem>[];
+    if (active.isEmpty) return const SizedBox.shrink();
+    final preview = active.take(2).toList();
+    final product = context.product;
+    return Container(
+      key: const ValueKey('home-reminders-preview'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: product.surface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _WalletSectionHeader(
+            label: 'Card reminders',
+            action: active.length > 2
+                ? 'View all (${active.length})'
+                : 'Manage',
+            onAction: onOpenReminders,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _WalletSectionHeader(label: 'Demo reminders'),
-              const SizedBox(height: 12),
-              _AttentionRow(
-                icon: Icons.restaurant_outlined,
-                title: 'Dining credit reminder',
-                detail: 'Review eligible purchases before month end',
-                color: context.product.warning,
-                onTap: onOpenCards,
-              ),
-              Divider(height: 24, color: context.product.border),
-              _AttentionRow(
-                icon: Icons.event_repeat_outlined,
-                title: 'Annual fee review',
-                detail: 'Venture X is your next wallet checkpoint',
-                color: context.product.action,
-                onTap: onOpenCards,
-              ),
-            ],
-          ),
-        );
+          const SizedBox(height: 12),
+          for (var i = 0; i < preview.length; i++) ...[
+            if (i > 0) Divider(height: 24, color: product.border),
+            _AttentionRow(
+              icon: _reminderPreviewIcon(preview[i].kind),
+              title: preview[i].title,
+              detail: preview[i].cardName.isEmpty
+                  ? preview[i].detail
+                  : '${preview[i].cardName}${preview[i].periodLabel.isEmpty ? '' : ' · ${preview[i].periodLabel}'}',
+              color: _reminderPreviewColor(product, preview[i].kind),
+              onTap: onOpenReminders,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static IconData _reminderPreviewIcon(String kind) => switch (kind) {
+    'credit' => Icons.redeem_outlined,
+    'annual_fee' => Icons.event_repeat_outlined,
+    'wallet' => Icons.credit_card_outlined,
+    'strategy' => Icons.route_outlined,
+    _ => Icons.notifications_none,
+  };
+
+  static Color _reminderPreviewColor(ProductTheme product, String kind) =>
+      switch (kind) {
+        'credit' => product.warning,
+        'annual_fee' => product.action,
+        'wallet' => product.danger,
+        'strategy' => product.success,
+        _ => product.action,
+      };
 }
 
 class _StudioCard extends StatelessWidget {
@@ -1112,12 +1148,16 @@ class _WalletGreeting extends StatelessWidget {
     required this.onProfile,
     required this.onSearch,
     required this.onAlerts,
+    required this.showReminders,
+    required this.activeReminderCount,
     this.name = '',
     this.initials = '',
   });
 
   final String name;
   final String initials;
+  final bool showReminders;
+  final int activeReminderCount;
   final VoidCallback onProfile;
   final VoidCallback onSearch;
   final VoidCallback onAlerts;
@@ -1174,15 +1214,29 @@ class _WalletGreeting extends StatelessWidget {
         onPressed: onSearch,
         icon: const Icon(Icons.search, size: 22),
       ),
-      Consumer(
-        builder: (context, ref, _) => ref.watch(appConfigProvider).useMocks
-            ? IconButton(
-                tooltip: 'Demo reminders',
-                onPressed: onAlerts,
-                icon: const Icon(Icons.notifications_none, size: 22),
-              )
-            : const SizedBox.shrink(),
-      ),
+      if (showReminders)
+        IconButton(
+          key: const ValueKey('home-reminders-bell'),
+          tooltip: activeReminderCount > 0
+              ? 'Card reminders ($activeReminderCount active)'
+              : 'Card reminders',
+          onPressed: onAlerts,
+          icon: activeReminderCount > 0
+              ? Badge(
+                  key: const ValueKey('home-reminders-badge'),
+                  backgroundColor: context.product.action,
+                  textColor: Colors.white,
+                  label: Text(
+                    activeReminderCount > 9 ? '9+' : '$activeReminderCount',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Icon(Icons.notifications_none, size: 22),
+                )
+              : const Icon(Icons.notifications_none, size: 22),
+        ),
     ],
   );
 }

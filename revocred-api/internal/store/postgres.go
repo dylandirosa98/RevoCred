@@ -40,7 +40,7 @@ func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
 
 func (p *Postgres) Ping(ctx context.Context) error {
 	var ready bool
-	if err := p.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM revocred.catalog_cards WHERE data_kind='issuer_snapshot' AND is_active) AND to_regprocedure('revocred.delete_account(uuid)') IS NOT NULL AND to_regclass('revocred.affiliate_offers') IS NOT NULL AND to_regclass('revocred.affiliate_click_days') IS NOT NULL AND to_regclass('revocred.issued_recommendations') IS NOT NULL`).Scan(&ready); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM revocred.catalog_cards WHERE data_kind='issuer_snapshot' AND is_active) AND to_regprocedure('revocred.delete_account(uuid)') IS NOT NULL AND to_regclass('revocred.affiliate_offers') IS NOT NULL AND to_regclass('revocred.affiliate_click_days') IS NOT NULL AND to_regclass('revocred.issued_recommendations') IS NOT NULL AND to_regclass('revocred.reminder_states') IS NOT NULL`).Scan(&ready); err != nil {
 		return err
 	}
 	if !ready {
@@ -251,7 +251,7 @@ RETURNING user_id::text, created_at, updated_at`,
 
 func (p *Postgres) ListWallet(ctx context.Context, userID string) ([]domain.WalletCard, error) {
 	rows, err := p.pool.Query(ctx, `
-SELECT w.id::text, w.user_id::text, w.catalog_card_id::text, w.nickname, w.status, w.opened_on, w.created_at,
+SELECT w.id::text, w.user_id::text, w.catalog_card_id::text, w.nickname, w.status, w.opened_on, w.renewal_month, w.created_at,
        c.id::text, c.slug, c.issuer, c.network, c.name,
        v.summary, v.best_use, v.annual_fee_cents, v.reward_rates, v.benefits,
        v.transferable_points, v.travel_scope, v.minimum_credit_tier, v.rewards_type,
@@ -281,7 +281,7 @@ ORDER BY w.created_at DESC`, userID)
 		var ratesJSON, benefitsJSON []byte
 		var referenceSlug string
 		err := rows.Scan(
-			&item.ID, &item.UserID, &item.CatalogCardID, &item.Nickname, &item.Status, &item.OpenedOn, &item.CreatedAt,
+			&item.ID, &item.UserID, &item.CatalogCardID, &item.Nickname, &item.Status, &item.OpenedOn, &item.RenewalMonth, &item.CreatedAt,
 			&card.ID, &card.Slug, &card.Issuer, &card.Network, &card.Name,
 			&card.Summary, &card.BestUse, &card.AnnualFeeCents, &ratesJSON, &benefitsJSON,
 			&card.TransferablePoints, &card.TravelScope, &card.MinimumCreditTier, &card.RewardsType,
@@ -316,12 +316,12 @@ ORDER BY w.created_at DESC`, userID)
 func (p *Postgres) CreateWalletCard(ctx context.Context, userID string, input domain.CreateWalletCard) (domain.WalletCard, error) {
 	var item domain.WalletCard
 	err := p.pool.QueryRow(ctx, `
-INSERT INTO revocred.wallet_cards (user_id, catalog_card_id, nickname, status, opened_on)
-SELECT $1, id, $3, $4, $5 FROM revocred.catalog_cards
+INSERT INTO revocred.wallet_cards (user_id, catalog_card_id, nickname, status, opened_on, renewal_month)
+SELECT $1, id, $3, $4, $5, $6 FROM revocred.catalog_cards
 WHERE id = $2 AND is_active AND (owner_user_id IS NULL OR owner_user_id = $1)
-RETURNING id::text, user_id::text, catalog_card_id::text, nickname, status, opened_on, created_at`,
-		userID, input.CatalogCardID, input.Nickname, input.Status, input.OpenedOn,
-	).Scan(&item.ID, &item.UserID, &item.CatalogCardID, &item.Nickname, &item.Status, &item.OpenedOn, &item.CreatedAt)
+RETURNING id::text, user_id::text, catalog_card_id::text, nickname, status, opened_on, renewal_month, created_at`,
+		userID, input.CatalogCardID, input.Nickname, input.Status, input.OpenedOn, input.RenewalMonth,
+	).Scan(&item.ID, &item.UserID, &item.CatalogCardID, &item.Nickname, &item.Status, &item.OpenedOn, &item.RenewalMonth, &item.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.WalletCard{}, ErrNotFound
