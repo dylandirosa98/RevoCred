@@ -1,0 +1,39 @@
+name: Uptime Check
+
+on:
+  schedule:
+    # Run every 30 minutes to verify production API readiness and public endpoints.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "Override API base URL (defaults to vars.API_HEALTH_BASE_URL or https://api.revocred.com)"
+        required: false
+        type: string
+      pwa_health_url:
+        description: "Override optional PWA health URL (defaults to vars.PWA_HEALTH_URL)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uptime-check
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check production endpoints
+        env:
+          API_BASE_URL: ${{ inputs.api_base_url || vars.API_HEALTH_BASE_URL || 'https://api.revocred.com' }}
+          PWA_HEALTH_URL: ${{ inputs.pwa_health_url || vars.PWA_HEALTH_URL || '' }}
+          UPTIME_ALERT_WEBHOOK_URL: ${{ secrets.UPTIME_ALERT_WEBHOOK_URL }}
+          UPTIME_RETRIES: "3"
+          UPTIME_RETRY_DELAY_SECONDS: "5"
+          UPTIME_TIMEOUT_SECONDS: "10"
+        run: python3 scripts/uptime_check.py

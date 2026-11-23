@@ -46,8 +46,7 @@ func (a *API) decodeChatInput(w http.ResponseWriter, r *http.Request) (chatInput
 // External AI costs money per message, so it needs a signed-in account (and
 // its daily allowance); a consent version sent by an older client is ignored.
 func (a *API) publicExplain(w http.ResponseWriter, r *http.Request) {
-	if !a.limits.allow("explain:"+a.clientIP(r), 20, time.Now()) {
-		a.tooMany(w, r)
+	if !a.checkRateLimit(w, r, "explain:"+a.clientIP(r), 20) {
 		return
 	}
 	input, ok := a.decodeChatInput(w, r)

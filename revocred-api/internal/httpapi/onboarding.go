@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/revocred/revocred-api/internal/domain"
@@ -33,8 +32,7 @@ func (a *API) onboardingInput(w http.ResponseWriter, r *http.Request) (domain.Re
 	return input, true
 }
 func (a *API) previewPlan(w http.ResponseWriter, r *http.Request) {
-	if !a.limits.allow("plan:"+a.clientIP(r), 30, time.Now()) {
-		a.tooMany(w, r)
+	if !a.checkRateLimit(w, r, "plan:"+a.clientIP(r), 30) {
 		return
 	}
 	input, ok := a.onboardingInput(w, r)
@@ -74,8 +72,7 @@ func (a *API) onboardingError(w http.ResponseWriter, r *http.Request, err error)
 // rate limited per IP because it is unauthenticated, and it never exposes
 // anything a user cannot see in the public catalog.
 func (a *API) cardIndex(w http.ResponseWriter, r *http.Request) {
-	if !a.limits.allow("index:"+a.clientIP(r), 60, time.Now()) {
-		a.tooMany(w, r)
+	if !a.checkRateLimit(w, r, "index:"+a.clientIP(r), 60) {
 		return
 	}
 	query := strings.TrimSpace(r.URL.Query().Get("q"))

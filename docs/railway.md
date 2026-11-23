@@ -135,8 +135,20 @@ the client's actual organization/project settings rather than assuming ZDR.
   it empty for the App Store: native apps send no `Origin`, so browser requests
   are refused. Set it to explicit HTTPS origins only while a web build (for
   example a testing preview) calls this API.
-- One replica. Rate limits and counters live in process memory; more replicas
-  multiply the limits. Add a shared quota backend before scaling out.
+- One replica by default (`RATE_LIMIT_BACKEND=memory`). In-memory rate limits
+  have zero database overhead for a single replica, but scaling `numReplicas`
+  above `1` multiplies them. To scale horizontally without adding Redis:
+  1. Apply migration `000035_rate_limits.sql` with the owner connection
+     (`revocred.rate_limit_windows`, an `UNLOGGED` table with least-privilege
+     grants to `revocred_runtime`).
+  2. Set `RATE_LIMIT_BACKEND: "postgres"` and increase `numReplicas` in
+     [`.railway/railway.ts`](../.railway/railway.ts), verifying that
+     `numReplicas * DB_MAX_CONNS` stays within your Supabase session-pooler
+     connection budget.
+  3. Optional tuning variables: `RATE_LIMIT_FAIL_OPEN` (`true` by default;
+     `false` returns HTTP `503` on backend errors), `RATE_LIMIT_DB_TIMEOUT`
+     (`500ms` default, max `5s`), and `RATE_LIMIT_CLEANUP_INTERVAL` (`5m`
+     default). See [operations.md](operations.md#rate-limiting-and-multi-replica-scaling).
 - `/metrics` is public on Railway (Caddy used to hide it) but returns 404
   without `Authorization: Bearer <METRICS_TOKEN>`.
 - The Dockerfile `HEALTHCHECK` is ignored; Railway checks `/readyz` instead.

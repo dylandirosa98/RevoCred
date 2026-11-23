@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -135,6 +136,19 @@ func run(logger *slog.Logger) error {
 		defer moderationNotifier.Wait()
 		logger.Info("REVO moderation alert webhook enabled")
 	}
+	var rateLimiter httpapi.RateLimiter
+	if cfg.RateLimitBackend == "postgres" {
+		pgLimiter := store.NewPostgresRateLimiter(pool, store.PostgresRateLimiterOptions{
+			QueryTimeout:    cfg.RateLimitDBTimeout,
+			CleanupInterval: cfg.RateLimitCleanupInterval,
+			Logger:          logger,
+		})
+		if err := pgLimiter.CheckReady(startupCtx); err != nil {
+			return fmt.Errorf("postgres rate limiter not ready (apply migration 35): %w", err)
+		}
+		go pgLimiter.RunCleanup(dataCtx)
+		rateLimiter = pgLimiter
+	}
 	handler := httpapi.New(
 		repository,
 		authenticator,
@@ -145,6 +159,7 @@ func run(logger *slog.Logger) error {
 		cfg.RequestTimeout,
 		httpapi.Options{
 			MetricsToken: cfg.MetricsToken, ClientIPHeader: cfg.ClientIPHeader,
+			RateLimiter: rateLimiter, RateLimitFailOpen: &cfg.RateLimitFailOpen,
 			ChatDailyAILimit: cfg.ChatDailyAILimit, ChatFreeDailyAILimit: &cfg.ChatFreeDailyAILimit,
 			RevenueCatWebhookAuth: cfg.RevenueCatWebhookAuth, RevenueCatEntitlementID: cfg.RevenueCatEntitlementID,
 			RevenueCatAllowSandbox: cfg.RevenueCatAllowSandbox, RevenueCatSubscribers: subscribers,
@@ -165,7 +180,7 @@ func run(logger *slog.Logger) error {
 	defer stop()
 	serverErrors := make(chan error, 1)
 	go func() {
-		logger.Info("server listening", "address", server.Addr, "environment", cfg.Environment, "chat", chatProvider.Mode())
+		logger.Info("server listening", "address", server.Addr, "environment", cfg.Environment, "chat", chatProvider.Mode(), "rate_limit_backend", cfg.RateLimitBackend)
 		serverErrors <- server.ListenAndServe()
 	}()
 

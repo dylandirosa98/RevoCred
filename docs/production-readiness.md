@@ -21,8 +21,12 @@ hardening work. No production credentials or production deployment were used.
   JSON export and password-reauthenticated account deletion are wired into Flutter
   and the API. Web auth query strings are preserved; native callback schemes are
   registered. Production delivery and device callbacks need external verification.
-- Request limits, card quotas, bounded history, database readiness, private
-  Prometheus counters and privacy-minimized client error reports.
+- Request limits (default in-memory, plus optional shared Postgres backend via
+  `RATE_LIMIT_BACKEND=postgres` and migration `000035_rate_limits.sql` for
+  multi-replica deployments), card quotas, bounded history, database readiness,
+  private Prometheus counters, privacy-minimized client error reports, and a
+  scheduled GitHub Actions uptime/readiness probe
+  (`.github/workflows/uptime-check.yml`).
 - The runtime database role cannot directly mutate auth tables. Deletion uses a
   narrowly scoped backend-only function.
 - Production configuration rejects mocks, insecure endpoints, privileged client

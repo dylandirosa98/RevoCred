@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -25,6 +24,14 @@ type Options struct {
 	// ClientIPHeader names a header set by a trusted edge proxy (for example
 	// Railway's X-Real-IP). Leave empty when clients can reach the API directly.
 	ClientIPHeader string
+	// RateLimiter enforces per-IP and per-user fixed-window limits. Nil uses an
+	// in-process MemoryRateLimiter.
+	RateLimiter RateLimiter
+	// RateLimitFailOpen controls what happens when a shared rate-limiter
+	// backend errors or times out. Nil defaults to true (allow requests while
+	// logging and incrementing revocred_rate_limit_errors_total); false fails
+	// closed with 503 Service Unavailable.
+	RateLimitFailOpen *bool
 	// ChatDailyAILimit caps external-AI chat replies per subscriber in a
 	// rolling 24 hours. Zero uses defaultChatDailyAILimit.
 	ChatDailyAILimit int
@@ -46,50 +53,36 @@ type Options struct {
 	ModerationNotifier ModerationNotifier
 }
 
-type window struct {
-	until time.Time
-	count int
-}
-type limiter struct {
-	mu      sync.Mutex
-	entries map[string]window
-}
+type counters struct{ requests, failures, limited, limitErrors, clientErrors atomic.Uint64 }
 
-func (l *limiter) allow(key string, limit int, now time.Time) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.entries == nil {
-		l.entries = map[string]window{}
-	}
-	current, exists := l.entries[key]
-	if !exists && len(l.entries) >= 10000 {
-		for k, v := range l.entries {
-			if !now.Before(v.until) {
-				delete(l.entries, k)
-			}
+func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, key string, limit int) bool {
+	allowed, err := a.limits.Allow(r.Context(), key, limit, time.Now())
+	if err != nil {
+		a.stats.limitErrors.Add(1)
+		a.logger.WarnContext(r.Context(), "rate limiter backend failed",
+			"request_id", requestIDFromContext(r.Context()),
+			"bucket", rateLimitBucket(key),
+			"fail_open", a.rateLimitFailOpen,
+			"error", err,
+		)
+		if a.rateLimitFailOpen {
+			return true
 		}
-		if len(l.entries) >= 10000 {
-			return false
-		}
-	}
-	if !now.Before(current.until) {
-		current = window{until: now.Add(time.Minute)}
-	}
-	if current.count >= limit {
+		w.Header().Set("Retry-After", "5")
+		writeError(w, r, http.StatusServiceUnavailable, "rate_limit_unavailable", "Rate limiter is temporarily unavailable. Please try again shortly.", nil)
 		return false
 	}
-	current.count++
-	l.entries[key] = current
+	if !allowed {
+		a.tooMany(w, r)
+		return false
+	}
 	return true
 }
-
-type counters struct{ requests, failures, limited, clientErrors atomic.Uint64 }
 
 func (a *API) rateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/v1/") {
-			if !a.limits.allow("ip:"+a.clientIP(r), 600, time.Now()) {
-				a.tooMany(w, r)
+			if !a.checkRateLimit(w, r, "ip:"+a.clientIP(r), 600) {
 				return
 			}
 		}
@@ -137,6 +130,7 @@ func (a *API) metrics(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	fmt.Fprintf(w, "# TYPE revocred_requests_total counter\nrevocred_requests_total %d\n# TYPE revocred_errors_total counter\nrevocred_errors_total %d\n# TYPE revocred_rate_limited_total counter\nrevocred_rate_limited_total %d\n", a.stats.requests.Load(), a.stats.failures.Load(), a.stats.limited.Load())
+	fmt.Fprintf(w, "# TYPE revocred_rate_limit_errors_total counter\nrevocred_rate_limit_errors_total %d\n", a.stats.limitErrors.Load())
 	fmt.Fprintf(w, "# TYPE revocred_client_errors_total counter\nrevocred_client_errors_total %d\n", a.stats.clientErrors.Load())
 }
 

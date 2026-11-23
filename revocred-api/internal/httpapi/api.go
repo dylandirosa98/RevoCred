@@ -34,10 +34,11 @@ type API struct {
 	recommender    Recommender
 	chatProvider   chat.Provider
 	logger         *slog.Logger
-	allowedOrigins map[string]struct{}
-	requestTimeout time.Duration
-	limits         limiter
-	stats          counters
+	allowedOrigins    map[string]struct{}
+	requestTimeout    time.Duration
+	limits            RateLimiter
+	rateLimitFailOpen bool
+	stats             counters
 	metricsToken   string
 	clientIPHeader string
 	// chatDailyAILimit caps external-AI replies per subscriber per rolling
@@ -66,11 +67,19 @@ func New(
 	api := &API{
 		repository: repository, authenticator: authenticator, recommender: recommender,
 		chatProvider: chatProvider, logger: logger, requestTimeout: requestTimeout,
-		allowedOrigins: make(map[string]struct{}, len(allowedOrigins)),
+		allowedOrigins:    make(map[string]struct{}, len(allowedOrigins)),
+		limits:            NewMemoryRateLimiter(),
+		rateLimitFailOpen: true,
 	}
 	if len(options) > 0 {
 		api.metricsToken = options[0].MetricsToken
 		api.clientIPHeader = options[0].ClientIPHeader
+		if options[0].RateLimiter != nil {
+			api.limits = options[0].RateLimiter
+		}
+		if options[0].RateLimitFailOpen != nil {
+			api.rateLimitFailOpen = *options[0].RateLimitFailOpen
+		}
 		api.chatDailyAILimit = options[0].ChatDailyAILimit
 		api.revenueCatAuth = options[0].RevenueCatWebhookAuth
 		api.revenueCatEntitlement = options[0].RevenueCatEntitlementID

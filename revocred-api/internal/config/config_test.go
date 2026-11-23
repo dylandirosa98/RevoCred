@@ -231,3 +231,44 @@ func TestModerationAlertWebhookSettings(t *testing.T) {
 		t.Fatalf("valid MODERATION_ALERT_WEBHOOK_URL rejected: %+v %v", cfg, err)
 	}
 }
+
+func TestRateLimitSettings(t *testing.T) {
+	setMobileProductionEnv(t)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.RateLimitBackend != "memory" || !cfg.RateLimitFailOpen || cfg.RateLimitDBTimeout != 500*time.Millisecond || cfg.RateLimitCleanupInterval != 5*time.Minute {
+		t.Fatalf("unexpected rate limit defaults: %+v", cfg)
+	}
+
+	t.Setenv("RATE_LIMIT_BACKEND", "POSTGRES")
+	t.Setenv("RATE_LIMIT_FAIL_OPEN", "false")
+	t.Setenv("RATE_LIMIT_DB_TIMEOUT", "1s")
+	t.Setenv("RATE_LIMIT_CLEANUP_INTERVAL", "2m")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.RateLimitBackend != "postgres" || cfg.RateLimitFailOpen || cfg.RateLimitDBTimeout != time.Second || cfg.RateLimitCleanupInterval != 2*time.Minute {
+		t.Fatalf("unexpected configured rate limits: %+v", cfg)
+	}
+
+	for name, env := range map[string]map[string]string{
+		"unsupported backend":  {"RATE_LIMIT_BACKEND": "redis"},
+		"invalid fail open":    {"RATE_LIMIT_FAIL_OPEN": "maybe"},
+		"timeout too large":    {"RATE_LIMIT_DB_TIMEOUT": "10s"},
+		"non-positive timeout": {"RATE_LIMIT_DB_TIMEOUT": "0s"},
+		"non-positive cleanup": {"RATE_LIMIT_CLEANUP_INTERVAL": "-1m"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setMobileProductionEnv(t)
+			for k, v := range env {
+				t.Setenv(k, v)
+			}
+			if _, err := Load(); err == nil {
+				t.Fatalf("expected error for %s", name)
+			}
+		})
+	}
+}
