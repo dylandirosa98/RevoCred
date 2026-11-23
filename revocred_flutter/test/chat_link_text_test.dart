@@ -33,4 +33,31 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('exposes distinct non-duplicated link semantics for web', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatLinkText(
+              'Check [Official issuer guide](https://chase.com/terms).',
+              accent: Colors.blue,
+              style: const TextStyle(),
+              launcher: (_) async => true,
+            ),
+          ),
+        ),
+      );
+      final linkFinder = find.bySemanticsLabel('Official issuer guide');
+      expect(linkFinder, findsOneWidget);
+      final node = tester.getSemantics(linkFinder);
+      expect(node.label, 'Official issuer guide');
+      expect(node.flagsCollection.isLink, isTrue);
+    } finally {
+      semantics.dispose();
+    }
+  });
 }

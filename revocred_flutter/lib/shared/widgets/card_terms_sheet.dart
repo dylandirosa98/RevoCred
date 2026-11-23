@@ -96,86 +96,106 @@ class _CardTermsFormState extends State<_CardTermsForm> {
   Widget build(BuildContext context) {
     final product = context.product;
     final sourced = widget.card.hasTerms;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        0,
-        20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Terms for ${widget.card.label}',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              sourced
-                  ? "We pre-filled the issuer's published earn rates. Check them against your own card, or skip."
-                  : "We don't have verified rates for this card. Enter what your card actually earns, or skip.",
-              style: TextStyle(color: product.muted),
-            ),
-            if (widget.card.sourceUrl.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Issuer list checked ${widget.card.sourceCapturedOn}. Fees and rewards change, so verify with the issuer.',
-                style: TextStyle(color: product.muted, fontSize: 11),
-              ),
-            ],
-            const SizedBox(height: 18),
-            TextField(
-              key: const ValueKey('index-card-fee'),
-              controller: fee,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Annual fee in dollars',
-                prefixText: r'$ ',
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text('Points or cash back per dollar'),
-            const SizedBox(height: 8),
-            for (final category in _CardTermsFormState.categories)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: TextField(
-                  key: ValueKey('index-card-rate-$category'),
-                  controller: rates[category],
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+    final maxHeight = MediaQuery.sizeOf(context).height * .9;
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight, maxWidth: 640),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            0,
+            20,
+            20 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Terms for ${widget.card.label}',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close card terms',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
                   ],
-                  decoration: InputDecoration(
-                    labelText: category.replaceAll('_', ' '),
-                    suffixText: 'x',
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  sourced
+                      ? "We pre-filled the issuer's published earn rates. Check them against your own card, or skip."
+                      : "We don't have verified rates for this card. Enter what your card actually earns, or skip.",
+                  style: TextStyle(color: product.muted),
+                ),
+                if (widget.card.sourceUrl.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Issuer list checked ${widget.card.sourceCapturedOn}. Fees and rewards change, so verify with the issuer.',
+                    style: TextStyle(color: product.muted, fontSize: 11),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                TextField(
+                  key: const ValueKey('index-card-fee'),
+                  controller: fee,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Annual fee in dollars',
+                    prefixText: r'$ ',
                   ),
                 ),
-              ),
-            const SizedBox(height: 6),
-            FilledButton(
-              key: const ValueKey('index-card-save-terms'),
-              onPressed: _accept,
-              child: const Text('Use these terms'),
+                const SizedBox(height: 14),
+                const Text('Points or cash back per dollar'),
+                const SizedBox(height: 8),
+                for (final category in _CardTermsFormState.categories)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: TextField(
+                      key: ValueKey('index-card-rate-$category'),
+                      controller: rates[category],
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: category.replaceAll('_', ' '),
+                        suffixText: 'x',
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 6),
+                FilledButton(
+                  key: const ValueKey('index-card-save-terms'),
+                  onPressed: _accept,
+                  child: const Text('Use these terms'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  key: const ValueKey('index-card-skip-terms'),
+                  onPressed: () =>
+                      Navigator.pop(context, const TermsChoice.skipped()),
+                  child: const Text('Skip - do not use this card in my score'),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Without terms RevoCred cannot include this card in your wallet score or value, so your score may be less accurate than it could be.',
+                  style: TextStyle(color: product.warning, fontSize: 12),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              key: const ValueKey('index-card-skip-terms'),
-              onPressed: () =>
-                  Navigator.pop(context, const TermsChoice.skipped()),
-              child: const Text('Skip - do not use this card in my score'),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Without terms RevoCred cannot include this card in your wallet score or value, so your score may be less accurate than it could be.',
-              style: TextStyle(color: product.warning, fontSize: 12),
-            ),
-          ],
+          ),
         ),
       ),
     );

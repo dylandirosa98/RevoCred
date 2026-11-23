@@ -191,7 +191,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
                     child: LinearProgressIndicator(minHeight: 2),
                   ),
                 const SizedBox(height: 8),
-                if (available.isEmpty)
+                if (available.isEmpty && query.isEmpty)
                   const Text('All catalog cards are already in your wallet.')
                 else if (matches.isEmpty &&
                     indexOnly.isEmpty &&
@@ -294,7 +294,18 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
                           .read(appControllerProvider.notifier)
                           .addCustomCard(draft);
                       if (!context.mounted) return;
-                      if (added) _closeCardPicker();
+                      if (added) {
+                        _closeCardPicker();
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              ref.read(appControllerProvider).error ??
+                                  'Could not add this card.',
+                            ),
+                          ),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.edit_outlined),
                     label: const Text("Can't find it? Add it manually"),

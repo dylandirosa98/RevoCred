@@ -69,102 +69,129 @@ class _CustomCardFormState extends State<_CustomCardForm> {
   @override
   Widget build(BuildContext context) {
     final padding = MediaQuery.viewInsetsOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + padding),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Add a card you already have',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Enter the terms you actually have. This is user-supplied, not issuer-verified.',
-              style: TextStyle(color: context.product.muted),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              key: const ValueKey('custom-card-name'),
-              controller: name,
-              textCapitalization: TextCapitalization.words,
-              onChanged: (_) => showErrors ? setState(() {}) : null,
-              decoration: InputDecoration(
-                labelText: 'Card name',
-                errorText: _required(name, 'card name'),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: issuer,
-              textCapitalization: TextCapitalization.words,
-              onChanged: (_) => showErrors ? setState(() {}) : null,
-              decoration: InputDecoration(
-                labelText: 'Issuer',
-                errorText: _required(issuer, 'issuer, like Chase'),
-              ),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: network,
-              decoration: const InputDecoration(labelText: 'Network'),
-              items: const [
-                DropdownMenuItem(value: 'Visa', child: Text('Visa')),
-                DropdownMenuItem(
-                  value: 'Mastercard',
-                  child: Text('Mastercard'),
+    final maxHeight = MediaQuery.sizeOf(context).height * .9;
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight, maxWidth: 640),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + padding),
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Add a card you already have',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close custom card form',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
                 ),
-                DropdownMenuItem(value: 'Amex', child: Text('Amex')),
-                DropdownMenuItem(value: 'Discover', child: Text('Discover')),
-                DropdownMenuItem(value: 'Other', child: Text('Other')),
-              ],
-              onChanged: (value) => setState(() => network = value ?? 'Visa'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: fee,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Annual fee (dollars)',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: bestUse,
-              decoration: const InputDecoration(labelText: 'Best use'),
-            ),
-            const SizedBox(height: 16),
-            const SectionLabel('Reward rates (x)'),
-            const SizedBox(height: 8),
-            for (final entry in rates.entries)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: TextField(
-                  controller: entry.value,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
+                const SizedBox(height: 6),
+                Text(
+                  'Enter the terms you actually have. This is user-supplied, not issuer-verified.',
+                  style: TextStyle(color: context.product.muted),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  key: const ValueKey('custom-card-name'),
+                  controller: name,
+                  textCapitalization: TextCapitalization.words,
                   onChanged: (_) => showErrors ? setState(() {}) : null,
                   decoration: InputDecoration(
-                    labelText: _rateLabel(entry.key),
-                    errorText: _rateError(entry.key),
+                    labelText: 'Card name',
+                    errorText: _required(name, 'card name'),
                   ),
                 ),
-              ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Transferable points'),
-              value: transferable,
-              onChanged: (value) => setState(() => transferable = value),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: issuer,
+                  textCapitalization: TextCapitalization.words,
+                  onChanged: (_) => showErrors ? setState(() {}) : null,
+                  decoration: InputDecoration(
+                    labelText: 'Issuer',
+                    errorText: _required(issuer, 'issuer, like Chase'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: network,
+                  decoration: const InputDecoration(labelText: 'Network'),
+                  items: const [
+                    DropdownMenuItem(value: 'Visa', child: Text('Visa')),
+                    DropdownMenuItem(
+                      value: 'Mastercard',
+                      child: Text('Mastercard'),
+                    ),
+                    DropdownMenuItem(value: 'Amex', child: Text('Amex')),
+                    DropdownMenuItem(
+                      value: 'Discover',
+                      child: Text('Discover'),
+                    ),
+                    DropdownMenuItem(value: 'Other', child: Text('Other')),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => network = value ?? 'Visa'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: fee,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Annual fee (dollars)',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: bestUse,
+                  decoration: const InputDecoration(labelText: 'Best use'),
+                ),
+                const SizedBox(height: 16),
+                const SectionLabel('Reward rates (x)'),
+                const SizedBox(height: 8),
+                for (final entry in rates.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: TextField(
+                      controller: entry.value,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onChanged: (_) => showErrors ? setState(() {}) : null,
+                      decoration: InputDecoration(
+                        labelText: _rateLabel(entry.key),
+                        errorText: _rateError(entry.key),
+                      ),
+                    ),
+                  ),
+                Material(
+                  type: MaterialType.transparency,
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Transferable points'),
+                    value: transferable,
+                    onChanged: (value) => setState(() => transferable = value),
+                  ),
+                ),
+                FilledButton(
+                  key: const ValueKey('custom-card-save'),
+                  onPressed: _submit,
+                  child: const Text('Add to wallet'),
+                ),
+              ],
             ),
-            FilledButton(
-              key: const ValueKey('custom-card-save'),
-              onPressed: _submit,
-              child: const Text('Add to wallet'),
-            ),
-          ],
+          ),
         ),
       ),
     );

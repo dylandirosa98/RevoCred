@@ -54,11 +54,7 @@ Future<void> main() async {
       : ApiAppRepository(
           baseUrl: config.apiUrl,
           supabaseClient: supabaseClient,
-          authRedirectUrl: config.authRedirectUrl.isNotEmpty
-              ? config.authRedirectUrl
-              : kIsWeb
-              ? '${Uri.base.origin}/'
-              : 'com.revocred.app://auth-callback/',
+          authRedirectUrl: resolveAuthRedirectUrl(config, isWeb: kIsWeb),
         );
 
   if (repository is ApiAppRepository) {

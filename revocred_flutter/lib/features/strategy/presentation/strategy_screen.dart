@@ -304,137 +304,142 @@ class _CardDetailSheet extends ConsumerWidget {
     final owned = data.wallet.any((item) => item.id == card.id);
     return SafeArea(
       top: false,
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          product.pagePadding,
-          4,
-          product.pagePadding,
-          product.pagePadding + MediaQuery.paddingOf(context).bottom,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * .92,
         ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 620),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Card details',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Close card details',
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final width = math.min(constraints.maxWidth, 320.0);
-                    return Align(
-                      alignment: Alignment.centerLeft,
-                      child: CreditCardArt(
-                        card: card,
-                        width: width,
-                        height: width / 1.586,
-                        preferred: true,
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  card.name,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${card.issuer} | Annual fee ${card.annualFee}',
-                  style: TextStyle(color: product.muted),
-                ),
-                if (owned)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(
-                      card.termsUnknown
-                          ? 'Already in your wallet. You did not add terms for this card, so RevoCred leaves it out of your score and your score may be less accurate than it could be.'
-                          : 'Already in your wallet — use this card in your strategy rather than applying again.',
-                    ),
-                  ),
-                ApplyOfferButton(
-                  placement: ApplyPlacement.cardDetails,
-                  cardId: card.id,
-                ),
-                const SizedBox(height: 18),
-                AppPanel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            product.pagePadding,
+            4,
+            product.pagePadding,
+            product.pagePadding,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 620),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
                     children: [
-                      const SectionLabel('Best use'),
-                      const SizedBox(height: 7),
-                      Text(
-                        card.bestUse,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                      Expanded(
+                        child: Text(
+                          'Card details',
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
-                      const SizedBox(height: 13),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          StatusPill(label: card.multiplier),
-                          StatusPill(
-                            label: 'FEE ${card.annualFee}',
-                            color: product.warning,
-                          ),
-                          if (card.transferablePoints)
-                            StatusPill(
-                              label: 'TRANSFERABLE',
-                              color: product.success,
-                            ),
-                        ],
+                      IconButton(
+                        tooltip: 'Close card details',
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 18),
-                const SectionLabel('Reward rates'),
-                const SizedBox(height: 8),
-                for (final item in card.pointMultipliers)
-                  _DetailRow(icon: Icons.bolt_outlined, text: item),
-                const SizedBox(height: 14),
-                const SectionLabel('Benefits'),
-                const SizedBox(height: 8),
-                for (final item in card.benefits)
-                  _DetailRow(icon: Icons.check_circle_outline, text: item),
-                if (card.communityData != null)
-                  CommunityCardDetails(data: card.communityData!),
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.all(13),
-                  decoration: BoxDecoration(
-                    color: product.warning.withValues(alpha: .08),
-                    borderRadius: BorderRadius.circular(product.radius),
+                  const SizedBox(height: 10),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = math.min(constraints.maxWidth, 320.0);
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: CreditCardArt(
+                          card: card,
+                          width: width,
+                          height: width / 1.586,
+                          preferred: true,
+                        ),
+                      );
+                    },
                   ),
-                  child: Text(
-                    card.sourceDisclaimer.isEmpty
-                        ? 'Confirm current rewards, fees, eligibility, and terms with the issuer. Educational use only.'
-                        : card.sourceDisclaimer,
-                    style: TextStyle(
-                      color: product.muted,
-                      fontSize: 11,
-                      height: 1.4,
+                  const SizedBox(height: 20),
+                  Text(
+                    card.name,
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${card.issuer} | Annual fee ${card.annualFee}',
+                    style: TextStyle(color: product.muted),
+                  ),
+                  if (owned)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        card.termsUnknown
+                            ? 'Already in your wallet. You did not add terms for this card, so RevoCred leaves it out of your score and your score may be less accurate than it could be.'
+                            : 'Already in your wallet — use this card in your strategy rather than applying again.',
+                      ),
+                    ),
+                  ApplyOfferButton(
+                    placement: ApplyPlacement.cardDetails,
+                    cardId: card.id,
+                  ),
+                  const SizedBox(height: 18),
+                  AppPanel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SectionLabel('Best use'),
+                        const SizedBox(height: 7),
+                        Text(
+                          card.bestUse,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 13),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            StatusPill(label: card.multiplier),
+                            StatusPill(
+                              label: 'FEE ${card.annualFee}',
+                              color: product.warning,
+                            ),
+                            if (card.transferablePoints)
+                              StatusPill(
+                                label: 'TRANSFERABLE',
+                                color: product.success,
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 18),
+                  const SectionLabel('Reward rates'),
+                  const SizedBox(height: 8),
+                  for (final item in card.pointMultipliers)
+                    _DetailRow(icon: Icons.bolt_outlined, text: item),
+                  const SizedBox(height: 14),
+                  const SectionLabel('Benefits'),
+                  const SizedBox(height: 8),
+                  for (final item in card.benefits)
+                    _DetailRow(icon: Icons.check_circle_outline, text: item),
+                  if (card.communityData != null)
+                    CommunityCardDetails(data: card.communityData!),
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(
+                      color: product.warning.withValues(alpha: .08),
+                      borderRadius: BorderRadius.circular(product.radius),
+                    ),
+                    child: Text(
+                      card.sourceDisclaimer.isEmpty
+                          ? 'Confirm current rewards, fees, eligibility, and terms with the issuer. Educational use only.'
+                          : card.sourceDisclaimer,
+                      style: TextStyle(
+                        color: product.muted,
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

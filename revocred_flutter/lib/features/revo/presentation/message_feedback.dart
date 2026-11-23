@@ -19,6 +19,8 @@ class _MessageFeedbackState extends ConsumerState<MessageFeedback> {
       reason = await showModalBottomSheet<String>(
         context: context,
         isScrollControlled: true,
+        showDragHandle: true,
+        backgroundColor: context.product.canvas,
         builder: (context) => _FeedbackSheet(report: report),
       );
       if (reason == null || !mounted) return;
@@ -96,52 +98,78 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      20,
-      20,
-      20,
-      MediaQuery.viewInsetsOf(context).bottom + 20,
-    ),
-    child: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            widget.report ? 'Report answer' : 'What could be better?',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          for (final value in [
-            'Inaccurate',
-            'Not helpful',
-            'Harmful or offensive',
-            'Other',
-          ])
-            ListTile(
-              title: Text(value),
-              selected: choice == value,
-              leading: Icon(
-                choice == value
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * .9,
+        maxWidth: 640,
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          0,
+          20,
+          MediaQuery.viewInsetsOf(context).bottom + 20,
+        ),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.report ? 'Report answer' : 'What could be better?',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Close feedback',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
               ),
-              onTap: () => setState(() => choice = value),
-            ),
-          TextField(
-            controller: details,
-            maxLength: 500,
-            maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Details (optional)'),
+              for (final value in [
+                'Inaccurate',
+                'Not helpful',
+                'Harmful or offensive',
+                'Other',
+              ])
+                ListTile(
+                  title: Text(value),
+                  selected: choice == value,
+                  leading: Icon(
+                    choice == value
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
+                  ),
+                  onTap: () => setState(() => choice = value),
+                ),
+              TextField(
+                controller: details,
+                maxLength: 500,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Details (optional)',
+                ),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final text = details.text.trim();
+                  Navigator.pop(
+                    context,
+                    text.isEmpty ? choice : '$choice: $text',
+                  );
+                },
+                child: const Text('Submit feedback'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () {
-              final text = details.text.trim();
-              Navigator.pop(context, text.isEmpty ? choice : '$choice: $text');
-            },
-            child: const Text('Submit feedback'),
-          ),
-        ],
+        ),
       ),
     ),
   );

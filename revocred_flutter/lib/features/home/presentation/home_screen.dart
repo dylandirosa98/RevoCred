@@ -333,25 +333,28 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
                 ),
               ),
               const SizedBox(height: 22),
-              Row(
-                children: [
-                  Expanded(
-                    child: _DecisionMetric(
-                      label: 'Estimated ongoing yearly value',
-                      value: _signedDollars(widget.estimatedValue),
-                      detail:
-                          '${_signedDollars(widget.projectedValue)} cash equivalent',
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _DecisionMetric(
+                        label: 'Estimated ongoing yearly value',
+                        value: _signedDollars(widget.estimatedValue),
+                        detail:
+                            '${_signedDollars(widget.projectedValue)} cash equivalent',
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _DecisionMetric(
-                      label: 'Wallet score',
-                      value: '${widget.score}',
-                      detail: 'out of 100',
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _DecisionMetric(
+                        label: 'Wallet score',
+                        value: '${widget.score}',
+                        detail: 'out of 100',
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const _HomeValueBreakdown(),
               const SizedBox(height: 14),
@@ -406,31 +409,49 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Why ${card.name}?',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                '${pick.earnLabel}${_categoryGuide?.isFallback == true ? ' before fees' : ''} — ${pick.reason}',
-              ),
-              for (final condition in pick.conditions)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(condition),
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .85,
+            maxWidth: 640,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Why ${card.name}?',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close details',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
                 ),
-              const SizedBox(height: 12),
-              Text(_categoryGuide?.assumptions ?? ''),
-              const SizedBox(height: 8),
-              Text(
-                '${pick.source}${pick.lastVerified.isEmpty ? '' : ' · source verified ${pick.lastVerified}'}',
-              ),
-            ],
+                const SizedBox(height: 10),
+                Text(
+                  '${pick.earnLabel}${_categoryGuide?.isFallback == true ? ' before fees' : ''} — ${pick.reason}',
+                ),
+                for (final condition in pick.conditions)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(condition),
+                  ),
+                const SizedBox(height: 12),
+                Text(_categoryGuide?.assumptions ?? ''),
+                const SizedBox(height: 8),
+                Text(
+                  '${pick.source}${pick.lastVerified.isEmpty ? '' : ' · source verified ${pick.lastVerified}'}',
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -786,7 +807,7 @@ class _DecisionMetric extends StatelessWidget {
           detail,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: context.product.muted, fontSize: 8),
+          style: TextStyle(color: context.product.muted, fontSize: 10),
         ),
       ],
     ),
@@ -973,23 +994,34 @@ class _StudioCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            _issuerMonogram(card.issuer),
-                            style: TextStyle(
-                              color: product.muted,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w800,
+                          Flexible(
+                            child: Text(
+                              _issuerMonogram(card.issuer),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: product.muted,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
-                          const Spacer(),
+                          const SizedBox(width: 6),
                           if (preferred)
-                            Text(
-                              'PREFERRED',
-                              style: TextStyle(
-                                color: product.action,
-                                fontSize: 7,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: .6,
+                            Flexible(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  'PREFERRED',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: product.action,
+                                    fontSize: 7,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: .6,
+                                  ),
+                                ),
                               ),
                             ),
                         ],
@@ -1019,12 +1051,18 @@ class _StudioCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          Text(
-                            'FEE ${card.annualFee}',
-                            style: TextStyle(
-                              color: product.muted,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w600,
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'FEE ${card.annualFee}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                color: product.muted,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -1043,7 +1081,7 @@ class _StudioCard extends StatelessWidget {
   static String _issuerMonogram(String issuer) {
     final words = issuer
         .trim()
-        .split(RegExp(r'\\s+'))
+        .split(RegExp(r'\s+'))
         .where((word) => word.isNotEmpty)
         .toList();
     if (words.isEmpty) return 'RC';

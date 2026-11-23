@@ -190,20 +190,33 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
                     borderRadius: BorderRadius.circular(product.radius * .65),
                     border: Border.all(color: product.danger),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(Icons.error_outline, color: product.danger),
-                      const SizedBox(width: 9),
-                      Expanded(child: Text(localError!)),
-                      TextButton(
-                        onPressed: submitting
-                            ? null
-                            : () => _submit(controller.text),
-                        child: const Text('Try again'),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.error_outline, color: product.danger),
+                          const SizedBox(width: 9),
+                          Expanded(child: Text(localError!)),
+                        ],
                       ),
-                      TextButton(
-                        onPressed: () => setState(() => localError = null),
-                        child: const Text('Dismiss'),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 4,
+                        children: [
+                          TextButton(
+                            onPressed: submitting
+                                ? null
+                                : () => _submit(controller.text),
+                            child: const Text('Try again'),
+                          ),
+                          TextButton(
+                            onPressed: () => setState(() => localError = null),
+                            child: const Text('Dismiss'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -225,20 +238,23 @@ class _RevoScreenState extends ConsumerState<RevoScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Expanded(
-                          child: TextField(
-                            key: const ValueKey('revo-composer'),
-                            controller: controller,
-                            minLines: 1,
-                            maxLines: 4,
-                            maxLength: 1000,
-                            textInputAction: TextInputAction.newline,
-                            onTap: () => Future<void>.delayed(
-                              const Duration(milliseconds: 250),
-                              _scrollToLatest,
-                            ),
-                            decoration: const InputDecoration(
-                              hintText: 'Ask about your wallet or next move',
-                              counterText: '',
+                          child: Semantics(
+                            label: 'Ask REVO',
+                            child: TextField(
+                              key: const ValueKey('revo-composer'),
+                              controller: controller,
+                              minLines: 1,
+                              maxLines: 4,
+                              maxLength: 1000,
+                              textInputAction: TextInputAction.newline,
+                              onTap: () => Future<void>.delayed(
+                                const Duration(milliseconds: 250),
+                                _scrollToLatest,
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: 'Ask about your wallet or next move',
+                                counterText: '',
+                              ),
                             ),
                           ),
                         ),
@@ -557,7 +573,9 @@ class _ThinkingAnswer extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
         const SizedBox(width: 10),
-        Text(label, style: TextStyle(color: context.product.muted)),
+        Expanded(
+          child: Text(label, style: TextStyle(color: context.product.muted)),
+        ),
       ],
     ),
   );

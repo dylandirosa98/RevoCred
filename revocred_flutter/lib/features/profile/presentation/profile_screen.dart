@@ -214,10 +214,22 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               FilledButton.tonalIcon(
                 key: const ValueKey('expert-link'),
-                onPressed: () => launchUrl(
-                  Uri.parse('https://thecreditcardstrategist.com'),
-                  mode: LaunchMode.externalApplication,
-                ),
+                onPressed: () async {
+                  final opened = await launchUrl(
+                    Uri.parse('https://thecreditcardstrategist.com'),
+                    mode: LaunchMode.externalApplication,
+                    webOnlyWindowName: '_blank',
+                  );
+                  if (!opened && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Could not open this link. Please try again.',
+                        ),
+                      ),
+                    );
+                  }
+                },
                 icon: const Icon(Icons.open_in_new, size: 18),
                 label: const Text('thecreditcardstrategist.com'),
               ),

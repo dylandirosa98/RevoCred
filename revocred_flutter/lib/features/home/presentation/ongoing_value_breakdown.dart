@@ -58,10 +58,22 @@ class OngoingValueBreakdown extends StatelessWidget {
               ),
               if ((b['source_url'] ?? '').toString().isNotEmpty)
                 TextButton(
-                  onPressed: () {
+                  onPressed: () async {
                     final uri = Uri.tryParse(b['source_url'].toString());
-                    if (uri?.scheme == 'https') {
-                      launchUrl(uri!, mode: LaunchMode.externalApplication);
+                    if (uri?.scheme != 'https') return;
+                    final opened = await launchUrl(
+                      uri!,
+                      mode: LaunchMode.externalApplication,
+                      webOnlyWindowName: '_blank',
+                    );
+                    if (!opened && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Could not open this link. Please try again.',
+                          ),
+                        ),
+                      );
                     }
                   },
                   child: Text(

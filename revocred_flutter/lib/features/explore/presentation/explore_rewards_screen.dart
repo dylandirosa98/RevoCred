@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/logic/explore_rewards.dart';
 import '../../../core/logic/friendly_error.dart';
@@ -27,8 +28,13 @@ class ExploreRewardsScreen extends ConsumerWidget {
             data,
             ownWallet: isOwnWallet(data, authenticated: state.isAuthenticated),
           );
+    final router = GoRouter.maybeOf(context);
+    final canPop = Navigator.canPop(context);
     return Scaffold(
       appBar: AppBar(
+        leading: !canPop && router != null
+            ? BackButton(onPressed: () => router.go('/home'))
+            : null,
         title: const Text('Explore Rewards'),
         actions: [
           IconButton(
@@ -95,43 +101,61 @@ Future<void> showExploreRewardsHelp(BuildContext context) {
         ),
       );
       return SafeArea(
-        child: SingleChildScrollView(
-          key: const ValueKey('explore-help-sheet'),
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'How Explore Rewards works',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              point(
-                Icons.savings_outlined,
-                'Your cards earn points',
-                'Every dollar you spend earns points. Cards earn more in some categories, like dining or travel. Your yearly total comes from your own spending and cards.',
-              ),
-              point(
-                Icons.balance_outlined,
-                'A point is worth about 1¢',
-                'Cash back and most simple redemptions give about 1¢ per point, so 10,000 points ≈ \$100. We use that as the starting line.',
-              ),
-              point(
-                Icons.trending_up,
-                'Travel can be worth more',
-                'Booking flights or hotels with points often gets more than 1¢ per point. “Each point is worth” shows how much this example gets.',
-              ),
-              point(
-                Icons.check_circle_outline,
-                'What “Save” means',
-                'Save = cash price − the points’ 1¢ value − any taxes and fees. It is the extra value compared with redeeming at 1¢, not money added to your account.',
-              ),
-              point(
-                Icons.info_outline,
-                'These are examples',
-                'Prices come from past examples, not live fares or guaranteed award availability. Some programs are only reachable through certain cards and transfer partners.',
-              ),
-            ],
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .88,
+            maxWidth: 640,
+          ),
+          child: SingleChildScrollView(
+            key: const ValueKey('explore-help-sheet'),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'How Explore Rewards works',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close help',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                point(
+                  Icons.savings_outlined,
+                  'Your cards earn points',
+                  'Every dollar you spend earns points. Cards earn more in some categories, like dining or travel. Your yearly total comes from your own spending and cards.',
+                ),
+                point(
+                  Icons.balance_outlined,
+                  'A point is worth about 1¢',
+                  'Cash back and most simple redemptions give about 1¢ per point, so 10,000 points ≈ \$100. We use that as the starting line.',
+                ),
+                point(
+                  Icons.trending_up,
+                  'Travel can be worth more',
+                  'Booking flights or hotels with points often gets more than 1¢ per point. “Each point is worth” shows how much this example gets.',
+                ),
+                point(
+                  Icons.check_circle_outline,
+                  'What “Save” means',
+                  'Save = cash price − the points’ 1¢ value − any taxes and fees. It is the extra value compared with redeeming at 1¢, not money added to your account.',
+                ),
+                point(
+                  Icons.info_outline,
+                  'These are examples',
+                  'Prices come from past examples, not live fares or guaranteed award availability. Some programs are only reachable through certain cards and transfer partners.',
+                ),
+              ],
+            ),
           ),
         ),
       );

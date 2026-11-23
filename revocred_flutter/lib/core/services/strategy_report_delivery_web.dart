@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show Rect;
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
@@ -18,7 +19,14 @@ Future<void> deliverStrategyReportDownload(
   web.document.body?.append(anchor);
   anchor.click();
   anchor.remove();
-  web.URL.revokeObjectURL(url);
+  // Defer revocation so iOS Safari / WebKit PWAs and Chromium can finish
+  // reading the object URL asynchronously after click().
+  unawaited(
+    Future<void>.delayed(
+      const Duration(seconds: 60),
+      () => web.URL.revokeObjectURL(url),
+    ),
+  );
 }
 
 Future<void> deliverStrategyReportShare(
@@ -53,7 +61,7 @@ Future<void> deliverStrategyReportShare(
       await navigator.share(shareData).toDart;
     } catch (error) {
       // Closing the share sheet is not a failure.
-      if (error.toString().contains('AbortError')) return;
+      if (_isAbortError(error)) return;
       await deliverStrategyReportDownload(bytes, filename);
     }
     return;
@@ -62,6 +70,14 @@ Future<void> deliverStrategyReportShare(
   // Desktop browsers commonly do not support sharing files. Downloading the
   // exact report gives the user a reliable file they can attach anywhere.
   await deliverStrategyReportDownload(bytes, filename);
+}
+
+bool _isAbortError(Object error) {
+  if (error.toString().contains('AbortError')) return true;
+  if (error.isA<web.DOMException>()) {
+    return (error as web.DOMException).name == 'AbortError';
+  }
+  return false;
 }
 
 web.Blob _pdfBlob(Uint8List bytes) => web.Blob(

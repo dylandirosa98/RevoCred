@@ -185,3 +185,30 @@ class AppConfig {
   bool get hasSupabaseConfiguration =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 }
+
+/// Resolves the Supabase auth callback URL for email confirmation, email
+/// change, and PKCE password recovery.
+///
+/// On web, PKCE stores the code verifier in the active origin's browser
+/// storage. Preferring the active web origin (e.g. `app.revocred.com`,
+/// `revocred-pwa.vercel.app`, or loopback during local QA) prevents origin
+/// mismatches when the same web build is served from multiple domains.
+String resolveAuthRedirectUrl(
+  AppConfig config, {
+  required bool isWeb,
+  Uri? baseUri,
+}) {
+  if (isWeb) {
+    final active = baseUri ?? Uri.base;
+    final allowedScheme =
+        active.scheme == 'https' ||
+        (!config.production && active.scheme == 'http');
+    if (allowedScheme && active.host.isNotEmpty) {
+      return '${active.origin}/';
+    }
+  }
+  if (config.authRedirectUrl.isNotEmpty) {
+    return config.authRedirectUrl;
+  }
+  return 'com.revocred.app://auth-callback/';
+}
