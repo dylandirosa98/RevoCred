@@ -9,6 +9,7 @@ backups/
 **/__pycache__/
 .idea/
 .railway/node_modules/
+.vercel/
 **/*.p12
 **/*.p8
 **/*.mobileprovision

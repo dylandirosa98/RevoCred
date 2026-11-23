@@ -18,6 +18,7 @@ import '../../../core/state/app_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/category_icon.dart';
 import '../../../shared/widgets/content_layout.dart';
+import '../../../shared/widgets/pwa_install_banner.dart';
 import '../../../shared/widgets/send_revo_message.dart';
 import 'purchase_recommendations_sheet.dart';
 
@@ -355,6 +356,7 @@ class _DecisionFlowHomeState extends State<_DecisionFlowHome> {
               const _HomeValueBreakdown(),
               const SizedBox(height: 14),
               const ExploreRewardsEntry(),
+              const PwaInstallBanner(),
               const SizedBox(height: 27),
               _WalletSectionHeader(
                 label: 'Your wallet',

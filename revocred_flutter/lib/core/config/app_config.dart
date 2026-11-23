@@ -65,6 +65,23 @@ class AppConfig {
         'REVENUECAT_IOS_API_KEY',
       );
 
+  factory AppConfig.fromMap(Map<String, String> env) => AppConfig(
+    useMocks: env['REVOCRED_USE_MOCKS'] != 'false',
+    production: env['REVOCRED_PRODUCTION'] == 'true',
+    apiUrl: env['REVOCRED_API_URL'] ?? '',
+    supabaseUrl: env['SUPABASE_URL'] ?? '',
+    supabaseAnonKey: env['SUPABASE_ANON_KEY'] ?? '',
+    authRedirectUrl: env['REVOCRED_AUTH_REDIRECT_URL'] ?? '',
+    legalEntity: env['REVOCRED_LEGAL_ENTITY'] ?? '',
+    supportEmail: env['REVOCRED_SUPPORT_EMAIL'] ?? defaultSupportEmail,
+    legalJurisdiction: env['REVOCRED_LEGAL_JURISDICTION'] ?? '',
+    legalEffectiveDate: env['REVOCRED_LEGAL_EFFECTIVE_DATE'] ?? '',
+    privacyUrl: env['REVOCRED_PRIVACY_URL'] ?? defaultPrivacyUrl,
+    termsUrl: env['REVOCRED_TERMS_URL'] ?? defaultTermsUrl,
+    supportUrl: env['REVOCRED_SUPPORT_URL'] ?? defaultSupportUrl,
+    revenueCatIosApiKey: env['REVENUECAT_IOS_API_KEY'] ?? '',
+  );
+
   final bool useMocks;
   final String apiUrl;
   final String supabaseUrl;
@@ -96,7 +113,7 @@ class AppConfig {
       throw StateError('Real mode requires API and Supabase configuration.');
     }
     if (production) {
-      if ([
+      final legalFields = [
         legalEntity,
         supportEmail,
         legalJurisdiction,
@@ -104,7 +121,15 @@ class AppConfig {
         privacyUrl,
         termsUrl,
         supportUrl,
-      ].any((value) => value.trim().isEmpty)) {
+      ];
+      if (legalFields.any(
+        (value) =>
+            value.trim().isEmpty ||
+            value.contains('{{') ||
+            value.contains('}}') ||
+            value.contains('[[') ||
+            value.contains(']]'),
+      )) {
         throw StateError('Production requires complete legal configuration.');
       }
       for (final value in [privacyUrl, termsUrl, supportUrl]) {
