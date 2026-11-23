@@ -10,7 +10,15 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/revocred/revocred-api/internal/moderation"
 )
+
+// ModerationNotifier receives privacy-minimized alerts when members flag a
+// REVO reply as harmful or offensive. Nil keeps alerting disabled.
+type ModerationNotifier interface {
+	NotifyReport(alert moderation.Alert)
+}
 
 type Options struct {
 	MetricsToken string
@@ -33,6 +41,9 @@ type Options struct {
 	// RevenueCatSubscribers reads current state with a secret API key, for
 	// TRANSFER events and app refreshes. Nil relies on webhooks alone.
 	RevenueCatSubscribers SubscriberLookup
+	// ModerationNotifier delivers optional async alerts for harmful/offensive
+	// chat reports. Nil disables alerting.
+	ModerationNotifier ModerationNotifier
 }
 
 type window struct {

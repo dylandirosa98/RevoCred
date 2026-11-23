@@ -207,3 +207,27 @@ func TestRevenueCatSettings(t *testing.T) {
 		t.Fatalf("development accepts sandbox by default: %+v %v", cfg, err)
 	}
 }
+
+func TestModerationAlertWebhookSettings(t *testing.T) {
+	setMobileProductionEnv(t)
+	cfg, err := Load()
+	if err != nil || cfg.ModerationAlertWebhookURL != "" {
+		t.Fatalf("moderation alert webhook must be off by default: %+v %v", cfg, err)
+	}
+	for _, invalid := range []string{
+		"http://alerts.example.com/hook",
+		"https://127.0.0.1/hook",
+		"https://user:pass@alerts.example.com/hook",
+		"https://alerts.internal/hook",
+	} {
+		t.Setenv("MODERATION_ALERT_WEBHOOK_URL", invalid)
+		if _, err := Load(); err == nil {
+			t.Fatalf("accepted unsafe MODERATION_ALERT_WEBHOOK_URL %q", invalid)
+		}
+	}
+	t.Setenv("MODERATION_ALERT_WEBHOOK_URL", "https://hooks.example.com/services/moderation")
+	cfg, err = Load()
+	if err != nil || cfg.ModerationAlertWebhookURL != "https://hooks.example.com/services/moderation" {
+		t.Fatalf("valid MODERATION_ALERT_WEBHOOK_URL rejected: %+v %v", cfg, err)
+	}
+}

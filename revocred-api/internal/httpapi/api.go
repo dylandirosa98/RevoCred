@@ -49,6 +49,7 @@ type API struct {
 	revenueCatEntitlement  string
 	revenueCatAllowSandbox bool
 	subscribers            SubscriberLookup
+	moderationNotifier     ModerationNotifier
 }
 
 func New(
@@ -74,6 +75,7 @@ func New(
 		api.revenueCatEntitlement = options[0].RevenueCatEntitlementID
 		api.revenueCatAllowSandbox = options[0].RevenueCatAllowSandbox
 		api.subscribers = options[0].RevenueCatSubscribers
+		api.moderationNotifier = options[0].ModerationNotifier
 	}
 	if api.revenueCatEntitlement == "" {
 		api.revenueCatEntitlement = revenuecat.DefaultEntitlementID

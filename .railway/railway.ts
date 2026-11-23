@@ -60,6 +60,10 @@ export default defineRailway((ctx) => {
       REVENUECAT_SECRET_API_KEY: ctx.shared.REVENUECAT_SECRET_API_KEY,
       REVENUECAT_ENTITLEMENT_ID: ctx.shared.REVENUECAT_ENTITLEMENT_ID,
       REVENUECAT_ALLOW_SANDBOX: ctx.shared.REVENUECAT_ALLOW_SANDBOX,
+      // Optional public HTTPS webhook for privacy-minimized alerts when members
+      // report a REVO answer as harmful or offensive. Leave unset to disable.
+      // See docs/moderation-operations.md.
+      MODERATION_ALERT_WEBHOOK_URL: ctx.shared.MODERATION_ALERT_WEBHOOK_URL,
       // Browser origins allowed to call the API (comma-separated HTTPS origins).
       // Native apps send no Origin; leave empty unless a web build is in use.
       CORS_ALLOWED_ORIGINS: ctx.shared.CORS_ALLOWED_ORIGINS,

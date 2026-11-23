@@ -14,7 +14,7 @@ func (p *Postgres) ExportAccount(ctx context.Context, userID string) (map[string
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	out := map[string]json.RawMessage{}
-	for _, table := range []string{"profiles", "wallet_cards", "questionnaire_responses", "recommendation_runs", "issued_recommendations", "chat_messages", "chat_ai_consents", "chat_feedback"} {
+	for _, table := range []string{"profiles", "wallet_cards", "questionnaire_responses", "recommendation_runs", "issued_recommendations", "chat_messages", "chat_ai_consents"} {
 		var data []byte
 		// Table identifiers are a fixed internal allowlist, never request input.
 		if err = tx.QueryRow(ctx, "SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]') FROM revocred."+table+" t WHERE user_id=$1", userID).Scan(&data); err != nil {
@@ -23,6 +23,8 @@ func (p *Postgres) ExportAccount(ctx context.Context, userID string) (map[string
 		out[table] = data
 	}
 	for name, query := range map[string]string{
+		// Export only user-submitted feedback fields; operator triage metadata stays internal.
+		"chat_feedback":        `SELECT COALESCE(jsonb_agg(jsonb_build_object('message_id', message_id, 'user_id', user_id, 'rating', rating, 'reason', reason, 'created_at', created_at, 'updated_at', updated_at)), '[]') FROM revocred.chat_feedback WHERE user_id=$1`,
 		"recommendation_items": `SELECT COALESCE(jsonb_agg(to_jsonb(i)), '[]') FROM revocred.recommendation_items i JOIN revocred.recommendation_runs r ON r.id=i.recommendation_run_id WHERE r.user_id=$1`,
 		"custom_cards":         `SELECT COALESCE(jsonb_agg(to_jsonb(c)), '[]') FROM revocred.catalog_cards c WHERE owner_user_id=$1`,
 		"custom_card_versions": `SELECT COALESCE(jsonb_agg(to_jsonb(v)), '[]') FROM revocred.card_catalog_versions v JOIN revocred.catalog_cards c ON c.id=v.catalog_card_id WHERE c.owner_user_id=$1`,
