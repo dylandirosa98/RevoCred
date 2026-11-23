@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"net/http"
+	"time"
 	"unicode/utf8"
 
 	"github.com/revocred/revocred-api/internal/chat"
+	"github.com/revocred/revocred-api/internal/moderation"
 )
 
 func (a *API) chatConsent(w http.ResponseWriter, r *http.Request) {
@@ -75,8 +77,8 @@ func (a *API) chatFeedback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "Invalid feedback.", nil)
 		return
 	}
-	store := a.repository
-	found, err := store.ChatFeedback(r.Context(), authenticatedUser(r.Context()).ID, r.PathValue("id"), input.Rating, input.Reason)
+	messageID := r.PathValue("id")
+	found, err := a.repository.ChatFeedback(r.Context(), authenticatedUser(r.Context()).ID, messageID, input.Rating, input.Reason)
 	if err != nil {
 		a.internalError(w, r, err)
 		return
@@ -84,6 +86,16 @@ func (a *API) chatFeedback(w http.ResponseWriter, r *http.Request) {
 	if !found {
 		writeError(w, r, http.StatusNotFound, "not_found", "Message not found.", nil)
 		return
+	}
+	if a.moderationNotifier != nil {
+		if category := moderation.AlertReasonCategory(input.Rating, input.Reason); category != "" {
+			a.moderationNotifier.NotifyReport(moderation.Alert{
+				Event:       moderation.AlertEventName,
+				ReportID:    messageID,
+				Reason:      category,
+				SubmittedAt: time.Now().UTC(),
+			})
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

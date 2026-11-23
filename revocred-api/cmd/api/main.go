@@ -17,6 +17,7 @@ import (
 	"github.com/revocred/revocred-api/internal/config"
 	"github.com/revocred/revocred-api/internal/httpapi"
 	"github.com/revocred/revocred-api/internal/legal"
+	"github.com/revocred/revocred-api/internal/moderation"
 	"github.com/revocred/revocred-api/internal/recommendation"
 	"github.com/revocred/revocred-api/internal/revenuecat"
 	"github.com/revocred/revocred-api/internal/store"
@@ -125,6 +126,15 @@ func run(logger *slog.Logger) error {
 	if cfg.RevenueCatWebhookAuth == "" {
 		logger.Info("REVO AI subscriptions are disabled; set REVENUECAT_WEBHOOK_AUTH to accept RevenueCat events")
 	}
+	var moderationNotifier *moderation.WebhookNotifier
+	if cfg.ModerationAlertWebhookURL != "" {
+		moderationNotifier, err = moderation.NewWebhookNotifier(cfg.ModerationAlertWebhookURL, logger)
+		if err != nil {
+			return err
+		}
+		defer moderationNotifier.Wait()
+		logger.Info("REVO moderation alert webhook enabled")
+	}
 	handler := httpapi.New(
 		repository,
 		authenticator,
@@ -138,6 +148,7 @@ func run(logger *slog.Logger) error {
 			ChatDailyAILimit: cfg.ChatDailyAILimit, ChatFreeDailyAILimit: &cfg.ChatFreeDailyAILimit,
 			RevenueCatWebhookAuth: cfg.RevenueCatWebhookAuth, RevenueCatEntitlementID: cfg.RevenueCatEntitlementID,
 			RevenueCatAllowSandbox: cfg.RevenueCatAllowSandbox, RevenueCatSubscribers: subscribers,
+			ModerationNotifier: moderationNotifier,
 		},
 	)
 

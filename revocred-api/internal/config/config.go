@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/revocred/revocred-api/internal/moderation"
 )
 
 type Config struct {
@@ -51,6 +53,10 @@ type Config struct {
 	RevenueCatSecretAPIKey  string
 	RevenueCatEntitlementID string
 	RevenueCatAllowSandbox  bool
+	// ModerationAlertWebhookURL is an optional public HTTPS webhook that
+	// receives privacy-minimized alerts for harmful/offensive REVO reports.
+	// Empty keeps alerting completely disabled.
+	ModerationAlertWebhookURL string
 }
 
 func Load() (Config, error) {
@@ -70,9 +76,15 @@ func Load() (Config, error) {
 		SearchProvider:    strings.ToLower(valueOrDefault("SEARCH_PROVIDER", "brave")),
 		SearchBaseURL:     strings.TrimSpace(os.Getenv("SEARCH_BASE_URL")),
 
-		RevenueCatWebhookAuth:   strings.TrimSpace(os.Getenv("REVENUECAT_WEBHOOK_AUTH")),
-		RevenueCatSecretAPIKey:  strings.TrimSpace(os.Getenv("REVENUECAT_SECRET_API_KEY")),
-		RevenueCatEntitlementID: valueOrDefault("REVENUECAT_ENTITLEMENT_ID", "revo_ai"),
+		RevenueCatWebhookAuth:     strings.TrimSpace(os.Getenv("REVENUECAT_WEBHOOK_AUTH")),
+		RevenueCatSecretAPIKey:    strings.TrimSpace(os.Getenv("REVENUECAT_SECRET_API_KEY")),
+		RevenueCatEntitlementID:   valueOrDefault("REVENUECAT_ENTITLEMENT_ID", "revo_ai"),
+		ModerationAlertWebhookURL: strings.TrimSpace(os.Getenv("MODERATION_ALERT_WEBHOOK_URL")),
+	}
+	if cfg.ModerationAlertWebhookURL != "" {
+		if err := moderation.ValidWebhookURL(cfg.ModerationAlertWebhookURL); err != nil {
+			return Config{}, err
+		}
 	}
 	if cfg.SearchProvider != "brave" && cfg.SearchProvider != "searxng" {
 		return Config{}, errors.New("SEARCH_PROVIDER must be brave or searxng")

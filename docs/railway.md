@@ -45,6 +45,7 @@ TLS, issues certificates and routes the custom domain to the container.
     | `REVENUECAT_SECRET_API_KEY` | Optional RevenueCat V1 secret key (`sk_…`, seal it). Lets the API read subscriber state for transfers and right after a purchase/restore. Requires `REVENUECAT_WEBHOOK_AUTH` |
     | `REVENUECAT_ENTITLEMENT_ID` | Entitlement that unlocks REVO AI (default `revo_ai`) |
     | `REVENUECAT_ALLOW_SANDBOX` | `true` to honour sandbox/TestFlight purchases (needed through TestFlight and App Review). Defaults to `false` in production |
+    | `MODERATION_ALERT_WEBHOOK_URL` | Optional (seal it if the URL path contains a token). Public HTTPS webhook for privacy-minimized alerts when a member reports a REVO answer as harmful or offensive (payload includes only report ID, category, and timestamp — never raw text, user IDs, or emails). Leave unset to disable. See [moderation-operations.md](moderation-operations.md) |
 
    Never add the Supabase service-role key or the owner database login.
 6. **Create the service.**
