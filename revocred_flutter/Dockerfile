@@ -46,7 +46,7 @@ RUN flutter build web --release --no-web-resources-cdn \
     --dart-define=REVOCRED_TERMS_URL="${REVOCRED_TERMS_URL}" \
     --dart-define=REVOCRED_SUPPORT_URL="${REVOCRED_SUPPORT_URL}"
 
-FROM nginx:1.29-alpine
+FROM nginx:1.31-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build/web /usr/share/nginx/html
