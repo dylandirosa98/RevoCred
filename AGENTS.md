@@ -30,3 +30,11 @@ the default mock configuration.
   key or database credential.
 - Keep real card terms sourced and versioned. Demo catalog rows must remain
   clearly labeled as unverified demo data.
+
+## Launch TODO
+
+- [ ] Point `app.revocred.com` to the Vercel PWA (`revocred-pwa`) by adding
+  `CNAME app -> f6a8789f3617c543.vercel-dns-017.com.` in the `revocred.com` DNS
+  provider (Google Domains / Squarespace). Vercel domain attachment, Railway
+  `CORS_ALLOWED_ORIGINS`, and Supabase Auth redirect URLs are already wired for
+  both `https://app.revocred.com` and `https://revocred-pwa.vercel.app`.
