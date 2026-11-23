@@ -54,11 +54,17 @@ merchant eligibility, application rules or offers. Never present those facts as
 guaranteed value or approval. The wallet score is a product heuristic, **not a
 credit score**.
 
-Inherited issuer snapshots are dated 2026-09-23 and have **not been independently
-reviewed by this implementation**. Verify fees, variants and terms against
-current issuer documents before launch. Insert new source/version rows for
-changes; never edit migration history. Earlier migrations updated rows in place,
-so pre-repair historical terms cannot be reconstructed honestly.
+All 14 active recommendable `issuer_snapshot` cards were independently audited
+against live official issuer product pages on 2026-11-23 (see
+[card data audit 2026-11-23](card-data-audit-2026-11-23/README.md) and
+forward-only migration `000032_catalog_audit_2026_11_23.sql`, publishing
+`conservative-2026-11-23-v1`). Remaining pre-launch manual verification items
+are documented in that audit (Citi client-rendered Pricing & Terms modals,
+Guide to Benefits PDFs for insurance caps/exclusions, and operator
+re-publication of official offers against the new catalog version IDs before
+2026-12-25). Insert new source/version rows for future changes; never edit
+migration history. Earlier pre-repair migrations (`000005`) updated rows in
+place, so pre-repair historical terms cannot be reconstructed honestly.
 
 Bootstrap's `latest_recommendations` is a fresh evaluation of the current wallet
 and latest questionnaire. Historical runs and snapshots are available in account
