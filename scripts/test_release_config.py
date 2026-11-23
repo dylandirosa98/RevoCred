@@ -16,10 +16,14 @@ class ReleaseConfigTest(unittest.TestCase):
                     REVOCRED_AUTH_REDIRECT_URL="https://app.example.test/", SUPABASE_ANON_KEY="sb_publishable_example_test_only",
                     REVOCRED_LEGAL_ENTITY="RevoCred Example LLC", REVOCRED_SUPPORT_EMAIL="support@example.test",
                     REVOCRED_LEGAL_JURISDICTION="New Jersey, USA", REVOCRED_LEGAL_EFFECTIVE_DATE="2026-11-06",
-                    REVOCRED_PRIVACY_URL="https://app.example.test/privacy", REVOCRED_TERMS_URL="https://app.example.test/terms")
+                    REVOCRED_PRIVACY_URL="https://app.example.test/privacy", REVOCRED_TERMS_URL="https://app.example.test/terms",
+                    REVOCRED_SUPPORT_URL="https://app.example.test/support")
 
     def test_public_configuration(self):
         validate(self.valid())
+        without_support_url = dict(self.valid())
+        without_support_url.pop("REVOCRED_SUPPORT_URL")
+        validate(without_support_url)
 
     def test_mobile_auth_callback(self):
         validate({**self.valid(), "REVOCRED_AUTH_REDIRECT_URL": "com.revocred.app://auth-callback/"})
@@ -28,12 +32,28 @@ class ReleaseConfigTest(unittest.TestCase):
                 validate({**self.valid(), "REVOCRED_AUTH_REDIRECT_URL": value})
 
     def test_rejects_unfilled_legal_template(self):
-        for key, value in (("REVOCRED_LEGAL_ENTITY", "{{LEGAL_ENTITY}}"), ("REVOCRED_SUPPORT_EMAIL", ""),
-                           ("REVOCRED_PRIVACY_URL", "https://example.com/privacy"), ("REVOCRED_TERMS_URL", "http://app.example.test/terms")):
-            with self.subTest(key=key), self.assertRaises(ValueError):
+        for key, value in (("REVOCRED_LEGAL_ENTITY", "{{LEGAL_ENTITY}}"), ("REVOCRED_LEGAL_ENTITY", "[[COMPANY LEGAL NAME]]"),
+                           ("REVOCRED_SUPPORT_EMAIL", ""), ("REVOCRED_PRIVACY_URL", "https://example.com/privacy"),
+                           ("REVOCRED_TERMS_URL", "http://app.example.test/terms"),
+                           ("REVOCRED_SUPPORT_URL", ""), ("REVOCRED_SUPPORT_URL", "https://example.com/support")):
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
                 validate({**self.valid(), key: value})
 
     def test_rejects_demo_localhost_and_secret_keys(self):
         for key, value in (("REVOCRED_USE_MOCKS", "true"), ("REVOCRED_API_URL", "http://127.0.0.1:8082"), ("SUPABASE_ANON_KEY", "sb_secret_not_for_browsers")):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 validate({**self.valid(), key: value})
+
+    def test_flutter_dockerfile_wires_all_production_legal_defines(self):
+        dockerfile = (Path(__file__).resolve().parents[1] / "revocred_flutter/Dockerfile").read_text()
+        for key in (
+            "REVOCRED_LEGAL_ENTITY",
+            "REVOCRED_LEGAL_JURISDICTION",
+            "REVOCRED_LEGAL_EFFECTIVE_DATE",
+            "REVOCRED_SUPPORT_EMAIL",
+            "REVOCRED_PRIVACY_URL",
+            "REVOCRED_TERMS_URL",
+            "REVOCRED_SUPPORT_URL",
+        ):
+            self.assertIn(f"ARG {key}=", dockerfile)
+            self.assertIn(f"--dart-define={key}=", dockerfile)

@@ -1,0 +1,96 @@
+name: Deploy PWA (Vercel)
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target (production or preview)
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - preview
+      auth_redirect_url:
+        description: Optional override for REVOCRED_AUTH_REDIRECT_URL
+        required: false
+        default: ''
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - 'revocred_flutter/**'
+      - 'scripts/deploy_pwa_vercel.py'
+      - 'scripts/check_release_config.py'
+      - '.github/workflows/deploy-pwa.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-pwa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || vars.PWA_AUTO_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/checkout@v4
+        with:
+          repository: flutter/flutter
+          ref: 6b182d2c7585eba26d4edce0f97630effd256c33
+          path: .flutter-sdk
+          persist-credentials: false
+
+      - name: Restore version tag for exact pinned Flutter revision
+        run: |
+          git -C .flutter-sdk fetch --depth=1 origin tag 3.44.9
+          test "$(git -C .flutter-sdk rev-parse '3.44.9^{commit}')" = '6b182d2c7585eba26d4edce0f97630effd256c33'
+          test "$(git -C .flutter-sdk rev-parse HEAD)" = '6b182d2c7585eba26d4edce0f97630effd256c33'
+
+      - name: Add pinned Flutter to PATH
+        run: echo "$GITHUB_WORKSPACE/.flutter-sdk/bin" >> "$GITHUB_PATH"
+
+      - name: Install Flutter dependencies
+        working-directory: revocred_flutter
+        run: flutter pub get --enforce-lockfile
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Build and deploy PWA to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || 'dylans-projects-62ab0a08' }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || 'prj_tqUy6Od1wn50pLHOO7Spsq4Kpd5H' }}
+          REVOCRED_USE_MOCKS: 'false'
+          REVOCRED_PRODUCTION: ${{ vars.REVOCRED_PRODUCTION || 'false' }}
+          REVOCRED_API_URL: ${{ vars.REVOCRED_API_URL || 'https://api.revocred.com' }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
+          REVOCRED_AUTH_REDIRECT_URL: ${{ github.event.inputs.auth_redirect_url || vars.REVOCRED_AUTH_REDIRECT_URL || 'https://app.revocred.com/' }}
+          REVOCRED_LEGAL_ENTITY: ${{ vars.REVOCRED_LEGAL_ENTITY }}
+          REVOCRED_LEGAL_JURISDICTION: ${{ vars.REVOCRED_LEGAL_JURISDICTION }}
+          REVOCRED_LEGAL_EFFECTIVE_DATE: ${{ vars.REVOCRED_LEGAL_EFFECTIVE_DATE }}
+          REVOCRED_SUPPORT_EMAIL: ${{ vars.REVOCRED_SUPPORT_EMAIL || 'support@revocred.com' }}
+          REVOCRED_PRIVACY_URL: ${{ vars.REVOCRED_PRIVACY_URL || 'https://api.revocred.com/privacy' }}
+          REVOCRED_TERMS_URL: ${{ vars.REVOCRED_TERMS_URL || 'https://api.revocred.com/terms' }}
+          REVOCRED_SUPPORT_URL: ${{ vars.REVOCRED_SUPPORT_URL || 'https://api.revocred.com/support' }}
+        run: |
+          args=(python3 scripts/deploy_pwa_vercel.py)
+          if [ "${{ github.event.inputs.target }}" = "preview" ]; then
+            args+=(--preview)
+          fi
+          "${args[@]}"
