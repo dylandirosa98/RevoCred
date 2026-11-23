@@ -65,6 +65,7 @@ func TestPostgresIntegration(t *testing.T) {
 	t.Run("issued recommendations remain completed", func(t *testing.T) { testRecommendationCompletion(t, ctx, admin, repo, cards) })
 	t.Run("AI allowance survives clearing chat", func(t *testing.T) { testAIAllowance(t, ctx, admin, repo) })
 	t.Run("RevenueCat entitlements are narrow and ordered", func(t *testing.T) { testRevenueCatEntitlements(t, ctx, admin, repo) })
+	t.Run("Postgres shared rate limiter enforces atomic limits and role isolation", func(t *testing.T) { testPostgresRateLimiter(t, ctx, admin, pool) })
 	draft := domain.CreateCustomCard{Name: "My  Card", Issuer: "Test", Network: "Visa", RewardRates: map[string]float64{"other": 2}, TravelScope: "none", RewardsType: "cash_back", MinimumCreditTier: "good"}
 	mine, err := repo.CreateCustomCard(ctx, a, draft)
 	if err != nil {

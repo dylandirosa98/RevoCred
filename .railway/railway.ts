@@ -25,7 +25,9 @@ export default defineRailway((ctx) => {
       healthcheckTimeout: 60,
       restartPolicyType: "ON_FAILURE",
       restartPolicyMaxRetries: 5,
-      // Rate limits live in process memory; more replicas multiply them.
+      // Single replica uses zero-overhead in-memory rate limits. Before raising
+      // numReplicas above 1, apply migration 32 and set RATE_LIMIT_BACKEND to
+      // "postgres" below (see docs/railway.md and docs/operations.md).
       numReplicas: 1,
       // Covers SHUTDOWN_TIMEOUT (10s) so in-flight requests finish.
       drainingSeconds: 15,
@@ -34,6 +36,10 @@ export default defineRailway((ctx) => {
       APP_ENV: "production",
       // Railway's edge sets X-Real-IP; the container is only reachable through it.
       CLIENT_IP_HEADER: "X-Real-IP",
+      // "memory" (default, single replica) or "postgres" (shared across replicas).
+      RATE_LIMIT_BACKEND: "memory",
+      // Fail open on transient rate-limit DB errors (logged + counted on /metrics).
+      RATE_LIMIT_FAIL_OPEN: "true",
       DB_MAX_CONNS: "10",
       DATABASE_URL: ctx.shared.DATABASE_URL,
       DATABASE_CA_CERT: ctx.shared.DATABASE_CA_CERT,

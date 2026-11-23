@@ -42,8 +42,7 @@ func (a *API) aiPlan(w http.ResponseWriter, r *http.Request) {
 // purchase or restore unlocks at once instead of waiting for the webhook.
 func (a *API) refreshAIPlan(w http.ResponseWriter, r *http.Request) {
 	userID := authenticatedUser(r.Context()).ID
-	if !a.limits.allow("ai-plan-refresh:"+userID, 10, time.Now()) {
-		a.tooMany(w, r)
+	if !a.checkRateLimit(w, r, "ai-plan-refresh:"+userID, 10) {
 		return
 	}
 	if a.subscribers != nil && revenuecat.ValidUserID(userID) {

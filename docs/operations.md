@@ -108,20 +108,97 @@ record/deploy resulting immutable image digests for formal releases.
 
 - `/healthz`: process liveness.
 - `/readyz`: database access and required catalog/schema availability.
-- `/metrics`: private request, 5xx, throttling and client-error counters.
+- `/metrics`: private Prometheus text counters protected by `Authorization: Bearer <METRICS_TOKEN>` (returns `404` when unauthenticated or when `METRICS_TOKEN` is unset):
+  - `revocred_requests_total`
+  - `revocred_errors_total` (HTTP 5xx responses)
+  - `revocred_rate_limited_total` (HTTP 429 responses)
+  - `revocred_rate_limit_errors_total` (shared rate-limiter backend failures/timeouts)
+  - `revocred_client_errors_total` (privacy-minimized Flutter/platform error reports)
 - JSON logs: request ID, method, path, status and duration.
 
-Suggested starting alerts: readiness failure for 1 minute, sustained 5xx above
-1%, auth-provider failures, p95 latency above 2 seconds, pool saturation, and
-unexpected client errors/429s. Tune after load tests. Configure external log
-collection/retention and incident routing; the app cannot provision them.
+### Viewing `/metrics`
 
-The in-process limiter allows 600 requests/minute per remote peer, 120 reads and
-30 writes/minute per authenticated user. Memory is bounded. Forwarded IP headers
-are untrusted unless `CLIENT_IP_HEADER` names a header set by a trusted edge
-(Railway: `X-Real-IP`); behind Caddy its traffic shares the peer limit. Before multiple
-replicas or higher traffic, add edge limits and a shared quota backend. Restarts
-reset in-memory limits/counters; database quotas and retention persist.
+```sh
+curl -fsS -H "Authorization: Bearer $METRICS_TOKEN" https://api.revocred.com/metrics
+```
+
+Under production Compose, Caddy blocks `/metrics` publicly; scrape the private
+API container directly. On Railway, `/metrics` is reachable over HTTPS only with
+the matching bearer token (requests without it receive `404`).
+
+### Automated external uptime checks and alerts
+
+[`.github/workflows/uptime-check.yml`](../.github/workflows/uptime-check.yml)
+runs [`scripts/uptime_check.py`](../scripts/uptime_check.py) every 30 minutes
+(and on manual `workflow_dispatch`) against:
+
+- `https://api.revocred.com/readyz` (HTTP 200 and JSON `"status": "ready"`)
+- `https://api.revocred.com/v1/public/chat-disclosure` (HTTP 200 and JSON object)
+- `https://api.revocred.com/privacy` (HTTP 200)
+- Optional PWA URL when repository variable `PWA_HEALTH_URL` is set (for
+  example `https://revocred-pwa.vercel.app` or `https://app.revocred.com`).
+
+Each check retries up to 3 times with backoff before failing so transient
+deploy handoffs do not page on-call, and writes per-endpoint latency to the
+workflow log and job summary.
+
+To enable Discord or Slack failure alerts:
+
+1. Create an Incoming Webhook in Discord (Channel Settings → Integrations →
+   Webhooks) or Slack (Apps → Incoming Webhooks).
+2. In GitHub → Repository Settings → Secrets and variables → Actions:
+   - Add secret `UPTIME_ALERT_WEBHOOK_URL` with the webhook URL. The probe
+     automatically sends `{"content": ...}` for Discord webhooks, `{"text": ...}`
+     for Slack webhooks, and a JSON payload with both fields for generic
+     webhooks.
+   - Optionally add repository variables `PWA_HEALTH_URL` (to monitor the hosted
+     PWA) and `API_HEALTH_BASE_URL` (to override `https://api.revocred.com`).
+3. Trigger **Actions → Uptime Check → Run workflow** to verify latency logging
+   (pass a bogus `api_base_url` input once if you want to test alert delivery).
+
+Suggested starting alerts: readiness failure for 1 minute, sustained 5xx above
+1%, auth-provider failures, p95 latency above 2 seconds, pool saturation,
+non-zero `revocred_rate_limit_errors_total`, and unexpected client errors/429s.
+Tune after load tests. Configure external log collection/retention and incident
+routing; the app cannot provision them.
+
+### Rate limiting and multi-replica scaling
+
+The API enforces fixed 1-minute windows: 600 requests/minute per remote peer,
+120 reads and 30 writes/minute per authenticated user, plus tighter per-IP
+limits on public endpoints (`/v1/public/explain`: 20, `/v1/public/plan`: 30,
+`/v1/public/card-index`: 60) and `/v1/ai-plan/refresh` (10/user). Forwarded IP
+headers are untrusted unless `CLIENT_IP_HEADER` names a header set by a trusted
+edge (Railway: `X-Real-IP`); behind Caddy its traffic shares the peer limit.
+
+- **Single replica (default):** `RATE_LIMIT_BACKEND=memory` keeps bounded
+  per-process counters with zero database overhead. Restarts reset in-memory
+  windows and `/metrics` counters; database quotas and retention persist.
+- **Multi-replica (`RATE_LIMIT_BACKEND=postgres`):** stores shared counters in
+  the `UNLOGGED` table `revocred.rate_limit_windows` (migration
+  `000032_rate_limits.sql`) using an atomic `INSERT ... ON CONFLICT DO UPDATE`
+  and periodic background expiry cleanup (`RATE_LIMIT_CLEANUP_INTERVAL`, default
+  `5m`). Using an unlogged table avoids WAL write overhead; a PostgreSQL crash
+  safely resets active 1-minute windows.
+- **Latency spike / DB outage fallback:** each rate-limit query is bounded by
+  `RATE_LIMIT_DB_TIMEOUT` (default `500ms`, max `5s`). On error or timeout, the
+  API logs a structured warning (bucket name only, never raw IP/user ID) and
+  increments `revocred_rate_limit_errors_total`. `RATE_LIMIT_FAIL_OPEN=true`
+  (default) lets traffic through during transient DB hiccups; set
+  `RATE_LIMIT_FAIL_OPEN=false` to fail closed with HTTP `503`
+  (`rate_limit_unavailable`).
+
+To enable multi-replica Postgres rate limiting on Railway:
+
+1. Apply migration `000032_rate_limits.sql` with the owner database connection:
+   `DATABASE_URL='<owner url>' make -C revocred-api migrate-up`.
+2. Verify `numReplicas * DB_MAX_CONNS` fits comfortably inside Supabase's
+   session-pooler connection limit.
+3. In [`.railway/railway.ts`](../.railway/railway.ts), set
+   `RATE_LIMIT_BACKEND: "postgres"` and raise `numReplicas` (for example `2`),
+   then apply with `railway config plan && railway config apply`. The API
+   checks table privileges on startup and logs `"rate_limit_backend":"postgres"`
+   when ready.
 
 ## Backups and restore
 

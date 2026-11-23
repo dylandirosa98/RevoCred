@@ -44,6 +44,12 @@ type Config struct {
 	DatabaseRootCAs *x509.CertPool
 	// ClientIPHeader is a trusted edge-proxy header carrying the client IP.
 	ClientIPHeader string
+	// Rate limiting backend: "memory" (default, single-replica) or "postgres"
+	// (shared across replicas via revocred.rate_limit_windows).
+	RateLimitBackend         string
+	RateLimitFailOpen        bool
+	RateLimitDBTimeout       time.Duration
+	RateLimitCleanupInterval time.Duration
 	// RevenueCat in-app subscriptions. An empty RevenueCatWebhookAuth keeps
 	// the webhook disabled; RevenueCatSecretAPIKey (optional) lets the API
 	// read current subscriber state for transfers and app refreshes.
@@ -62,6 +68,7 @@ func Load() (Config, error) {
 		SupabaseAnonKey:   strings.TrimSpace(os.Getenv("SUPABASE_ANON_KEY")),
 		MetricsToken:      strings.TrimSpace(os.Getenv("METRICS_TOKEN")),
 		ClientIPHeader:    strings.TrimSpace(os.Getenv("CLIENT_IP_HEADER")),
+		RateLimitBackend:  strings.ToLower(valueOrDefault("RATE_LIMIT_BACKEND", "memory")),
 		AIAPIKey:          firstValue("AI_API_KEY", "OPENCODE_GO_API_KEY"),
 		AIModel:           firstValue("AI_MODEL", "OPENCODE_GO_MODEL"),
 		AIBaseURL:         strings.TrimRight(firstValue("AI_BASE_URL", "OPENCODE_GO_BASE_URL"), "/"),
@@ -76,6 +83,22 @@ func Load() (Config, error) {
 	}
 	if cfg.SearchProvider != "brave" && cfg.SearchProvider != "searxng" {
 		return Config{}, errors.New("SEARCH_PROVIDER must be brave or searxng")
+	}
+	if cfg.RateLimitBackend != "memory" && cfg.RateLimitBackend != "postgres" {
+		return Config{}, errors.New("RATE_LIMIT_BACKEND must be memory or postgres")
+	}
+	var err error
+	if cfg.RateLimitFailOpen, err = strconv.ParseBool(valueOrDefault("RATE_LIMIT_FAIL_OPEN", "true")); err != nil {
+		return Config{}, errors.New("RATE_LIMIT_FAIL_OPEN must be true or false")
+	}
+	if cfg.RateLimitDBTimeout, err = durationOrDefault("RATE_LIMIT_DB_TIMEOUT", 500*time.Millisecond); err != nil {
+		return Config{}, err
+	}
+	if cfg.RateLimitDBTimeout > 5*time.Second {
+		return Config{}, errors.New("RATE_LIMIT_DB_TIMEOUT must not exceed 5s")
+	}
+	if cfg.RateLimitCleanupInterval, err = durationOrDefault("RATE_LIMIT_CLEANUP_INTERVAL", 5*time.Minute); err != nil {
+		return Config{}, err
 	}
 	if cfg.SearchProvider == "searxng" && cfg.SearchBaseURL == "" {
 		return Config{}, errors.New("SEARCH_BASE_URL is required for searxng")

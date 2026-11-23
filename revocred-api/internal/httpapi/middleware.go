@@ -44,8 +44,7 @@ func (a *API) requireAuthentication(next http.Handler) http.Handler {
 		if r.Method != http.MethodGet {
 			key, limit = "write:"+user.ID, 30
 		}
-		if !a.limits.allow(key, limit, time.Now()) {
-			a.tooMany(w, r)
+		if !a.checkRateLimit(w, r, key, limit) {
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
