@@ -171,6 +171,29 @@ func TestBasicFallbackGivesTheAIUseBack(t *testing.T) {
 	}
 }
 
+func TestFailedAIRequestsGiveTheUseBack(t *testing.T) {
+	provider := &consentSpy{version: strings.Repeat("a", 64), fail: true}
+	repo := &fakeRepository{chatConsent: provider.version}
+	handler := chatFlowHandlerWithFree(repo, provider, 60, 3)
+	for _, accept := range []string{"", "text/event-stream"} {
+		request := chatRequest(http.MethodPost, "/v1/chat/messages", `{"content":"Explain"}`)
+		if accept != "" {
+			request.Header.Set("Accept", accept)
+		}
+		handler.ServeHTTP(httptest.NewRecorder(), request)
+	}
+	if provider.calls != 2 || repo.aiUsed != 0 || len(repo.released) != 2 {
+		t.Fatalf("failed requests still counted: calls=%d used=%d released=%v", provider.calls, repo.aiUsed, repo.released)
+	}
+	// A saved AI answer keeps its use.
+	provider.fail = false
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, chatRequest(http.MethodPost, "/v1/chat/messages", `{"content":"Explain"}`))
+	if response.Code != http.StatusCreated || repo.aiUsed != 1 || len(repo.released) != 2 {
+		t.Fatalf("saved AI answer not counted: %d used=%d released=%v", response.Code, repo.aiUsed, repo.released)
+	}
+}
+
 func readEvents(t *testing.T, body io.Reader) []string {
 	t.Helper()
 	events := []string{}

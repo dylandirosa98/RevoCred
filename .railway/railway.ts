@@ -26,7 +26,7 @@ export default defineRailway((ctx) => {
       restartPolicyType: "ON_FAILURE",
       restartPolicyMaxRetries: 5,
       // Single replica uses zero-overhead in-memory rate limits. Before raising
-      // numReplicas above 1, apply migration 32 and set RATE_LIMIT_BACKEND to
+      // numReplicas above 1, apply migration 35 (000035_rate_limits) and set RATE_LIMIT_BACKEND to
       // "postgres" below (see docs/railway.md and docs/operations.md).
       numReplicas: 1,
       // Covers SHUTDOWN_TIMEOUT (10s) so in-flight requests finish.

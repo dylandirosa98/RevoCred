@@ -113,6 +113,22 @@ func (a *API) postMessage(w http.ResponseWriter, r *http.Request) {
 		}
 		reservation = use
 	}
+	// The reserved use is given back unless an AI answer is actually saved:
+	// failed loads, provider errors, basic fallbacks, failed saves and
+	// cancelled streams must not cost the member one of their AI answers.
+	aiSaved := false
+	if reservation.Allowed {
+		defer func() {
+			if aiSaved {
+				return
+			}
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
+			defer cancel()
+			if err := a.repository.ReleaseAIUse(ctx, userID, reservation.ID); err != nil {
+				a.logger.Warn("release ai use failed", "error", err)
+			}
+		}()
+	}
 	bootstrap, err := a.repository.Bootstrap(r.Context(), userID)
 	if err != nil {
 		a.internalError(w, r, err)
@@ -139,14 +155,10 @@ func (a *API) postMessage(w http.ResponseWriter, r *http.Request) {
 		Playbook:        bootstrap.Playbook,
 	}
 	a.runChat(w, r, provider, input.Content, grounded, func(ctx context.Context, reply chat.Reply, mode string) ([]domain.ChatMessage, error) {
-		// A provider failure falls back to a basic answer; that is not an AI
-		// answer, so the reserved use is given back.
-		if reservation.Allowed && mode != "ai" {
-			if err := a.repository.ReleaseAIUse(ctx, userID, reservation.ID); err != nil {
-				a.logger.Warn("release ai use failed", "error", err)
-			}
-		}
-		return a.repository.AppendChatExchange(ctx, userID, input.Content, reply.Text, replyBlocks(reply), mode)
+		messages, err := a.repository.AppendChatExchange(ctx, userID, input.Content, reply.Text, replyBlocks(reply), mode)
+		// A basic fallback is not an AI answer, so its use is given back.
+		aiSaved = err == nil && mode == "ai"
+		return messages, err
 	})
 }
 

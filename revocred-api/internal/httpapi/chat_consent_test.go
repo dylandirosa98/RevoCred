@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,6 +22,8 @@ type consentSpy struct {
 	// basic makes the provider fall back to a basic answer, as when the AI
 	// service fails.
 	basic bool
+	// fail makes Reply return an error, as when the request cannot be served.
+	fail bool
 }
 
 func (*consentSpy) Mode() string { return "openai" }
@@ -31,6 +34,9 @@ func (p *consentSpy) SharingDisclosure() (chat.SharingDisclosure, error) {
 }
 func (p *consentSpy) Reply(context.Context, string, chat.Context) (chat.Reply, error) {
 	p.calls++
+	if p.fail {
+		return chat.Reply{}, errors.New("provider unavailable")
+	}
 	return chat.Reply{Text: "External answer", Basic: p.basic}, nil
 }
 
