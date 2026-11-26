@@ -125,11 +125,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             ),
             // One line: account help on the left, legal on the right.
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+              padding: const EdgeInsets.fromLTRB(8, 2, 8, 6),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Width is shared in proportion to each label's length, so
+                  // if a narrow phone or large text forces them to shrink,
+                  // both shrink by the same amount and stay matched.
                   Flexible(
+                    flex: 31,
                     child: TextButton(
                       key: const ValueKey('footer-account-help'),
                       style: _footerLink,
@@ -146,6 +150,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                   const SizedBox(width: 8),
                   Flexible(
+                    flex: 17,
                     child: TextButton(
                       key: const ValueKey('footer-legal'),
                       style: _footerLink,
@@ -356,7 +361,7 @@ class _WelcomePage extends StatelessWidget {
 // rather than wrapping.
 final _footerLink = TextButton.styleFrom(
   minimumSize: const Size(0, 44),
-  padding: const EdgeInsets.symmetric(horizontal: 6),
+  padding: const EdgeInsets.symmetric(horizontal: 4),
 );
 
 enum _WelcomeSlot { copy, cards, actions }
