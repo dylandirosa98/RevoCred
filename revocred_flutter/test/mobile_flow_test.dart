@@ -92,8 +92,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    // iPhone SE (2nd/3rd gen), 13 mini, 16, 17 Pro and 17 Pro Max points.
+    // iPhone SE (1st, 2nd/3rd gen), 13 mini, 16, 17 Pro and 17 Pro Max points.
     const phones = [
+      (Size(320, 568), FakeViewPadding(top: 20)),
       (Size(375, 667), FakeViewPadding(top: 20)),
       (Size(375, 812), FakeViewPadding(top: 50, bottom: 34)),
       (Size(390, 844), FakeViewPadding(top: 47, bottom: 34)),
@@ -109,6 +110,16 @@ void main() {
         padding.top,
         size.width,
         size.height - padding.bottom,
+      );
+      expect(tester.takeException(), isNull, reason: 'overflow at $size');
+      // One screen: the welcome page itself does not scroll.
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('auth-welcome')),
+          matching: find.byType(Scrollable),
+        ),
+        findsOneWidget,
+        reason: 'only the headline may scroll, and only at extreme text sizes',
       );
       for (final key in ['build-strategy-action', 'existing-account-action']) {
         final rect = tester.getRect(find.byKey(ValueKey(key)));

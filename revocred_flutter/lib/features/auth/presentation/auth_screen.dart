@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../../core/logic/friendly_error.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -249,38 +251,50 @@ class _WelcomePage extends StatelessWidget {
     builder: (context, constraints) {
       final wide = constraints.maxWidth >= 900;
       if (!wide) {
-        // Phones: the headline and hero cards scroll, while the two actions
-        // stay pinned so the way in is never below the fold (the cards alone
-        // fill an iPhone screen).
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _WelcomeCopy(
-                      wide: false,
-                      onCreateAccount: onCreateAccount,
-                      onSignIn: onSignIn,
-                      showActions: false,
-                    ),
-                    const SizedBox(height: 16),
-                    const _HeroCards(),
-                  ],
+        // Phones: one screen. The actions sit at the bottom, the headline at
+        // the top, and the hero cards shrink to the space left between them,
+        // so nothing scrolls or hides behind the buttons. Only an extreme
+        // text size makes the headline scroll on its own.
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+          child: CustomMultiChildLayout(
+            delegate: _WelcomePhoneLayout(),
+            children: [
+              LayoutId(
+                id: _WelcomeSlot.copy,
+                child: SingleChildScrollView(
+                  key: const ValueKey('welcome-copy-scroll'),
+                  child: _WelcomeCopy(
+                    wide: false,
+                    onCreateAccount: onCreateAccount,
+                    onSignIn: onSignIn,
+                    showActions: false,
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: _WelcomeActions(
-                onCreateAccount: onCreateAccount,
-                onSignIn: onSignIn,
+              LayoutId(
+                id: _WelcomeSlot.cards,
+                child: LayoutBuilder(
+                  builder: (context, space) => space.maxHeight < 72
+                      ? const SizedBox.shrink()
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: SizedBox(
+                            width: space.maxWidth,
+                            child: const _HeroCards(),
+                          ),
+                        ),
+                ),
               ),
-            ),
-          ],
+              LayoutId(
+                id: _WelcomeSlot.actions,
+                child: _WelcomeActions(
+                  onCreateAccount: onCreateAccount,
+                  onSignIn: onSignIn,
+                ),
+              ),
+            ],
+          ),
         );
       }
       return SingleChildScrollView(
@@ -312,6 +326,48 @@ class _WelcomePage extends StatelessWidget {
       );
     },
   );
+}
+
+enum _WelcomeSlot { copy, cards, actions }
+
+/// Actions pinned to the bottom, headline from the top (never taller than
+/// the space above the actions), hero cards in whatever is left.
+class _WelcomePhoneLayout extends MultiChildLayoutDelegate {
+  static const gap = 12.0;
+
+  @override
+  void performLayout(Size size) {
+    final actions = layoutChild(
+      _WelcomeSlot.actions,
+      BoxConstraints.tightFor(width: size.width),
+    );
+    final above = math.max(0.0, size.height - actions.height - gap);
+    final copy = layoutChild(
+      _WelcomeSlot.copy,
+      BoxConstraints(
+        minWidth: size.width,
+        maxWidth: size.width,
+        maxHeight: above,
+      ),
+    );
+    final cardsTop = copy.height + gap;
+    layoutChild(
+      _WelcomeSlot.cards,
+      BoxConstraints.tightFor(
+        width: size.width,
+        height: math.max(0.0, above - cardsTop),
+      ),
+    );
+    positionChild(_WelcomeSlot.copy, Offset.zero);
+    positionChild(_WelcomeSlot.cards, Offset(0, cardsTop));
+    positionChild(
+      _WelcomeSlot.actions,
+      Offset(0, size.height - actions.height),
+    );
+  }
+
+  @override
+  bool shouldRelayout(_WelcomePhoneLayout oldDelegate) => false;
 }
 
 class _WelcomeCopy extends StatelessWidget {
