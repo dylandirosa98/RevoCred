@@ -1,8 +1,10 @@
 # RevoCred → TestFlight
 
-The repository can validate public iOS configuration on Linux and build a signed
-IPA on a configured Mac. It does **not** upload, submit for review, prove hosted
-readiness or guarantee approval. Resolve the findings in
+The repository can validate public iOS configuration on Linux, build a signed
+IPA on a configured Mac, or build, sign and upload to TestFlight from GitHub's
+macOS runners ([automated upload](#automated-testflight-upload-no-mac-needed)).
+It does **not** submit for App Review, prove hosted readiness or guarantee
+approval. Resolve the findings in
 [iOS review readiness](ios-review-readiness.md) before distributing real-user
 builds. Account-scoped, revocable AI permission is implemented locally but still needs native
 acceptance testing; final legal/support facts remain open.
@@ -162,9 +164,10 @@ not a substitute for Xcode validation or App Store Connect processing.
 
 ## 5. Upload and beta distribution (operator)
 
-1. Open the exact `.xcarchive` in Xcode Organizer and validate it. Upload that
-   archive through Organizer, or upload the exported IPA with Apple's
-   Transporter. The build script never uploads or publishes.
+1. Run the [automated workflow](#automated-testflight-upload-no-mac-needed),
+   or open the exact `.xcarchive` in Xcode Organizer, validate it and upload it
+   (or upload the exported IPA with Apple's Transporter). `make ios-release`
+   itself never uploads.
 2. Wait for App Store Connect processing; resolve warnings/errors rather than
    treating an upload as acceptance. Confirm version/build/bundle ID match.
 3. Complete encryption/export compliance and the applicable beta information,
@@ -181,10 +184,65 @@ not a substitute for Xcode validation or App Store Connect processing.
    answers, territory/trader/legal details and current review requirements.
    Don't describe unshipped consent or unsupported financial claims.
 
+## Automated TestFlight upload (no Mac needed)
+
+`.github/workflows/ios-testflight.yml` builds, signs and uploads from GitHub's
+free macOS runners (free for public repositories). It is **manual only**:
+GitHub → Actions → "iOS TestFlight (signed build + upload)" → Run workflow.
+Leave "Upload" off for a first sign-only rehearsal. GitHub only offers the Run
+button for workflows on the default branch, so this file must be on `main`.
+
+It uses [codemagic-cli-tools](https://github.com/codemagic-ci-cd/cli-tools)
+(pinned) with an App Store Connect API key: on the first run it registers the
+bundle ID `com.revocred.app` if needed, creates an Apple Distribution
+certificate from `CERTIFICATE_PRIVATE_KEY` and an App Store provisioning
+profile, then reuses them. Nothing is committed and no IPA or signing file is
+kept as an artifact.
+
+### One-time setup (after the Apple Developer account is approved)
+
+1. **App record.** In App Store Connect → Apps → "+", create the app with
+   bundle ID `com.revocred.app`. (If the ID is not offered yet, register it
+   under Certificates, Identifiers & Profiles → Identifiers, or run the workflow
+   once with Upload off; it registers the ID.)
+2. **API key.** App Store Connect → Users and Access → Integrations → App Store
+   Connect API → Team Keys → "+". Role **Admin** (needed to create the
+   distribution certificate and profiles). Download the `.p8` once; note the
+   Key ID and the Issuer ID shown above the table.
+3. **Certificate private key** (any machine):
+   `ssh-keygen -t rsa -b 2048 -m PEM -N '' -f revocred_dist_key` and use the
+   contents of `revocred_dist_key` (not `.pub`). Keep it with the team's
+   secrets; reusing it lets later runs reuse the same certificate.
+4. **Release config.** Create `.env.ios.json` as in section 2 (legal facts
+   filled, real production URLs) and confirm `make ios-release-check` passes.
+5. **Repository secrets** (Settings → Secrets and variables → Actions), or
+   `gh secret set NAME < file`:
+
+   | Secret | Value |
+   | --- | --- |
+   | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID |
+   | `APP_STORE_CONNECT_KEY_IDENTIFIER` | Key ID |
+   | `APP_STORE_CONNECT_PRIVATE_KEY` | Full contents of `AuthKey_<KeyID>.p8` |
+   | `CERTIFICATE_PRIVATE_KEY` | Full contents of `revocred_dist_key` |
+   | `IOS_RELEASE_CONFIG` | Full contents of `.env.ios.json` |
+
+   The workflow stops with the list of missing secret names if any is unset.
+
+### Each upload
+
+The build number defaults to the workflow's run number; enter a larger one if
+an earlier upload used a higher number (App Store Connect rejects reuse). The
+marketing version comes from `pubspec.yaml`. After the run, wait 5–30 minutes
+for processing, answer export compliance if asked (the app declares standard
+encryption only), then add internal testers in TestFlight. Section 4's device
+acceptance still applies to every processed build.
+
 ## CI scope
 
 `.github/workflows/ios.yml` compiles the native release code on macOS using
-production flags but **non-routable fixture endpoints**, without signing. It
-uses no Apple secrets and cannot produce a distributable TestFlight build. Its
-first remote run remains unverified until pushed and executed. It complements
-the existing Linux checks, not device tests, privacy acceptance or Beta Review.
+production flags but **non-routable fixture endpoints**, without signing, on
+every push to `main`/`release/**`. It uses no Apple secrets and cannot produce
+a distributable build. Hosted simulators occasionally hang while booting; the
+launch smoke erases and retries up to three times before failing. It
+complements the existing Linux checks, not device tests, privacy acceptance or
+Beta Review. Signed uploads are the separate manual workflow above.

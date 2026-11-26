@@ -136,6 +136,21 @@ class IOSCITest(unittest.TestCase):
             self.assertFalse(result['testflight_ready'])
             native.assert_not_called()
 
+    def test_testflight_workflow_is_manual_pinned_and_keeps_no_artifacts(self):
+        workflow = (ios_release.ROOT / '.github/workflows/ios-testflight.yml').read_text()
+        triggers = workflow.split('\non:', 1)[1].split('\npermissions:', 1)[0]
+        self.assertIn('workflow_dispatch:', triggers)
+        for automatic in ('push:', 'pull_request', 'schedule:'):
+            self.assertNotIn(automatic, triggers)
+        self.assertIn("codemagic-cli-tools==0.70.2", workflow)
+        self.assertIn('6b182d2c7585eba26d4edce0f97630effd256c33', workflow)
+        self.assertIn('--strict-match-identifier', workflow)
+        self.assertIn('ios_release.py --check --config .env.ios.json', workflow)
+        self.assertIn('if: inputs.upload', workflow)
+        self.assertNotIn('upload-artifact', workflow)
+        self.assertNotIn('set -x', workflow)
+        self.assertIn('contents: read', workflow)
+
     def test_signed_command_cannot_use_ci_fixture_bypass(self):
         workflow = (ios_release.ROOT / '.github/workflows/ios.yml').read_text()
         self.assertIn("'release/**'", workflow)

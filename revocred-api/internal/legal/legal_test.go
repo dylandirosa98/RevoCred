@@ -42,7 +42,7 @@ func TestPagesRenderRequiredContent(t *testing.T) {
 		},
 		"terms": {
 			"18 years old", "United States", "not</strong> financial", "Apple ID",
-			"24 hours before the end of the current period", "Settings → [your name] → Subscriptions",
+			"24 hours before the end of the current period", "Settings → your name → Subscriptions",
 			"third-party beneficiaries",
 		},
 		"support": {"support@revocred.com", "Delete my account", "Report", "Subscriptions"},

@@ -35,6 +35,11 @@ Description draft:
 > and explore a personalized rewards strategy. Review your wallet, compare
 > category choices and revisit a strategy report you can share as a PDF.
 >
+> Explore Rewards turns your yearly points into example flights and hotel
+> stays, so you can see roughly what your cards could book and how long it
+> takes to earn a trip. In-app reminders flag annual fees and card credits
+> before they come up.
+>
 > REVO explains the information behind your plan. When external AI is enabled,
 > you can agree to sharing with the named AI service or choose a basic
 > server-only answer. Account permission stays on until you turn it off in
@@ -145,6 +150,11 @@ protected sign-in fields, never in Git.
 > discusses cards, rewards, travel and money; messages and answers pass
 > through OpenAI's moderation check. Each REVO answer has a **Report** option.
 >
+> **Explore Rewards:** on Home, tap **Explore Rewards** to see example flight
+> and hotel redemptions based on the account's yearly points. These are
+> labeled examples from fixed tables, not live fares or bookings; nothing is
+> booked or purchased in the app.
+>
 > **Account deletion:** Profile → Account settings → Delete my account, enter
 > the password and confirm. Data export is on the same screen.
 >
@@ -156,7 +166,8 @@ protected sign-in fields, never in Git.
 > Apply links open the issuer's or a labeled
 > partner's website in Safari and unlock nothing in the app.
 >
-> No camera, microphone, contacts, location or tracking permission is used.
+> No camera, microphone, contacts, location, notification or tracking
+> permission is used (card reminders appear inside the app only).
 > Privacy policy: https://api.revocred.com/privacy. Support:
 > https://api.revocred.com/support, support@revocred.com.
 
@@ -167,6 +178,12 @@ Before submitting:
   a day, which a reviewer can exhaust).
 - Production must use OpenAI (the sharing notice names the provider in use; an
   OpenCode "(testing)" recipient in the review build reads as test content).
+  **As of 2026-11-25 production still names "OpenCode Go and DeepSeek
+  (testing)"**; the owner is creating the OpenAI account. The notes above say
+  OpenAI, so switch before submitting or edit these notes to match.
+- Fill the legal pages' owner facts with `scripts/fill_legal_facts.py` and
+  deploy the API. **As of 2026-11-25 the live pages still show `[[...]]`
+  placeholders**, which a reviewer opening the Privacy Policy URL will see.
 - Custom SMTP (Resend) must be live so sign-up and password reset emails
   arrive.
 

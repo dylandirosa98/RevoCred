@@ -4,7 +4,22 @@ Current handoff updated November 8, 2026 from the evidence in
 [the dated App Store review](review-2026-11-08.md). No hosting configuration,
 account, DNS, plan or credentials were changed by this documentation update.
 
-## Current evidence
+## Update — November 25, 2026
+
+Public checks only; nothing hosted was changed.
+
+- `https://api.revocred.com/privacy`, `/terms` and `/support` return 200 (served
+  by the API since November 11). They still contain the owner placeholders
+  `[[COMPANY LEGAL NAME]]`, `[[MAILING ADDRESS]]`, `[[EFFECTIVE DATE]]` and
+  `[[GOVERNING LAW STATE]]`; fill them with `scripts/fill_legal_facts.py`.
+- `/v1/public/chat-disclosure` still names **OpenCode Go and DeepSeek
+  (testing)**, `deepseek-v4.1-flash`. The OpenAI switch waits on the owner's
+  OpenAI account.
+- `/v1/public/explore-rewards` serves the same flight/hotel tables as the repo.
+- `app.revocred.com` does not resolve yet (PWA DNS TODO in `AGENTS.md`); this
+  does not affect the iOS app.
+
+## Current evidence (November 8)
 
 - Live API health/readiness, public catalog/index, offers and Explore Rewards
   responded during that review. Supabase Auth settings also responded.

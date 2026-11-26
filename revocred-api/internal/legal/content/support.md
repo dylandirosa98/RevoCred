@@ -27,7 +27,7 @@ When you write, include your iPhone model and iOS version, what you were doing, 
 
 ## REVO AI subscription
 
-REVO AI is billed through your Apple ID and renews automatically each month unless you turn it off at least 24 hours before the period ends. Manage or cancel it in Settings → [your name] → Subscriptions on your iPhone. For refunds, use [Apple's Report a Problem](https://reportaproblem.apple.com).
+REVO AI is billed through your Apple ID and renews automatically each month unless you turn it off at least 24 hours before the period ends. Manage or cancel it in Settings → your name → Subscriptions on your iPhone. For refunds, use [Apple's Report a Problem](https://reportaproblem.apple.com).
 
 ## About our estimates
 

@@ -50,8 +50,17 @@ remain, and the static export refuses to run.
 | `[[EFFECTIVE DATE]]` | privacy, terms | The date the final text takes effect, e.g. November 20, 2026 |
 | `[[GOVERNING LAW STATE]]` | terms | The US state whose law governs the terms |
 
-Also set the matching app build defines: `REVOCRED_LEGAL_ENTITY`,
-`REVOCRED_LEGAL_JURISDICTION`, `REVOCRED_LEGAL_EFFECTIVE_DATE`.
+Fill all four at once (it refuses empty values and syncs the API copy):
+
+```sh
+python3 scripts/fill_legal_facts.py --company "<legal name>" \
+  --address "<postal address>" --effective-date "<Month D, YYYY>" \
+  --governing-state "<state>"
+```
+
+It prints the matching app build defines (`REVOCRED_LEGAL_ENTITY`,
+`REVOCRED_LEGAL_JURISDICTION`, `REVOCRED_LEGAL_EFFECTIVE_DATE`) for the iOS
+release config. Review the diff, commit and deploy the API.
 
 ## Facts to confirm (written as true in the drafts)
 

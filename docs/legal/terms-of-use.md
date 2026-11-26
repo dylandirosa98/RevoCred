@@ -33,7 +33,7 @@ We may offer REVO AI, an optional auto-renewing monthly subscription that raises
 - Payment is charged to your Apple ID account when you confirm the purchase.
 - The subscription renews automatically each month at the same price unless you turn off auto-renew at least 24 hours before the end of the current period.
 - Your account is charged for renewal within 24 hours before the end of the current period.
-- You can manage or cancel the subscription in your iPhone's Settings → [your name] → Subscriptions. Deleting the app or your RevoCred account does not cancel it.
+- You can manage or cancel the subscription in your iPhone's Settings → your name → Subscriptions. Deleting the app or your RevoCred account does not cancel it.
 - If a free trial is offered, any unused part of it ends when you buy a subscription.
 - Refunds are handled by Apple under Apple's policies.
 

@@ -1,0 +1,120 @@
+name: iOS TestFlight (signed build + upload)
+# Manual only. Builds the real production-configured app, signs it with the
+# App Store Connect API key and uploads it to TestFlight. See docs/testflight.md
+# ("Automated TestFlight upload") for the one-time secrets setup.
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload to TestFlight (off = build and sign only)
+        type: boolean
+        default: true
+      build_number:
+        description: Build number (blank = this workflow's run number); must beat every earlier upload
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+jobs:
+  testflight:
+    # Standard public-repository hosted runner; no larger/paid runner labels.
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      BUNDLE_ID: com.revocred.app
+      # Read by codemagic-cli-tools; never echoed.
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
+      IOS_RELEASE_CONFIG: ${{ secrets.IOS_RELEASE_CONFIG }}
+    steps:
+      - name: Require the signing and release-config secrets
+        run: |
+          missing=()
+          for name in APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_KEY_IDENTIFIER \
+                      APP_STORE_CONNECT_PRIVATE_KEY CERTIFICATE_PRIVATE_KEY IOS_RELEASE_CONFIG; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing repository secrets: ${missing[*]}. See docs/testflight.md (Automated TestFlight upload)."
+            exit 1
+          fi
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: flutter/flutter
+          ref: 6b182d2c7585eba26d4edce0f97630effd256c33
+          path: .flutter-sdk
+          persist-credentials: false
+      - name: Restore version tag for exact pinned Flutter revision
+        run: |
+          git -C .flutter-sdk fetch --depth=1 origin tag 3.44.9
+          test "$(git -C .flutter-sdk rev-parse '3.44.9^{commit}')" = '6b182d2c7585eba26d4edce0f97630effd256c33'
+          test "$(git -C .flutter-sdk rev-parse HEAD)" = '6b182d2c7585eba26d4edce0f97630effd256c33'
+      - name: Select installed Xcode 26+ and require iOS 26+ SDK
+        run: python3 scripts/ios_ci.py --select-xcode
+      - name: Add exact pinned Flutter to PATH
+        run: echo "$GITHUB_WORKSPACE/.flutter-sdk/bin" >> "$GITHUB_PATH"
+      - name: Write and validate the public release config
+        run: |
+          umask 077
+          printf '%s' "$IOS_RELEASE_CONFIG" > .env.ios.json
+          python3 scripts/ios_release.py --check --config .env.ios.json
+      - name: Choose the build number
+        id: build
+        env:
+          REQUESTED: ${{ inputs.build_number }}
+        run: |
+          number="${REQUESTED:-$GITHUB_RUN_NUMBER}"
+          [[ "$number" =~ ^[1-9][0-9]*$ ]] || { echo "::error::Build number must be a positive integer."; exit 1; }
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          echo "Build $(grep -E '^version:' revocred_flutter/pubspec.yaml | sed -E 's/version: *([^+]*).*/\1/') ($number)"
+      - name: Install pinned codemagic-cli-tools
+        run: |
+          python3 -m venv "$RUNNER_TEMP/cm"
+          "$RUNNER_TEMP/cm/bin/pip" install --quiet 'codemagic-cli-tools==0.70.2'
+          echo "$RUNNER_TEMP/cm/bin" >> "$GITHUB_PATH"
+      - name: Fetch App Store signing files (creates them on first run)
+        run: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --strict-match-identifier --create
+          keychain add-certificates
+          xcode-project use-profiles --project revocred_flutter/ios/Runner.xcodeproj \
+            --export-options-plist "$RUNNER_TEMP/export_options.plist"
+      - name: Build signed IPA
+        working-directory: revocred_flutter
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter build ipa --release \
+            --build-number="${{ steps.build.outputs.number }}" \
+            --dart-define-from-file="$GITHUB_WORKSPACE/.env.ios.json" \
+            --export-options-plist="$RUNNER_TEMP/export_options.plist"
+          ls build/ios/ipa/*.ipa
+      - name: Upload to TestFlight
+        if: inputs.upload
+        run: app-store-connect publish --path revocred_flutter/build/ios/ipa/*.ipa
+      - name: Clean up signing state
+        if: always()
+        run: |
+          rm -f .env.ios.json "$RUNNER_TEMP/export_options.plist"
+          keychain use-login 2>/dev/null || true
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## iOS TestFlight run"
+            echo "- Build number: ${{ steps.build.outputs.number || 'not chosen' }}"
+            echo "- Upload requested: ${{ inputs.upload }}"
+            echo "- Result: ${{ job.status }}"
+            echo
+            echo "After upload, App Store Connect takes about 5–30 minutes to process the build before it appears in TestFlight."
+            echo "No IPA or signing file is kept as an artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
