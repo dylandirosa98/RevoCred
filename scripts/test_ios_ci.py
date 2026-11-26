@@ -100,6 +100,34 @@ class IOSCITest(unittest.TestCase):
         self.assertIn('runtime log incomplete: TimeoutExpired', notes)
         self.assertIn('shutdown did not finish: TimeoutExpired', notes)
 
+    def test_stuck_boot_is_erased_and_retried(self):
+        calls = []
+
+        def fake_run(command, output, name, **_):
+            calls.append(name)
+            if name == 'iphone-bootstatus':
+                raise ValueError('stuck on System App')
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(ios_ci, 'run', side_effect=fake_run), \
+                patch.object(ios_ci.subprocess, 'run') as raw:
+            attempt = ios_ci.boot_simulator(['xcrun', 'simctl'], 'udid', 'iphone', Path(directory))
+            retries = (Path(directory) / 'iphone-boot-retries.log').read_text()
+        self.assertEqual(attempt, 2)
+        self.assertEqual(calls, ['iphone-boot', 'iphone-bootstatus',
+                                 'iphone-boot-retry1', 'iphone-bootstatus-retry1'])
+        erased = [call.args[0][2] for call in raw.call_args_list]
+        self.assertEqual(erased, ['shutdown', 'erase'])
+        self.assertIn('attempt 1 did not boot', retries)
+
+    def test_boot_gives_up_after_all_attempts(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(ios_ci, 'run', side_effect=ValueError('stuck')), \
+                patch.object(ios_ci.subprocess, 'run'):
+            with self.assertRaisesRegex(ValueError, 'did not finish booting'):
+                ios_ci.boot_simulator(['xcrun', 'simctl'], 'udid', 'iphone', Path(directory),
+                                      booted=True)
+
     def test_static_only_never_claims_native_success(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(ios_ci, 'native_build') as native:
             self.assertEqual(ios_ci.main(['--output', directory, '--preflight-only']), 0)

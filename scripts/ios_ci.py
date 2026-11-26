@@ -105,6 +105,36 @@ def app_alive(sim, udid, bundle, pid, log_path):
                    for line in listing.stdout.splitlines())
 
 
+BOOT_ATTEMPTS = 3
+
+
+def boot_simulator(sim, udid, family, output, booted=False, attempts=BOOT_ATTEMPTS):
+    """Boot until SpringBoard is ready, erasing and retrying a stuck simulator.
+
+    Hosted macOS runners sometimes never finish "Waiting on System App"; one
+    fresh erase-and-boot usually succeeds. Each attempt keeps its own log.
+    """
+    for attempt in range(1, attempts + 1):
+        suffix = '' if attempt == 1 else f'-retry{attempt - 1}'
+        try:
+            if not booted:
+                run(sim + ['boot', udid], output, family + '-boot' + suffix, timeout=120)
+            run(sim + ['bootstatus', udid, '-b'], output, family + '-bootstatus' + suffix, timeout=300)
+            return attempt
+        except (ValueError, subprocess.SubprocessError):
+            if attempt == attempts:
+                raise ValueError(family + ' simulator did not finish booting.') from None
+            with (output / (family + '-boot-retries.log')).open('a') as log:
+                log.write(f'attempt {attempt} did not boot; shutting down and erasing\n')
+            for command in (['shutdown', udid], ['erase', udid]):
+                try:
+                    subprocess.run(sim + command, capture_output=True, timeout=180, check=False)
+                except subprocess.SubprocessError:
+                    pass
+            booted = False
+    return attempts
+
+
 def smoke(device, app, output):
     udid = device['udid']
     family = 'iphone' if device['name'].startswith('iPhone') else 'ipad'
@@ -112,9 +142,7 @@ def smoke(device, app, output):
     with (app / 'Info.plist').open('rb') as stream:
         bundle = plistlib.load(stream)['CFBundleIdentifier']
     try:
-        if device.get('state') != 'Booted':
-            run(sim + ['boot', udid], output, family + '-boot', timeout=60)
-        run(sim + ['bootstatus', udid, '-b'], output, family + '-bootstatus', timeout=240)
+        boot_simulator(sim, udid, family, output, booted=device.get('state') == 'Booted')
         run(sim + ['install', udid, str(app)], output, family + '-install', timeout=120)
         run(sim + ['launch', '--terminate-running-process', udid, bundle],
             output, family + '-launch', timeout=60)
