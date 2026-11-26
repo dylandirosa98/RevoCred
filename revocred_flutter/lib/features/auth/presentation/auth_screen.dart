@@ -134,9 +134,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       key: const ValueKey('footer-account-help'),
                       style: _footerLink,
                       onPressed: () => context.push('/account-recovery'),
-                      child: const Text(
-                        'Forgot password / confirm email',
-                        textAlign: TextAlign.start,
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Forgot password / confirm email',
+                          maxLines: 1,
+                          softWrap: false,
+                        ),
                       ),
                     ),
                   ),
@@ -146,9 +150,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       key: const ValueKey('footer-legal'),
                       style: _footerLink,
                       onPressed: () => context.push('/legal'),
-                      child: const Text(
-                        'Privacy and terms',
-                        textAlign: TextAlign.end,
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Privacy and terms',
+                          maxLines: 1,
+                          softWrap: false,
+                        ),
                       ),
                     ),
                   ),
@@ -344,6 +352,8 @@ class _WelcomePage extends StatelessWidget {
   );
 }
 
+// Footer links stay on one line each, shrinking slightly on narrow phones
+// rather than wrapping.
 final _footerLink = TextButton.styleFrom(
   minimumSize: const Size(0, 44),
   padding: const EdgeInsets.symmetric(horizontal: 6),

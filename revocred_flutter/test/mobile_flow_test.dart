@@ -127,6 +127,7 @@ void main() {
       );
       final legal = tester.getRect(find.byKey(const ValueKey('footer-legal')));
       expect(help.center.dy, legal.center.dy);
+      expect(help.height, legal.height, reason: 'footer links must not wrap');
       expect(
         help.left < size.width / 2 && legal.right > size.width / 2,
         isTrue,
