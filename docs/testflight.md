@@ -242,7 +242,8 @@ acceptance still applies to every processed build.
 `.github/workflows/ios.yml` compiles the native release code on macOS using
 production flags but **non-routable fixture endpoints**, without signing, on
 every push to `main`/`release/**`. It uses no Apple secrets and cannot produce
-a distributable build. Hosted simulators occasionally hang while booting; the
-launch smoke erases and retries up to three times before failing. It
+a distributable build. Hosted simulators occasionally hang right after boot (install or launch never
+returns); the launch smoke erases and retries the whole boot, install and
+launch up to three times before failing. It
 complements the existing Linux checks, not device tests, privacy acceptance or
 Beta Review. Signed uploads are the separate manual workflow above.

@@ -8,7 +8,7 @@ has **no path filter**: a new workflow can execute from the release branch
 without merging it into the default branch. Manual dispatch discovery may still
 require a default-branch workflow; use the push trigger for this first run.
 
-The job uses the standard public-repository `macos-15` hosted runner, a 55-minute
+The job uses the standard public-repository `macos-15` hosted runner, a 75-minute
 job limit, read-only repository permission, and one cancelable run per ref.
 There are no paid/larger runner labels and no Apple secrets are read. Artifacts
 expire after seven days. No signing, TestFlight upload, review submission, or

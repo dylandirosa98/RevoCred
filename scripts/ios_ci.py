@@ -105,34 +105,43 @@ def app_alive(sim, udid, bundle, pid, log_path):
                    for line in listing.stdout.splitlines())
 
 
-BOOT_ATTEMPTS = 3
+LAUNCH_ATTEMPTS = 3
 
 
-def boot_simulator(sim, udid, family, output, booted=False, attempts=BOOT_ATTEMPTS):
-    """Boot until SpringBoard is ready, erasing and retrying a stuck simulator.
+def boot_install_launch(sim, udid, family, output, app, bundle, booted=False,
+                        attempts=LAUNCH_ATTEMPTS):
+    """Boot, install and cold-launch, erasing and retrying a stuck simulator.
 
-    Hosted macOS runners sometimes never finish "Waiting on System App"; one
-    fresh erase-and-boot usually succeeds. Each attempt keeps its own log.
+    Hosted macOS runners intermittently hang right after boot: `bootstatus`
+    reports ready, then `simctl install` or `simctl launch` never returns.
+    A fresh erase-and-boot usually succeeds. Each attempt keeps its own logs;
+    the returned name is the successful launch log.
     """
     for attempt in range(1, attempts + 1):
         suffix = '' if attempt == 1 else f'-retry{attempt - 1}'
+        step = 'boot'
         try:
             if not booted:
                 run(sim + ['boot', udid], output, family + '-boot' + suffix, timeout=120)
             run(sim + ['bootstatus', udid, '-b'], output, family + '-bootstatus' + suffix, timeout=300)
-            return attempt
-        except (ValueError, subprocess.SubprocessError):
+            step = 'install'
+            run(sim + ['install', udid, str(app)], output, family + '-install' + suffix, timeout=300)
+            step = 'launch'
+            run(sim + ['launch', '--terminate-running-process', udid, bundle],
+                output, family + '-launch' + suffix, timeout=120)
+            return family + '-launch' + suffix
+        except (ValueError, subprocess.SubprocessError) as error:
+            with (output / (family + '-launch-retries.log')).open('a') as log:
+                log.write(f'attempt {attempt}: {step} failed ({type(error).__name__})\n')
             if attempt == attempts:
-                raise ValueError(family + ' simulator did not finish booting.') from None
-            with (output / (family + '-boot-retries.log')).open('a') as log:
-                log.write(f'attempt {attempt} did not boot; shutting down and erasing\n')
+                raise ValueError(f'{family} simulator {step} did not complete after {attempts} attempts.') from None
             for command in (['shutdown', udid], ['erase', udid]):
                 try:
                     subprocess.run(sim + command, capture_output=True, timeout=180, check=False)
                 except subprocess.SubprocessError:
                     pass
             booted = False
-    return attempts
+    raise ValueError('unreachable')
 
 
 def smoke(device, app, output):
@@ -142,11 +151,9 @@ def smoke(device, app, output):
     with (app / 'Info.plist').open('rb') as stream:
         bundle = plistlib.load(stream)['CFBundleIdentifier']
     try:
-        boot_simulator(sim, udid, family, output, booted=device.get('state') == 'Booted')
-        run(sim + ['install', udid, str(app)], output, family + '-install', timeout=120)
-        run(sim + ['launch', '--terminate-running-process', udid, bundle],
-            output, family + '-launch', timeout=60)
-        pid = launched_pid((output / (family + '-launch.log')).read_text(), bundle)
+        launch_log = boot_install_launch(sim, udid, family, output, app, bundle,
+                                         booted=device.get('state') == 'Booted')
+        pid = launched_pid((output / (launch_log + '.log')).read_text(), bundle)
         time.sleep(15)
         alive = app_alive(sim, udid, bundle, pid, output / (family + '-alive.log'))
         try:
