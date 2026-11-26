@@ -123,18 +123,34 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ),
               ),
             ),
+            // One line: account help on the left, legal on the right.
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-              child: Wrap(
-                alignment: WrapAlignment.center,
+              padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  TextButton(
-                    onPressed: () => context.push('/account-recovery'),
-                    child: const Text('Forgot password / confirm email'),
+                  Flexible(
+                    child: TextButton(
+                      key: const ValueKey('footer-account-help'),
+                      style: _footerLink,
+                      onPressed: () => context.push('/account-recovery'),
+                      child: const Text(
+                        'Forgot password / confirm email',
+                        textAlign: TextAlign.start,
+                      ),
+                    ),
                   ),
-                  TextButton(
-                    onPressed: () => context.push('/legal'),
-                    child: const Text('Privacy and terms'),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: TextButton(
+                      key: const ValueKey('footer-legal'),
+                      style: _footerLink,
+                      onPressed: () => context.push('/legal'),
+                      child: const Text(
+                        'Privacy and terms',
+                        textAlign: TextAlign.end,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -256,7 +272,7 @@ class _WelcomePage extends StatelessWidget {
         // so nothing scrolls or hides behind the buttons. Only an extreme
         // text size makes the headline scroll on its own.
         return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
           child: CustomMultiChildLayout(
             delegate: _WelcomePhoneLayout(),
             children: [
@@ -328,12 +344,17 @@ class _WelcomePage extends StatelessWidget {
   );
 }
 
+final _footerLink = TextButton.styleFrom(
+  minimumSize: const Size(0, 44),
+  padding: const EdgeInsets.symmetric(horizontal: 6),
+);
+
 enum _WelcomeSlot { copy, cards, actions }
 
 /// Actions pinned to the bottom, headline from the top (never taller than
 /// the space above the actions), hero cards in whatever is left.
 class _WelcomePhoneLayout extends MultiChildLayoutDelegate {
-  static const gap = 12.0;
+  static const gap = 8.0;
 
   @override
   void performLayout(Size size) {
@@ -414,7 +435,7 @@ class _WelcomeCopy extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         AppLogo(onDark: dark, markSize: 46),
-        SizedBox(height: wide ? 64 : 34),
+        SizedBox(height: wide ? 64 : 22),
         Text.rich(
           TextSpan(
             children: [
@@ -490,13 +511,13 @@ class _WelcomeActions extends StatelessWidget {
         onPressed: onCreateAccount,
         trailing: Icons.arrow_forward,
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 4),
       TextButton(
         key: const ValueKey('existing-account-action'),
         onPressed: onSignIn,
         style: TextButton.styleFrom(
           foregroundColor: context.product.action,
-          minimumSize: const Size.fromHeight(48),
+          minimumSize: const Size.fromHeight(44),
         ),
         child: const Text('I already have an account'),
       ),
@@ -516,7 +537,7 @@ class _HeroCards extends StatelessWidget {
       final cardWidth = (width * (wide ? .66 : .68)).clamp(200.0, 330.0);
       final cardHeight = cardWidth / 1.62;
       final frontCardTop = wide ? 210.0 : 105.0;
-      final height = wide ? 410.0 : frontCardTop + cardHeight + 10;
+      final height = wide ? 410.0 : frontCardTop + cardHeight;
       final amex = demoCatalog.firstWhere((card) => card.id == 'amex-gold');
       final sapphire = demoCatalog.firstWhere(
         (card) => card.id == 'sapphire-preferred',

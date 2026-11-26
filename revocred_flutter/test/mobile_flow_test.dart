@@ -121,7 +121,22 @@ void main() {
         findsOneWidget,
         reason: 'only the headline may scroll, and only at extreme text sizes',
       );
-      for (final key in ['build-strategy-action', 'existing-account-action']) {
+      // The footer links share one line, on opposite sides.
+      final help = tester.getRect(
+        find.byKey(const ValueKey('footer-account-help')),
+      );
+      final legal = tester.getRect(find.byKey(const ValueKey('footer-legal')));
+      expect(help.center.dy, legal.center.dy);
+      expect(
+        help.left < size.width / 2 && legal.right > size.width / 2,
+        isTrue,
+      );
+      for (final key in [
+        'build-strategy-action',
+        'existing-account-action',
+        'footer-account-help',
+        'footer-legal',
+      ]) {
         final rect = tester.getRect(find.byKey(ValueKey(key)));
         expect(
           visible.contains(rect.topLeft) && visible.contains(rect.bottomRight),
