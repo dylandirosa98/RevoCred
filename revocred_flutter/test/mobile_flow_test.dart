@@ -73,6 +73,56 @@ void main() {
     }
   });
 
+  testWidgets('welcome actions are on screen without scrolling on iPhones', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    appRouter.go('/welcome');
+    tester.view.physicalSize = const Size(402, 874);
+    await tester.pumpWidget(
+      RevoCredBootstrap(
+        config: const AppConfig(useMocks: true),
+        repository: MockAppRepository(),
+        preferences: preferences,
+      ),
+    );
+    await tester.pumpAndSettle();
+    // iPhone SE (2nd/3rd gen), 13 mini, 16, 17 Pro and 17 Pro Max points.
+    const phones = [
+      (Size(375, 667), FakeViewPadding(top: 20)),
+      (Size(375, 812), FakeViewPadding(top: 50, bottom: 34)),
+      (Size(390, 844), FakeViewPadding(top: 47, bottom: 34)),
+      (Size(402, 874), FakeViewPadding(top: 62, bottom: 34)),
+      (Size(440, 956), FakeViewPadding(top: 62, bottom: 34)),
+    ];
+    for (final (size, padding) in phones) {
+      tester.view.physicalSize = size;
+      tester.view.padding = padding;
+      await tester.pumpAndSettle();
+      final visible = Rect.fromLTRB(
+        0,
+        padding.top,
+        size.width,
+        size.height - padding.bottom,
+      );
+      for (final key in ['build-strategy-action', 'existing-account-action']) {
+        final rect = tester.getRect(find.byKey(ValueKey(key)));
+        expect(
+          visible.contains(rect.topLeft) && visible.contains(rect.bottomRight),
+          isTrue,
+          reason:
+              '$key is off screen at ${size.width.toInt()}x'
+              '${size.height.toInt()}: $rect',
+        );
+      }
+    }
+  });
+
   testWidgets(
     'welcome questionnaire flow completes and opens strategy report',
     (tester) async {

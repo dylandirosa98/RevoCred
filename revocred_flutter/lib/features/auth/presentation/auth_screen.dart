@@ -248,6 +248,41 @@ class _WelcomePage extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final wide = constraints.maxWidth >= 900;
+      if (!wide) {
+        // Phones: the headline and hero cards scroll, while the two actions
+        // stay pinned so the way in is never below the fold (the cards alone
+        // fill an iPhone screen).
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _WelcomeCopy(
+                      wide: false,
+                      onCreateAccount: onCreateAccount,
+                      onSignIn: onSignIn,
+                      showActions: false,
+                    ),
+                    const SizedBox(height: 16),
+                    const _HeroCards(),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              child: _WelcomeActions(
+                onCreateAccount: onCreateAccount,
+                onSignIn: onSignIn,
+              ),
+            ),
+          ],
+        );
+      }
       return SingleChildScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Center(
@@ -257,42 +292,20 @@ class _WelcomePage extends StatelessWidget {
               minHeight: constraints.maxHeight,
             ),
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: wide ? 48 : 20,
-                vertical: wide ? 42 : 22,
-              ),
-              child: wide
-                  ? Row(
-                      children: [
-                        Expanded(
-                          child: _WelcomeCopy(
-                            wide: true,
-                            onCreateAccount: onCreateAccount,
-                            onSignIn: onSignIn,
-                          ),
-                        ),
-                        const SizedBox(width: 48),
-                        const Expanded(child: _HeroCards(wide: true)),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _WelcomeCopy(
-                          wide: false,
-                          onCreateAccount: onCreateAccount,
-                          onSignIn: onSignIn,
-                          showActions: false,
-                        ),
-                        const SizedBox(height: 16),
-                        const _HeroCards(),
-                        const SizedBox(height: 14),
-                        _WelcomeActions(
-                          onCreateAccount: onCreateAccount,
-                          onSignIn: onSignIn,
-                        ),
-                      ],
+              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 42),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _WelcomeCopy(
+                      wide: true,
+                      onCreateAccount: onCreateAccount,
+                      onSignIn: onSignIn,
                     ),
+                  ),
+                  const SizedBox(width: 48),
+                  const Expanded(child: _HeroCards(wide: true)),
+                ],
+              ),
             ),
           ),
         ),
