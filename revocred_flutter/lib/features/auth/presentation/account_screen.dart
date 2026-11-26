@@ -71,6 +71,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               error.code == 'reauthentication_needed' ||
                       error.code == 'reauthentication_not_valid'
                   ? 'For your security, sign in again before changing your account.'
+                  : error.code == 'invalid_credentials'
+                  ? 'That password is incorrect. Please try again.'
                   : friendlyError(error),
             SessionExpiredException() =>
               'Your session has expired. Please sign in again.',

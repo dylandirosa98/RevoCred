@@ -287,7 +287,10 @@ void main() {
     tester,
   ) async {
     final repository = RecordingRepository()
-      ..failure = const AuthException('Invalid login credentials');
+      ..failure = const AuthException(
+        'Invalid login credentials',
+        code: 'invalid_credentials',
+      );
     await mount(tester, repository, screen: const AccountScreen());
     await tester.tap(find.text('Delete my account'));
     await tester.pumpAndSettle();
@@ -305,7 +308,7 @@ void main() {
     expect(repository.calls, 1);
     expect(repository.receivedPassword, 'current');
     expect(
-      find.text('Something went wrong. Please try again.'),
+      find.text('That password is incorrect. Please try again.'),
       findsOneWidget,
     );
   });

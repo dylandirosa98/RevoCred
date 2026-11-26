@@ -147,7 +147,10 @@ class IOSCITest(unittest.TestCase):
         self.assertIn('--strict-match-identifier', workflow)
         self.assertIn('ios_release.py --check --config .env.ios.json', workflow)
         self.assertIn('if: inputs.upload', workflow)
-        self.assertNotIn('upload-artifact', workflow)
+        uploads = workflow.split('upload-artifact')[1:]
+        self.assertEqual(len(uploads), 1)
+        self.assertIn('Runner.xcarchive/dSYMs/', uploads[0].split('- name:')[0])
+        self.assertIn('default: false', workflow.split('upload:', 1)[1].split('build_number:')[0])
         self.assertNotIn('set -x', workflow)
         self.assertIn('contents: read', workflow)
 

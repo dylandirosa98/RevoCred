@@ -127,6 +127,10 @@ void main() {
     expect(_key('paywall-free-note'), findsOneWidget);
     expect(_key('paywall-subscribe'), findsNothing);
     expect(_key('paywall-restore'), findsNothing);
+    // Nothing that reads as an unfinished "coming soon" upsell.
+    expect(find.textContaining('60 AI answers a day'), findsNothing);
+    expect(find.textContaining('not available yet'), findsNothing);
+    expect(find.textContaining(r'$'), findsNothing);
     expect(_key('paywall-terms-link'), findsOneWidget);
     expect(_key('paywall-privacy-link'), findsOneWidget);
   });
@@ -169,6 +173,11 @@ void main() {
     final button = tester.widget<FilledButton>(_key('paywall-subscribe'));
     expect(button.onPressed, isNull);
     expect(find.textContaining('could not be loaded'), findsOneWidget);
+    // No made-up price or renewal terms before the App Store answers.
+    expect(find.text('REVO AI'), findsOneWidget);
+    expect(find.text('Subscribe'), findsOneWidget);
+    expect(_key('paywall-terms'), findsNothing);
+    expect(find.textContaining(r'$'), findsNothing);
   });
 
   testWidgets('a purchase unlocks once the server confirms it', (tester) async {

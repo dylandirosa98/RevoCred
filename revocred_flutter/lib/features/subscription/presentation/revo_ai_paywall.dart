@@ -101,7 +101,8 @@ class _RevoAIPaywallState extends ConsumerState<RevoAIPaywall> {
         plan.purchasesEnabled &&
         plan.aiAvailable &&
         !subscriber;
-    final price = offer?.price ?? r'$10';
+    // Only the App Store's own price is ever shown (Guideline 3.1.2).
+    final price = offer?.price;
     final title = Theme.of(context).textTheme.headlineSmall;
     return SafeArea(
       child: ConstrainedBox(
@@ -117,7 +118,7 @@ class _RevoAIPaywallState extends ConsumerState<RevoAIPaywall> {
                 subscriber
                     ? 'You have REVO AI'
                     // Never show a price the member cannot act on.
-                    : canSell
+                    : canSell && price != null
                     ? 'REVO AI — $price/month'
                     : 'REVO AI',
                 key: const ValueKey('paywall-title'),
@@ -155,19 +156,22 @@ class _RevoAIPaywallState extends ConsumerState<RevoAIPaywall> {
                   ),
                 const SizedBox(height: 12),
               ],
-              const _Benefit(
-                Icons.bolt,
-                '60 AI answers a day, instead of 3 on the free plan',
-              ),
-              const _Benefit(
-                Icons.credit_card,
-                'For card and money questions only',
-              ),
-              if (canSell || subscriber)
+              // Benefits describe something the member can have; with no
+              // purchase available they would read as a "coming soon" upsell.
+              if (canSell || subscriber) ...[
+                const _Benefit(
+                  Icons.bolt,
+                  '60 AI answers a day, instead of 3 on the free plan',
+                ),
+                const _Benefit(
+                  Icons.credit_card,
+                  'For card and money questions only',
+                ),
                 const _Benefit(
                   Icons.event_repeat,
                   'Monthly. Cancel anytime in Settings',
                 ),
+              ],
               const SizedBox(height: 16),
               if (subscriber) ...[
                 if (plan!.appStoreSubscription)
@@ -186,7 +190,11 @@ class _RevoAIPaywallState extends ConsumerState<RevoAIPaywall> {
                           dimension: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text('Subscribe for $price/month'),
+                      : Text(
+                          price == null
+                              ? 'Subscribe'
+                              : 'Subscribe for $price/month',
+                        ),
                 ),
                 if (!loadingOffer && offer == null)
                   Padding(
@@ -197,21 +205,21 @@ class _RevoAIPaywallState extends ConsumerState<RevoAIPaywall> {
                     ),
                   ),
                 const SizedBox(height: 12),
-                Text(
-                  'Payment is charged to your Apple ID when you confirm. REVO AI '
-                  'renews automatically each month at $price unless you cancel '
-                  'at least 24 hours before the end of the current period; '
-                  'renewal is charged within the 24 hours before it ends. '
-                  'Manage or cancel anytime in Settings › your name › '
-                  'Subscriptions.',
-                  key: const ValueKey('paywall-terms'),
-                  style: TextStyle(color: product.muted, fontSize: 12),
-                ),
+                if (price != null)
+                  Text(
+                    'Payment is charged to your Apple ID when you confirm. REVO AI '
+                    'renews automatically each month at $price unless you cancel '
+                    'at least 24 hours before the end of the current period; '
+                    'renewal is charged within the 24 hours before it ends. '
+                    'Manage or cancel anytime in Settings › your name › '
+                    'Subscriptions.',
+                    key: const ValueKey('paywall-terms'),
+                    style: TextStyle(color: product.muted, fontSize: 12),
+                  ),
               ] else
                 Text(
-                  'Upgrading to REVO AI is not available yet. AI answers '
-                  'reset within 24 hours, and basic answers from your plan '
-                  'are always available.',
+                  'AI answers reset within 24 hours, and basic answers from '
+                  'your plan are always available.',
                   key: const ValueKey('paywall-free-note'),
                   style: TextStyle(color: product.muted),
                 ),

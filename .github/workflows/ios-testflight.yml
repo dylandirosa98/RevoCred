@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       upload:
-        description: Upload to TestFlight (off = build and sign only)
+        description: Upload to TestFlight (off = build and sign only, for a rehearsal)
         type: boolean
-        default: true
+        default: false
       build_number:
         description: Build number (blank = this workflow's run number); must beat every earlier upload
         type: string
@@ -98,6 +98,14 @@ jobs:
             --dart-define-from-file="$GITHUB_WORKSPACE/.env.ios.json" \
             --export-options-plist="$RUNNER_TEMP/export_options.plist"
           ls build/ios/ipa/*.ipa
+      - name: Keep crash symbols (dSYMs) for symbolication
+        uses: actions/upload-artifact@v5
+        with:
+          name: ios-dsyms-build-${{ steps.build.outputs.number }}
+          retention-days: 90
+          if-no-files-found: error
+          # Debug symbols only; never the IPA, archive app bundle, config or signing files.
+          path: revocred_flutter/build/ios/archive/Runner.xcarchive/dSYMs/
       - name: Upload to TestFlight
         if: inputs.upload
         run: app-store-connect publish --path revocred_flutter/build/ios/ipa/*.ipa
@@ -116,5 +124,5 @@ jobs:
             echo "- Result: ${{ job.status }}"
             echo
             echo "After upload, App Store Connect takes about 5–30 minutes to process the build before it appears in TestFlight."
-            echo "No IPA or signing file is kept as an artifact."
+            echo "Only the dSYMs are kept as an artifact (90 days); no IPA or signing file."
           } >> "$GITHUB_STEP_SUMMARY"

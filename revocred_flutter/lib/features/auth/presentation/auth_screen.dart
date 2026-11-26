@@ -210,10 +210,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               result.message ??
               (result.success ? 'Signed in.' : 'Authentication failed.');
         });
-        if (result.success && authenticated) {
-          final data = ref.read(appControllerProvider).data;
+        // Without loaded account data (slow or failed load) stay here: an
+        // existing member must not land on a blank questionnaire. The app
+        // shell routes away from /welcome once the account data arrives.
+        final data = ref.read(appControllerProvider).data;
+        if (result.success && authenticated && data != null) {
           context.go(
-            data?.questionnaireAnswers == null ? '/questionnaire' : '/home',
+            data.questionnaireAnswers == null ? '/questionnaire' : '/home',
           );
         }
       }

@@ -189,7 +189,7 @@ not a substitute for Xcode validation or App Store Connect processing.
 `.github/workflows/ios-testflight.yml` builds, signs and uploads from GitHub's
 free macOS runners (free for public repositories). It is **manual only**:
 GitHub → Actions → "iOS TestFlight (signed build + upload)" → Run workflow.
-Leave "Upload" off for a first sign-only rehearsal. GitHub only offers the Run
+"Upload" is off by default: run once like that as a sign-only rehearsal, then tick it. GitHub only offers the Run
 button for workflows on the default branch, so this file must be on `main`.
 
 It uses [codemagic-cli-tools](https://github.com/codemagic-ci-cd/cli-tools)
@@ -197,7 +197,7 @@ It uses [codemagic-cli-tools](https://github.com/codemagic-ci-cd/cli-tools)
 bundle ID `com.revocred.app` if needed, creates an Apple Distribution
 certificate from `CERTIFICATE_PRIVATE_KEY` and an App Store provisioning
 profile, then reuses them. Nothing is committed and no IPA or signing file is
-kept as an artifact.
+kept as an artifact except the dSYMs (90 days) for crash symbolication.
 
 ### One-time setup (after the Apple Developer account is approved)
 
