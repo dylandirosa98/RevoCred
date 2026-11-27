@@ -45,10 +45,10 @@ jobs:
             echo "::error::Missing repository secrets: ${missing[*]}. See docs/testflight.md (Automated TestFlight upload)."
             exit 1
           fi
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           repository: flutter/flutter
           ref: 6b182d2c7585eba26d4edce0f97630effd256c33
