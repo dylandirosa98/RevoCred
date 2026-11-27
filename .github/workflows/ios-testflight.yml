@@ -99,7 +99,7 @@ jobs:
             --export-options-plist="$RUNNER_TEMP/export_options.plist"
           ls build/ios/ipa/*.ipa
       - name: Keep crash symbols (dSYMs) for symbolication
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: ios-dsyms-build-${{ steps.build.outputs.number }}
           retention-days: 90
